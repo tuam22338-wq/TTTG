@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import * as CultivationService from '../../services/CultivationService';
 import { CharacterCoreStats } from '../../types';
 
 const StatRow: React.FC<{ label: string; value: string | number; title: string }> = ({ label, value, title }) => (
@@ -11,8 +10,17 @@ const StatRow: React.FC<{ label: string; value: string | number; title: string }
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(0)}%`;
 
+const getInitialStats = (): CharacterCoreStats => {
+    return {
+        sinhLuc: 100, sinhLucToiDa: 100, linhLuc: 50, linhLucToiDa: 50,
+        theLuc: 100, theLucToiDa: 100, doNo: 100, doNoToiDa: 100,
+        doNuoc: 100, doNuocToiDa: 100, congKich: 10, phongNgu: 5, khangPhep: 5,
+        thanPhap: 10, chiMang: 0.05, satThuongChiMang: 1.5, giamHoiChieu: 0,
+    };
+};
+
 const BaseStatsDisplay: React.FC = () => {
-    const initialStats = useMemo(() => CultivationService.calculateInitialStats(), []);
+    const initialStats = useMemo(() => getInitialStats(), []);
 
     const STAT_DEFINITIONS: { key: keyof CharacterCoreStats; label: string; title: string, isPercent?: boolean }[] = [
         { key: 'sinhLucToiDa', label: 'Sinh Lực', title: 'Điểm sinh mệnh tối đa' },

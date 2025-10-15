@@ -1,6 +1,5 @@
 import React from 'react';
 import { CharacterCoreStats, CultivationState } from '../../types';
-import * as CultivationService from '../../services/CultivationService';
 import { AtkIcon, DefIcon, AgiIcon, CritIcon, CritDmgIcon, CdrIcon, MDefIcon } from '../icons/CombatStatIcons';
 
 
@@ -77,7 +76,6 @@ const DetailedStatsPanel: React.FC<DetailedStatsPanelProps> = ({ stats, cultivat
                 <StatBar current={stats.theLuc} max={stats.theLucToiDa} label="Thể Lực" barColor="bg-green-500" borderColor="border-neutral-700" />
                 <StatBar current={stats.doNo} max={stats.doNoToiDa} label="Độ No" barColor="bg-orange-500" borderColor="border-neutral-700" />
                 <StatBar current={stats.doNuoc} max={stats.doNuocToiDa} label="Độ Nước" barColor="bg-sky-500" borderColor="border-neutral-700" />
-                <StatBar current={cultivation.exp} max={cultivation.expToNextLevel} label="Kinh Nghiệm" barColor="bg-yellow-500" borderColor="border-neutral-700" />
             </div>
             
             <div>

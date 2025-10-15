@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { GameState, Skill, Ability, SpecialItem, CharacterStat, Equipment, EquipmentSlot } from '../../types';
+import { GameState, Skill, Ability, SpecialItem, CharacterStat, Equipment, EquipmentSlot, WorldCreationState } from '../../types';
 import CharacterSheet from './CharacterSheet';
 import SkillCodex from './SkillCodex';
 import DetailedStatsPanel from './CoreStatsPanel';
 import EquipmentAndInventoryPanel from './EquipmentAndInventoryPanel';
 import { EquipmentIcon } from '../icons/EquipmentIcon';
-import * as CultivationService from '../../services/CultivationService';
 import { UserIcon } from '../icons/UserIcon';
 import { WandIcon } from '../icons/WandIcon';
 import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
@@ -31,6 +30,42 @@ interface CharacterPanelProps {
 
 type PanelView = 'menu' | 'stats' | 'skills' | 'equipment';
 
+function getRealmStringFromCustomSystem(level: number, worldContext: WorldCreationState): string {
+    if (!worldContext.isCultivationEnabled || !worldContext.cultivationSystem?.mainTiers || worldContext.cultivationSystem.mainTiers.length === 0) {
+        return `Cấp ${level}`;
+    }
+
+    let levelCounter = 1;
+    for (const mainTier of worldContext.cultivationSystem.mainTiers) {
+        if (mainTier.subTiers && mainTier.subTiers.length > 0) {
+            for (const subTier of mainTier.subTiers) {
+                if (levelCounter === level) {
+                    return `${mainTier.name} - ${subTier.name}`;
+                }
+                levelCounter++;
+            }
+        } else {
+            // Main tier without sub-tiers, assume it's one level
+            if (levelCounter === level) {
+                return mainTier.name;
+            }
+            levelCounter++;
+        }
+    }
+    
+    // Fallback if level is higher than defined tiers
+    const lastTier = worldContext.cultivationSystem.mainTiers[worldContext.cultivationSystem.mainTiers.length - 1];
+    if (lastTier) {
+        const lastSubTier = lastTier.subTiers.length > 0 ? lastTier.subTiers[lastTier.subTiers.length - 1] : null;
+        if (lastSubTier) {
+             return `${lastTier.name} - ${lastSubTier.name} (Đại viên mãn)`;
+        }
+        return `${lastTier.name} (Đại viên mãn)`;
+    }
+
+    return `Cấp ${level}`;
+}
+
 const CharacterPanel: React.FC<CharacterPanelProps> = (props) => {
   const { isOpen, onClose, gameState } = props;
   const [view, setView] = useState<PanelView>('menu');
@@ -44,7 +79,7 @@ const CharacterPanel: React.FC<CharacterPanelProps> = (props) => {
   ];
 
   const currentViewItem = menuItems.find(item => item.id === view);
-  const realmString = CultivationService.calculateRealm(gameState.cultivation.level);
+  const realmString = getRealmStringFromCustomSystem(gameState.cultivation.level, gameState.worldContext);
 
   const renderContent = () => {
     switch (view) {

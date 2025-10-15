@@ -23,7 +23,6 @@ import {
     Weather,
 } from '../types';
 import * as GeminiStorytellerService from '../services/GeminiStorytellerService';
-import * as CultivationService from '../services/CultivationService';
 import * as GameSaveService from '../services/GameSaveService';
 import { GoogleGenAI } from '@google/genai';
 import { AiModelSettings, SafetySettings } from '../types';
@@ -40,6 +39,35 @@ const INITIAL_AI_SETTINGS: AiSettings = {
     isTurnBasedCombat: true,
 };
 
+function getInitialCoreStats(worldState: WorldCreationState): CharacterCoreStats {
+    const stats: Partial<CharacterCoreStats> = {};
+    const coreStatKeys: (keyof CharacterCoreStats)[] = [
+        'sinhLucToiDa', 'linhLucToiDa', 'theLucToiDa', 'doNoToiDa', 'doNuocToiDa',
+        'congKich', 'phongNgu', 'khangPhep', 'thanPhap', 'chiMang', 'satThuongChiMang', 'giamHoiChieu'
+    ];
+
+    worldState.customAttributes.forEach(attr => {
+        if (coreStatKeys.includes(attr.id as keyof CharacterCoreStats)) {
+            (stats as any)[attr.id] = attr.baseValue;
+        }
+    });
+
+    // Set current values to max
+    stats.sinhLuc = stats.sinhLucToiDa;
+    stats.linhLuc = stats.linhLucToiDa;
+    stats.theLuc = stats.theLucToiDa;
+    stats.doNo = stats.doNoToiDa;
+    stats.doNuoc = stats.doNuocToiDa;
+
+    const defaults: CharacterCoreStats = {
+        sinhLuc: 100, sinhLucToiDa: 100, linhLuc: 50, linhLucToiDa: 50,
+        theLuc: 100, theLucToiDa: 100, doNo: 100, doNoToiDa: 100,
+        doNuoc: 100, doNuocToiDa: 100, congKich: 10, phongNgu: 5, khangPhep: 5,
+        thanPhap: 10, chiMang: 0.05, satThuongChiMang: 1.5, giamHoiChieu: 0,
+    };
+
+    return { ...defaults, ...stats };
+}
 
 export function useGameEngine(
     initialData: WorldCreationState | GameState,
@@ -72,7 +100,7 @@ export function useGameEngine(
                 initialInventory,
             } = await GeminiStorytellerService.initializeStory(worldState, geminiService, aiModelSettings, safetySettings);
 
-            const initialCoreStats = CultivationService.calculateInitialStats();
+            const initialCoreStats = getInitialCoreStats(worldState);
             
             const newGameState: GameState = {
                 worldContext: worldState,
@@ -87,7 +115,7 @@ export function useGameEngine(
                 requestCount: 1,
                 aiSettings: INITIAL_AI_SETTINGS,
                 coreStats: initialCoreStats,
-                cultivation: { level: 1, exp: 0, expToNextLevel: CultivationService.calculateExpForNextLevel(1) },
+                cultivation: { level: 1, exp: 0, expToNextLevel: 100 },
                 inventory: { items: [], capacity: 50, maxWeight: 25 },
                 equipment: { WEAPON: null, HEAD: null, CHEST: null, LEGS: null, HANDS: null, FEET: null },
                 chronicle: [{ turnNumber: 1, summary: summaryText, timestamp: new Date().toLocaleTimeString('vi-VN') }],
@@ -190,7 +218,7 @@ export function useGameEngine(
 
                         newNpcs.push({
                             level: 1,
-                            coreStats: CultivationService.calculateStatsForLevel(1),
+                            coreStats: getInitialCoreStats(currentState.worldContext),
                             skills: [],
                             ...restOfPayload,
                             id: update.id,
