@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { GameState, Skill, Ability, SpecialItem, CharacterStat, Equipment, EquipmentSlot, WorldCreationState } from '../../types';
 import CharacterSheet from './CharacterSheet';
 import SkillCodex from './SkillCodex';
-import DetailedStatsPanel from './CoreStatsPanel';
 import EquipmentAndInventoryPanel from './EquipmentAndInventoryPanel';
 import { EquipmentIcon } from '../icons/EquipmentIcon';
 import { UserIcon } from '../icons/UserIcon';
@@ -85,22 +84,11 @@ const CharacterPanel: React.FC<CharacterPanelProps> = (props) => {
     switch (view) {
       case 'stats':
         return (
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] h-full overflow-hidden">
-            <div className="h-full overflow-y-auto custom-scrollbar border-r border-white/10">
-                <DetailedStatsPanel stats={props.finalCoreStats} cultivation={gameState.cultivation} />
-            </div>
-            <div className="h-full overflow-y-auto custom-scrollbar">
-                 <CharacterSheet 
-                    stats={gameState.playerStats}
-                    statOrder={gameState.playerStatOrder || []}
-                    onStatClick={props.onStatClick}
-                    recentlyUpdatedStats={props.recentlyUpdatedPlayerStats}
-                    onOpenCreateStatModal={props.onOpenCreateStatModal}
-                    ownerName={gameState.worldContext.character.name}
-                    customAttributes={gameState.worldContext.customAttributes}
-                />
-            </div>
-          </div>
+           <CharacterSheet 
+                gameState={gameState}
+                onStatClick={props.onStatClick}
+                recentlyUpdatedStats={props.recentlyUpdatedPlayerStats}
+            />
         );
       case 'skills':
         return <SkillCodex {...props} viewMode={'desktop'} />;

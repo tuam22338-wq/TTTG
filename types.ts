@@ -45,6 +45,7 @@ export interface Settings {
   safety: SafetySettings;
   autoHideActionPanel: boolean;
   narrativePerspective: NarrativePerspective;
+  zoomLevel: number;
 }
 
 export interface CharacterSkillInput {
@@ -137,6 +138,12 @@ export interface CultivationSystemSettings {
     mainTiers: CultivationMainTier[];
 }
 
+export interface WorldRule {
+  id: string;
+  name: string;
+  content: string;
+}
+
 export interface WorldCreationState {
   genre: string;
   description: string;
@@ -155,6 +162,8 @@ export interface WorldCreationState {
   customAttributes: CustomAttributeDefinition[];
   initialFactions: InitialFaction[];
   initialNpcs: InitialNpc[];
+  specialRules: WorldRule[];
+  initialLore: WorldRule[];
 }
 
 export enum StatType {

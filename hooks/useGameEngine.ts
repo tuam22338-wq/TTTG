@@ -40,33 +40,35 @@ const INITIAL_AI_SETTINGS: AiSettings = {
 };
 
 function getInitialCoreStats(worldState: WorldCreationState): CharacterCoreStats {
-    const stats: Partial<CharacterCoreStats> = {};
-    const coreStatKeys: (keyof CharacterCoreStats)[] = [
-        'sinhLucToiDa', 'linhLucToiDa', 'theLucToiDa', 'doNoToiDa', 'doNuocToiDa',
-        'congKich', 'phongNgu', 'khangPhep', 'thanPhap', 'chiMang', 'satThuongChiMang', 'giamHoiChieu'
-    ];
-
-    worldState.customAttributes.forEach(attr => {
-        if (coreStatKeys.includes(attr.id as keyof CharacterCoreStats)) {
-            (stats as any)[attr.id] = attr.baseValue;
-        }
-    });
-
-    // Set current values to max
-    stats.sinhLuc = stats.sinhLucToiDa;
-    stats.linhLuc = stats.linhLucToiDa;
-    stats.theLuc = stats.theLucToiDa;
-    stats.doNo = stats.doNoToiDa;
-    stats.doNuoc = stats.doNuocToiDa;
-
-    const defaults: CharacterCoreStats = {
-        sinhLuc: 100, sinhLucToiDa: 100, linhLuc: 50, linhLucToiDa: 50,
-        theLuc: 100, theLucToiDa: 100, doNo: 100, doNoToiDa: 100,
-        doNuoc: 100, doNuocToiDa: 100, congKich: 10, phongNgu: 5, khangPhep: 5,
-        thanPhap: 10, chiMang: 0.05, satThuongChiMang: 1.5, giamHoiChieu: 0,
+    // Start with a zeroed-out stats object that matches the CharacterCoreStats type.
+    const newCoreStats: CharacterCoreStats = {
+        sinhLuc: 0, sinhLucToiDa: 0, linhLuc: 0, linhLucToiDa: 0,
+        theLuc: 0, theLucToiDa: 0, doNo: 0, doNoToiDa: 0,
+        doNuoc: 0, doNuocToiDa: 0, congKich: 0, phongNgu: 0, khangPhep: 0,
+        thanPhap: 0, chiMang: 0, satThuongChiMang: 0, giamHoiChieu: 0,
     };
 
-    return { ...defaults, ...stats };
+    // Create a map for quick lookup from the world creation attributes.
+    const attributeMap = new Map(worldState.customAttributes.map(attr => [attr.id, attr.baseValue]));
+
+    // Iterate over the keys of the newCoreStats object to populate it from the attribute map.
+    // This ensures only attributes defined in world creation are given a value.
+    for (const key in newCoreStats) {
+        if (attributeMap.has(key)) {
+            // Type assertion is safe here as we are iterating over known keys.
+            (newCoreStats as any)[key] = attributeMap.get(key);
+        }
+    }
+
+    // Set current resource values to their corresponding maximums.
+    // If a max value was not defined in attributes, it remains 0, so the current value also becomes 0.
+    newCoreStats.sinhLuc = newCoreStats.sinhLucToiDa;
+    newCoreStats.linhLuc = newCoreStats.linhLucToiDa;
+    newCoreStats.theLuc = newCoreStats.theLucToiDa;
+    newCoreStats.doNo = newCoreStats.doNoToiDa;
+    newCoreStats.doNuoc = newCoreStats.doNuocToiDa;
+
+    return newCoreStats;
 }
 
 export function useGameEngine(
@@ -267,8 +269,44 @@ export function useGameEngine(
         }
         setIsLoading(true);
         setError(null);
+
+        // 1. Immediately add a new turn shell to history for streaming
+        setGameState(prevState => {
+            if (!prevState) return null;
+            const playerActionTurn: GameTurn = {
+                playerAction: choice,
+                storyText: '', // Empty for streaming
+                choices: [],
+                statusNarration: null,
+                omniscientInterlude: null
+            };
+            const history = isRewrite ? [...prevState.history.slice(0, -1), playerActionTurn] : [...prevState.history, playerActionTurn];
+            return { ...prevState, history };
+        });
         
         try {
+            let fullResponseJsonString = '';
+
+            const onChunk = (chunk: string) => {
+                fullResponseJsonString += chunk;
+
+                // Fragile parsing of streaming JSON to get storyText for UI updates
+                const storyTextMatch = fullResponseJsonString.match(/"storyText"\s*:\s*"((?:[^"\\]|\\.)*)/);
+                const currentStoryText = storyTextMatch && storyTextMatch[1] 
+                    ? JSON.parse(`"${storyTextMatch[1]}"`) 
+                    : '...';
+
+                setGameState(prevState => {
+                    if (!prevState) return null;
+                    const newHistory = [...prevState.history];
+                    const lastTurn = newHistory[newHistory.length - 1];
+                    if (lastTurn) {
+                        lastTurn.storyText = currentStoryText;
+                    }
+                    return { ...prevState, history: newHistory };
+                });
+            };
+
             const {
                 newTurn,
                 playerStatChanges,
@@ -284,25 +322,16 @@ export function useGameEngine(
                 coreStatsChanges,
                 weatherChange,
                 isInCombat,
-                combatantNpcIds
+                combatantNpcIds,
+                totalTokens
             } = await GeminiStorytellerService.continueStory(
-                gameState,
-                choice,
-                geminiService,
-                gameState.aiSettings.isLogicModeOn,
-                gameState.aiSettings.lustModeFlavor,
-                gameState.aiSettings.npcMindset,
-                gameState.aiSettings.isConscienceModeOn,
-                gameState.aiSettings.isStrictInterpretationOn,
-                gameState.aiSettings.destinyCompassMode,
-                isRewrite,
-                false, // shouldTriggerWorldTurn logic needs to be implemented
-                isCorrection,
-                gameState.coreStats, // finalCoreStats for now is just current coreStats
-                gameState.aiSettings.authorsMandate,
-                gameState.aiSettings.isTurnBasedCombat,
-                aiModelSettings,
-                safetySettings
+                gameState, choice, geminiService,
+                gameState.aiSettings.isLogicModeOn, gameState.aiSettings.lustModeFlavor,
+                gameState.aiSettings.npcMindset, gameState.aiSettings.isConscienceModeOn,
+                gameState.aiSettings.isStrictInterpretationOn, gameState.aiSettings.destinyCompassMode,
+                isRewrite, false, isCorrection, gameState.coreStats,
+                gameState.aiSettings.authorsMandate, gameState.aiSettings.isTurnBasedCombat,
+                aiModelSettings, safetySettings, onChunk
             );
             
             setGameState(prevState => {
@@ -314,20 +343,19 @@ export function useGameEngine(
                  newState = applyStatChanges(newState, playerStatChanges, 'PLAYER');
                  newState = applyNpcUpdates(newState, npcUpdates);
                  
-                 // 2. Update history and chronicle
-                 if (isRewrite) {
-                     const newHistory = [...prevState.history];
-                     newHistory[newHistory.length -1] = newTurn;
-                     newState.history = newHistory;
-                 } else {
-                     newState.history = [...prevState.history, newTurn];
-                     newState.chronicle = [...prevState.chronicle, { turnNumber: prevState.history.length + 1, summary: summaryText, timestamp: new Date().toLocaleTimeString('vi-VN') }];
+                 // 2. Update history and chronicle with the final, complete turn data
+                 const finalHistory = [...prevState.history];
+                 finalHistory[finalHistory.length - 1] = newTurn;
+                 newState.history = finalHistory;
+
+                 if (!isRewrite) {
+                     newState.chronicle = [...prevState.chronicle, { turnNumber: prevState.history.length, summary: summaryText, timestamp: new Date().toLocaleTimeString('vi-VN'), isoTimestamp: new Date().toISOString() }];
                  }
                  
                  // 3. Update core state
                  newState.plotChronicle = newPlotChronicle;
                  newState.presentNpcIds = presentNpcIds;
-                 newState.totalTokens += newTurn.tokenCount || 0;
+                 newState.totalTokens += totalTokens || 0;
                  newState.requestCount += 1;
                  
                  // 4. Handle time and environment

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { Settings, ApiKeySource, AiModelSettings, AudioSettings, SafetySettings, NarrativePerspective, GeminiModel } from '../types';
@@ -32,6 +31,7 @@ const defaultSettings: Settings = {
   safety: defaultSafetySettings,
   autoHideActionPanel: false,
   narrativePerspective: 'Nhãn Quan Toàn Tri',
+  zoomLevel: 0.55,
 };
 
 export function useSettings() {
@@ -71,6 +71,10 @@ export function useSettings() {
           parsed.autoHideActionPanel = defaultSettings.autoHideActionPanel;
         }
 
+        if (typeof parsed.zoomLevel !== 'number' || parsed.zoomLevel < 0.5 || parsed.zoomLevel > 1.0) {
+            parsed.zoomLevel = defaultSettings.zoomLevel;
+        }
+
         // Migration from old perspective name
         if (parsed.narrativePerspective === 'Ngôi thứ ba Toàn Tri') {
           parsed.narrativePerspective = 'Ngôi thứ ba Toàn tri';
@@ -90,6 +94,7 @@ export function useSettings() {
           safety: parsed.safety,
           autoHideActionPanel: parsed.autoHideActionPanel,
           narrativePerspective: parsed.narrativePerspective,
+          zoomLevel: parsed.zoomLevel,
         };
       }
     } catch (error) {

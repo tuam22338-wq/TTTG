@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import { AiModelSettings } from '../../types';
 
@@ -67,6 +65,34 @@ export async function callJsonAI(
     }
     return response;
 }
+
+export function callJsonAIStream(
+    prompt: string, 
+    schema: object, 
+    geminiService: GoogleGenAI, 
+    modelSettings: AiModelSettings,
+    safetySettings: any
+): Promise<AsyncGenerator<GenerateContentResponse>> {
+     const config: any = {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+        safetySettings: safetySettings,
+        temperature: modelSettings.temperature,
+        topP: modelSettings.topP,
+        topK: modelSettings.topK,
+        maxOutputTokens: modelSettings.maxOutputTokens,
+    };
+    if (modelSettings.model === 'gemini-2.5-flash') {
+        config.thinkingConfig = { thinkingBudget: modelSettings.thinkingBudget };
+    }
+    
+    return geminiService.models.generateContentStream({
+        model: modelSettings.model,
+        contents: prompt,
+        config,
+    });
+}
+
 
 export async function callCreativeTextAI(
     prompt: string, 

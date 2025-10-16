@@ -9,6 +9,7 @@ import InitialEntitiesForm from '../world-creator/InitialEntitiesForm';
 import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
 import CultivationSystemForm from '../world-creator/CultivationSystemForm';
 import AttributeSystemForm from '../world-creator/AttributeSystemForm';
+import WorldRulesForm from '../world-creator/WorldRulesForm';
 import { WorldIcon } from '../icons/WorldIcon';
 import { UserIcon } from '../icons/UserIcon';
 import { CultivationIcon } from '../icons/CultivationIcon';
@@ -16,6 +17,10 @@ import { SparklesIcon } from '../icons/SparklesIcon';
 import { UsersIcon } from '../icons/UsersIcon';
 import ChevronIcon from '../icons/ChevronIcon';
 import { genericDefaultTemplate } from '../../services/attributeTemplates';
+import { DownloadIcon } from '../icons/DownloadIcon';
+import { UploadIcon } from '../icons/UploadIcon';
+import { TrashIcon } from '../icons/TrashIcon';
+import { LawIcon } from '../icons/LawIcon';
 
 
 interface WorldCreatorScreenProps {
@@ -32,12 +37,7 @@ const defaultCultivationSystem = {
   mainTiers: [],
 };
 
-type CreatorView = 'WORLD' | 'CHARACTER' | 'CULTIVATION' | 'ATTRIBUTES' | 'ENTITIES';
-
-
-const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, onWorldCreated, settingsHook }) => {
-  const [expandedView, setExpandedView] = useState<CreatorView | null>(null);
-  const [state, setState] = useState<WorldCreationState>({
+const defaultWorldCreationState: WorldCreationState = {
     genre: '',
     description: '',
     isNsfw: true,
@@ -55,7 +55,16 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
     customAttributes: genericDefaultTemplate.attributes,
     initialFactions: [],
     initialNpcs: [],
-  });
+    specialRules: [],
+    initialLore: [],
+};
+
+type CreatorView = 'WORLD' | 'CHARACTER' | 'CULTIVATION' | 'ATTRIBUTES' | 'RULES' | 'ENTITIES';
+
+
+const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, onWorldCreated, settingsHook }) => {
+  const [expandedView, setExpandedView] = useState<CreatorView | null>(null);
+  const [state, setState] = useState<WorldCreationState>(defaultWorldCreationState);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -85,6 +94,17 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
 
   const triggerFileLoad = () => {
     fileInputRef.current?.click();
+  };
+  
+  const handleResetPreset = () => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ thiết lập hiện tại và trở về mặc định không?")) {
+        setState(defaultWorldCreationState);
+        setExpandedView(null);
+    }
+  };
+
+  const handleQuickAssist = () => {
+      alert("Chức năng AI hỗ trợ nhanh đang được phát triển!");
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,6 +137,12 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
                 (f as any).description = '';
             }
         });
+        if (!preset.specialRules) {
+            preset.specialRules = [];
+        }
+        if (!preset.initialLore) {
+            preset.initialLore = [];
+        }
         // --- End Migration ---
 
         setState(preset);
@@ -136,6 +162,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
     { id: 'CHARACTER', label: 'Thông Tin Nhân Vật', description: 'Kiến tạo linh hồn sẽ khuấy đảo vị diện này.', Icon: UserIcon },
     { id: 'CULTIVATION', label: 'Hệ Thống Cảnh Giới', description: 'Tùy chỉnh hệ thống tu luyện, cấp bậc và sức mạnh.', Icon: CultivationIcon },
     { id: 'ATTRIBUTES', label: 'Hệ Thống Thuộc Tính', description: 'Định nghĩa các tài nguyên đặc biệt như linh thạch, danh vọng.', Icon: SparklesIcon },
+    { id: 'RULES', label: 'Quy Luật Thế Giới', description: 'Thiết lập các định luật vật lý, ma pháp và xã hội riêng.', Icon: LawIcon },
     { id: 'ENTITIES', label: 'Thực Thể Ban Đầu', description: 'Xây dựng các thế lực và nhân vật khởi đầu cho thế giới.', Icon: UsersIcon },
   ];
 
@@ -145,10 +172,22 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
         case 'CHARACTER': return <CharacterInfoForm state={state} setState={setState} settingsHook={settingsHook} />;
         case 'CULTIVATION': return <CultivationSystemForm state={state} setState={setState} />;
         case 'ATTRIBUTES': return <AttributeSystemForm state={state} setState={setState} />;
+        case 'RULES': return <WorldRulesForm state={state} setState={setState} />;
         case 'ENTITIES': return <InitialEntitiesForm state={state} setState={setState} />;
         default: return null;
     }
   }
+  
+  const CreatorActionButton: React.FC<{onClick: () => void; label: string; Icon: React.FC<{className?: string}>; title: string;}> = ({onClick, label, Icon, title}) => (
+        <button 
+            onClick={onClick} 
+            title={title}
+            className="flex flex-col items-center justify-center gap-2 w-24 h-24 bg-black/20 rounded-2xl border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+        >
+            <Icon className="h-7 w-7" />
+            <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
+        </button>
+    );
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 md:p-8">
@@ -163,22 +202,22 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
        `}</style>
       
        <div className="relative z-10 w-full max-w-4xl h-[90vh] bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 p-4 sm:p-8 flex flex-col">
-          <header className="grid grid-cols-[auto_1fr_auto] items-center gap-4 mb-6 flex-shrink-0">
-              <div>
-                  <button onClick={onBackToMenu} className="p-2 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="Quay lại">
-                      <ArrowLeftIcon className="h-6 w-6" />
-                  </button>
-              </div>
-              <div className="text-center">
-                  <h1 className="text-3xl sm:text-4xl font-bold text-neutral-100 tracking-wider font-rajdhani" style={{textShadow: '0 0 8px rgba(255, 255, 255, 0.4)'}}>
-                     Kiến Tạo Vị Diện
-                  </h1>
-              </div>
-              <div className="flex items-center gap-2">
-                  <Button onClick={handleSavePreset} variant="secondary" className="!py-2 !px-4 !text-sm !w-auto">Lưu</Button>
-                  <Button onClick={triggerFileLoad} variant="secondary" className="!py-2 !px-4 !text-sm !w-auto">Tải</Button>
-              </div>
+          <header className="flex justify-between items-center mb-4 flex-shrink-0">
+              <button onClick={onBackToMenu} className="p-2 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="Quay lại">
+                  <ArrowLeftIcon className="h-6 w-6" />
+              </button>
+              <h2 className="text-3xl font-rajdhani font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+                Thiết lập Thế giới
+              </h2>
+              <div className="w-10 h-10"></div> {/* Spacer to balance layout */}
           </header>
+
+          <div className="flex-shrink-0 flex items-center justify-center gap-3 sm:gap-4 mb-6">
+            <CreatorActionButton onClick={handleSavePreset} label="Lưu" Icon={DownloadIcon} title="Lưu thiết lập hiện tại ra file" />
+            <CreatorActionButton onClick={triggerFileLoad} label="Tải" Icon={UploadIcon} title="Tải thiết lập từ file" />
+            <CreatorActionButton onClick={handleResetPreset} label="Xóa" Icon={TrashIcon} title="Xóa và đặt lại toàn bộ thiết lập"/>
+            <CreatorActionButton onClick={handleQuickAssist} label="AI Hỗ Trợ" Icon={SparklesIcon} title="Sử dụng AI để tạo nhanh thế giới"/>
+          </div>
         
           <main ref={contentRef} className="flex-grow min-h-0 overflow-y-auto custom-scrollbar pr-4 -mr-4">
              <div className="w-full space-y-3">

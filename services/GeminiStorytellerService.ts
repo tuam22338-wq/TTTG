@@ -9,6 +9,7 @@ import { getPerspectiveRules } from './prompt-engineering/perspectiveRules';
 import { getDestinyCompassRules } from './prompt-engineering/destinyCompassRules';
 import { getSituationalRules, getCombatSystemRules } from './prompt-engineering/situationalRules';
 import { getFlowOfDestinyRules } from './prompt-engineering/flowOfDestinyRules';
+import { getWorldRulesPrompt } from './prompt-engineering/worldRules';
 import { predefinedEquipment } from './predefinedItems';
 
 const itemListString = predefinedEquipment.map(item => `- ${item.id}: ${item.name}`).join('\n');
@@ -109,14 +110,17 @@ export async function initializeStory(
     summaryText: string;
     initialInventory: string[]; // Changed from Item[]
 }> {
-    const { genre, description, character, isNsfw, narrativePerspective, initialFactions, initialNpcs, customAttributes } = worldState;
+    const { genre, description, character, isNsfw, narrativePerspective, initialFactions, initialNpcs, customAttributes, specialRules, initialLore } = worldState;
     const charGender = character.gender === 'Tự định nghĩa' ? character.customGender : character.gender;
 
     const perspectiveRules = getPerspectiveRules(narrativePerspective);
     const destinyCompassRules = getDestinyCompassRules('NORMAL');
     const combatSystemRules = getCombatSystemRules(true); // Initial state always assumes turn-based is possible
+    const worldRulesPrompt = getWorldRulesPrompt(specialRules, initialLore);
+
     const systemPromptWithPerspective = prompts.CORE_LOGIC_SYSTEM_PROMPT
       .replace('{PERSPECTIVE_RULES_PLACEHOLDER}', perspectiveRules)
+      .replace('{WORLD_RULES_PLACEHOLDER}', worldRulesPrompt)
       .replace('{DESTINY_COMPASS_RULES_PLACEHOLDER}', destinyCompassRules)
       .replace('{COMBAT_SYSTEM_RULES_PLACEHOLDER}', combatSystemRules)
       .replace('{FLOW_OF_DESTINY_RULES_PLACEHOLDER}', '') // No flow of destiny for the first turn
@@ -160,7 +164,14 @@ Bắt đầu cuộc phiêu lưu.
 `;
     const fullPrompt = systemPromptWithPerspective + '\n\n' + userPrompt;
 
-    const result = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+    const initialModelSettings: AiModelSettings = {
+        ...aiModelSettings,
+        maxOutputTokens: 8192, // Use a larger token limit for the very first, complex story generation call.
+    };
+
+    console.debug("Initializing story with custom token limit:", initialModelSettings.maxOutputTokens);
+
+    const result = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, geminiService, initialModelSettings, getSafetySettings(safetySettings));
     const aiResponse = client.parseAndValidateJsonResponse(result.text);
 
     return {
@@ -199,7 +210,8 @@ export async function continueStory(
     authorsMandate: string[],
     isTurnBasedCombat: boolean,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    safetySettings: SafetySettings,
+    onChunk: (chunk: string) => void
 ): Promise<{
     newTurn: GameTurn;
     playerStatChanges: StatChanges;
@@ -216,9 +228,10 @@ export async function continueStory(
     weatherChange: Weather | null;
     isInCombat: boolean;
     combatantNpcIds: string[];
+    totalTokens: number;
 }> {
     const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history } = gameState;
-    const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.customGender : worldContext.character.gender;
+    const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
 
     // Filter to only send relevant attributes to the AI, not core combat stats.
     const informationalAttributes = worldContext.customAttributes.filter(attr => attr.type === AttributeType.INFORMATIONAL || attr.type === AttributeType.HIDDEN);
@@ -231,9 +244,11 @@ export async function continueStory(
     const combatSystemRules = getCombatSystemRules(isTurnBasedCombat);
     const situationalRules = getSituationalRules(choice, isConscienceModeOn, lustModeFlavor, isStrictInterpretationOn, isLogicModeOn, npcMindset, isCorrection, authorsMandate);
     const flowOfDestinyRules = getFlowOfDestinyRules(shouldTriggerWorldTurn, choice);
+    const worldRulesPrompt = getWorldRulesPrompt(worldContext.specialRules, worldContext.initialLore);
 
     const systemPrompt = prompts.CORE_LOGIC_SYSTEM_PROMPT
         .replace('{PERSPECTIVE_RULES_PLACEHOLDER}', perspectiveRules)
+        .replace('{WORLD_RULES_PLACEHOLDER}', worldRulesPrompt)
         .replace('{DESTINY_COMPASS_RULES_PLACEHOLDER}', destinyCompassRules)
         .replace('{COMBAT_SYSTEM_RULES_PLACEHOLDER}', combatSystemRules)
         .replace('{FLOW_OF_DESTINY_RULES_PLACEHOLDER}', flowOfDestinyRules)
@@ -265,8 +280,23 @@ ${choice}
 
     const fullPrompt = systemPrompt + '\n\n' + userPrompt;
 
-    const logicResult = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
-    const logicAiResponse = client.parseAndValidateJsonResponse(logicResult.text);
+    let fullResponseText = '';
+    let totalTokens = 0;
+    const stream = await client.callJsonAIStream(fullPrompt, schemas.coreLogicSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+
+    for await (const chunk of stream) {
+        const chunkText = chunk.text;
+        if (chunkText) {
+            fullResponseText += chunkText;
+            onChunk(chunkText);
+        }
+        if (chunk.candidates?.[0]?.tokenCount) {
+           totalTokens = chunk.candidates[0].tokenCount;
+        }
+    }
+
+    const logicAiResponse = client.parseAndValidateJsonResponse(fullResponseText);
+
 
     const presentNpcsForCreative = npcs.filter(npc => logicAiResponse.presentNpcIds?.includes(npc.id));
     if (presentNpcsForCreative.length > 0) {
@@ -304,7 +334,7 @@ ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt c�
             storyText: logicAiResponse.storyText,
             statusNarration: logicAiResponse.statusNarration,
             choices: logicAiResponse.choices,
-            tokenCount: logicResult.candidates?.[0].tokenCount,
+            tokenCount: totalTokens,
             omniscientInterlude: logicAiResponse.omniscientInterlude
         },
         playerStatChanges: logicAiResponse.playerStatChanges || { statsToUpdate: [], statsToDelete: [] },
@@ -321,6 +351,7 @@ ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt c�
         weatherChange: logicAiResponse.weatherChange || null,
         isInCombat: logicAiResponse.isInCombat || false,
         combatantNpcIds: logicAiResponse.combatantNpcIds || [],
+        totalTokens: totalTokens,
     };
 }
 
@@ -331,7 +362,7 @@ export async function generateDefeatStory(
     safetySettings: SafetySettings
 ): Promise<{ newTurn: GameTurn; }> {
     const { worldContext, plotChronicle, history } = gameState;
-    const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.customGender : worldContext.character.gender;
+    const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
 
     const userPrompt = `
 ---

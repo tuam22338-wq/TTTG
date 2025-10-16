@@ -20,78 +20,6 @@ interface ChoiceBoxProps {
     onRequestCorrection: () => void;
 }
 
-const LUST_FLAVOR_TEXT = {
-    DOMINATION: 'Thống Trị',
-    HARMONY: 'Đồng Điệu',
-    SUBMISSION: 'Phục Tùng',
-    TEASING: 'Trêu Ghẹo',
-    AI_FREESTYLE: 'AI Tự Do',
-    SEDUCTION: 'Quyến Rũ',
-};
-
-const AIStateAnnunciator: React.FC<{
-    aiSettings: AiSettings;
-}> = ({ aiSettings }) => {
-    const { isLogicModeOn, lustModeFlavor, isConscienceModeOn, isStrictInterpretationOn, destinyCompassMode } = aiSettings;
-    const getMessage = (): { text: string; className: string } => {
-        if (!isLogicModeOn) {
-            return {
-                text: `<strong>CẢNH BÁO:</strong> Logic TẮT. Bạn có toàn quyền của Tác Giả, AI sẽ tuân theo mọi mệnh lệnh bất kể logic.`,
-                className: 'text-yellow-300' // Keep warning color for this specific case
-            };
-        }
-
-        let compassMessage = '';
-        switch(destinyCompassMode) {
-            case 'HARSH': compassMessage = 'trong bối cảnh <strong class="text-white">Khắc Nghiệt</strong>'; break;
-            case 'HELLISH': compassMessage = 'trong bối cảnh <strong class="text-white">Nghịch Thiên</strong>'; break;
-        }
-
-        if (lustModeFlavor) {
-            const flavorText = LUST_FLAVOR_TEXT[lustModeFlavor];
-            let mainMessage = `Trạng thái AI: Chế độ <strong class="text-white">Dục Vọng (${flavorText})</strong> được kích hoạt`;
-            if (isConscienceModeOn) {
-                mainMessage += ` kết hợp <strong class="text-white">Lương Tâm</strong>. Hành động sẽ táo bạo nhưng có chừng mực, tránh tổn thương vĩnh viễn`;
-            }
-            return {
-                text: `${mainMessage} ${compassMessage}.`,
-                className: 'text-neutral-300'
-            };
-        }
-        
-        if (isConscienceModeOn) {
-            return {
-               text: `Trạng thái AI: Chế độ <strong class="text-white">Lương Tâm</strong> được kích hoạt. AI sẽ ưu tiên các hành động cứu vãn ${compassMessage}.`,
-               className: 'text-neutral-300'
-           };
-        }
-
-        switch(destinyCompassMode) {
-            case 'HARSH': return { text: `Trạng thái AI: Thế giới đang ở mức <strong class="text-white">Khắc Nghiệt</strong>. AI sẽ tạo ra thử thách cao và sự kiện bất lợi.`, className: 'text-neutral-300' };
-            case 'HELLISH': return { text: `Trạng thái AI: Thế giới đang ở mức <strong class="text-white">Nghịch Thiên</strong>. AI sẽ chủ động tạo ra thảm họa.`, className: 'text-neutral-300' };
-            default:
-                if (isStrictInterpretationOn) {
-                     return {
-                        text: `Trạng thái AI: Chế độ Diễn Giải Nghiêm Túc. AI sẽ diễn giải hành động theo hướng trong sáng.`,
-                        className: 'text-neutral-300'
-                    };
-                }
-                return {
-                    text: `Trạng thái AI: Bình thường. AI sẽ tuân thủ logic và tạo ra thử thách cân bằng.`,
-                    className: 'text-neutral-400'
-                };
-        }
-    };
-
-    const { text, className } = getMessage();
-
-    return (
-        <div className="mb-3 p-3 bg-black/25 rounded-lg text-center text-xs transition-all duration-300">
-             <p className={`italic ${className}`} dangerouslySetInnerHTML={{ __html: text }} />
-        </div>
-    );
-};
-
 const stripHighlightTags = (text: string): string => {
     return text.replace(/\[HN\]/g, '').replace(/\[\/HN\]/g, '');
 };
@@ -110,10 +38,15 @@ const ChoiceBox: React.FC<ChoiceBoxProps> = ({
     onRequestCorrection,
 }) => {
     const [isChoicesVisible, setIsChoicesVisible] = useState(true);
+    const [promptMode, setPromptMode] = useState<'action' | 'speak'>('action');
     
     const handleCustomAction = () => {
         if (!isLoading && customAction.trim()) {
-            onChoice(customAction.trim());
+            let finalText = customAction.trim();
+            if (promptMode === 'speak') {
+                finalText = `Nói: "${finalText}"`;
+            }
+            onChoice(finalText);
         }
     };
 
@@ -123,7 +56,7 @@ const ChoiceBox: React.FC<ChoiceBoxProps> = ({
                  <p className="text-center text-lg text-neutral-400 animate-pulse">AI đang viết...</p>
             ) : (
                 <div>
-                    <div className={`transition-all duration-500 ease-in-out ${isChoicesVisible ? 'max-h-52 visible opacity-100' : 'max-h-0 invisible opacity-0'}`}>
+                    <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isChoicesVisible ? 'max-h-52 visible opacity-100' : 'max-h-0 invisible opacity-0'}`}>
                         <div className="overflow-y-auto pr-2 choice-scroll">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {choices.map((choice, index) => (
@@ -141,14 +74,16 @@ const ChoiceBox: React.FC<ChoiceBoxProps> = ({
                     </div>
                     
                     <div className={`${isChoicesVisible ? 'mt-4 pt-4 border-t' : 'mt-0 pt-0 border-t-0'} border-neutral-700/50`}>
-                        <AIStateAnnunciator aiSettings={aiSettings} />
-
-                        <p className="text-sm text-center text-neutral-400 mb-3">Hoặc, tự do hành động:</p>
-                        <div className="flex items-center gap-2">
+                       <div className="flex items-center gap-2">
                            <div className="group relative flex items-center bg-black/20 border border-white/10 rounded-lg transition-all duration-300 flex-grow">
+                                <div className="flex-shrink-0 flex gap-1 p-1">
+                                    <button onClick={() => setPromptMode('action')} className={`px-3 py-1.5 text-xs rounded font-semibold transition-colors ${promptMode === 'action' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:bg-white/5'}`}>Hành động</button>
+                                    <button onClick={() => setPromptMode('speak')} className={`px-3 py-1.5 text-xs rounded font-semibold transition-colors ${promptMode === 'speak' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:bg-white/5'}`}>Nói</button>
+                                </div>
+                                <div className="w-px h-6 bg-white/10 self-center"></div>
                                 <input
                                     id="custom-action"
-                                    placeholder="Nhập hành động... (hoặc *dùng lệnh meta ở đây*)"
+                                    placeholder={promptMode === 'action' ? "Nhập hành động..." : "Nhập lời thoại..."}
                                     value={customAction}
                                     onChange={(e) => onCustomActionChange(e.target.value)}
                                     onKeyDown={(e) => { if (e.key === 'Enter') handleCustomAction(); }}

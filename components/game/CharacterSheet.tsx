@@ -1,15 +1,13 @@
+
+
 import React, { useMemo } from 'react';
-import { CharacterStats, CharacterStat, StatType, CustomAttributeDefinition, AttributeType } from '../../types';
-import { PlusIcon } from '../icons/PlusIcon';
+import { GameState, CharacterStat, StatType, AttributeType } from '../../types';
+import { GetIconComponent } from '../icons/AttributeIcons';
 
 interface CharacterSheetProps {
-    stats: CharacterStats;
-    statOrder: string[];
+    gameState: GameState;
     onStatClick: (stat: CharacterStat & { name: string }, ownerName: string, ownerType: 'player' | 'npc', ownerId?: string) => void;
     recentlyUpdatedStats: Set<string>;
-    onOpenCreateStatModal: () => void;
-    ownerName: string;
-    customAttributes: CustomAttributeDefinition[];
 }
 
 const getStatColorClasses = (type: StatType): string => {
@@ -22,6 +20,38 @@ const getStatColorClasses = (type: StatType): string => {
         default: return 'border-gray-600 bg-gray-800/30 hover:bg-gray-700/40 text-gray-300';
     }
 };
+
+const StatBar: React.FC<{
+    current: number;
+    max: number;
+    label: string;
+    barColor: string;
+    borderColor: string;
+    showValue?: boolean;
+}> = ({ current, max, label, barColor, borderColor, showValue = true }) => {
+    const percentage = max > 0 ? (current / max) * 100 : 0;
+    return (
+        <div>
+            <div className="flex justify-between items-baseline text-xs mb-1">
+                <span className="font-semibold text-neutral-400">{label}</span>
+                {showValue && <span className="font-bold text-white font-mono">{`${Math.floor(current)} / ${max}`}</span>}
+            </div>
+            <div className={`h-2.5 w-full bg-black/50 rounded-full overflow-hidden border ${borderColor}`}>
+                <div className={`h-full ${barColor} rounded-full transition-all duration-500 ease-linear`} style={{ width: `${percentage}%` }} title={`${label}: ${Math.floor(current)} / ${max}`}></div>
+            </div>
+        </div>
+    );
+};
+
+const StatGridItem: React.FC<{ label: string; value: string; icon: React.ReactNode; title: string; }> = ({ label, value, icon, title }) => (
+    <div className="bg-black/20 p-2 rounded-md flex items-center gap-2" title={title}>
+        <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-neutral-400">{icon}</div>
+        <div className="flex-grow flex justify-between items-baseline min-w-0">
+            <span className="text-sm font-semibold text-neutral-300 truncate">{label}</span>
+            <span className="font-bold text-white font-mono text-sm">{value}</span>
+        </div>
+    </div>
+);
 
 const StatusItem: React.FC<{
     statName: string;
@@ -44,135 +74,121 @@ const StatusItem: React.FC<{
     );
 };
 
-const InfoStatItem: React.FC<{
-    name: string;
-    value: string;
-    icon?: string;
-    isHighlighted: boolean;
-}> = ({ name, value, icon, isHighlighted }) => {
-    const highlightClass = isHighlighted ? 'animate-flash-info' : '';
-    const cleanName = name.replace(/\[HN\]/g, '').replace(/\[\/HN\]/g, '');
-    return (
-        <div className={`flex justify-between items-center py-1.5 px-2 rounded bg-black/20 ${highlightClass}`}>
-            <span className="text-sm font-semibold text-neutral-300 flex items-center gap-2">
-                {icon && <span className="text-lg">{icon}</span>}
-                {cleanName}
-            </span>
-            <span className="text-sm font-bold text-white font-mono">{value}</span>
-        </div>
-    );
-};
 
-
-const CharacterSheet: React.FC<CharacterSheetProps> = ({ stats, statOrder, onStatClick, recentlyUpdatedStats, onOpenCreateStatModal, ownerName, customAttributes }) => {
+const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick, recentlyUpdatedStats }) => {
     
-    const attributeMap = useMemo(() => 
-        new Map(customAttributes.map(attr => [attr.id, attr])), 
-        [customAttributes]
-    );
+    const { primaryAttributes, informationalAttributes, dynamicStatuses } = useMemo(() => {
+        const customAttrMap = new Map(gameState.worldContext.customAttributes.map(attr => [attr.id, attr]));
 
-    const categorizedStats = useMemo(() => {
-        const informational: (CharacterStat & { name: string })[] = [];
-        const statuses: (CharacterStat & { name: string })[] = [];
-        const knowledge: (CharacterStat & { name: string })[] = [];
+        const primaryAttributes = gameState.worldContext.customAttributes.filter(attr => attr.type === AttributeType.PRIMARY);
+        const informationalAttributes = gameState.worldContext.customAttributes.filter(attr => attr.type === AttributeType.INFORMATIONAL);
 
-        const allStatKeys = statOrder || Object.keys(stats);
+        const dynamicStatuses: (CharacterStat & { name: string })[] = [];
+        const allStatKeys = gameState.playerStatOrder || Object.keys(gameState.playerStats);
 
         for (const key of allStatKeys) {
-            const stat = stats[key];
-            if (!stat || !stat.type) continue;
-
-            const definition = attributeMap.get(key);
-            const entry = { name: key, ...stat };
-
-            if (definition && definition.type === AttributeType.INFORMATIONAL) {
-                informational.push(entry);
-            } else if (definition && (definition.type === AttributeType.VITAL || definition.type === AttributeType.PRIMARY)) {
-                // Ignore, as these are displayed in the Combat Stats panel
-            } else if (definition && definition.type === AttributeType.HIDDEN) {
-                // Do not display hidden attributes
-            }
-            else if (stat.type === StatType.KNOWLEDGE) {
-                knowledge.push(entry);
-            } else {
-                statuses.push(entry);
+            const stat = gameState.playerStats[key];
+            const definition = customAttrMap.get(key);
+            
+            // FIX: To resolve "Property 'type' does not exist on type 'unknown'", a robust type guard is added.
+            // Malformed save data from localStorage can cause runtime objects to not match their static types.
+            // This strengthened type guard validates that `stat` is a well-formed object with the necessary
+            // properties ('type', 'description') before it's processed.
+            if (stat && typeof stat === 'object' && stat !== null && 'type' in stat && 'description' in stat && (!definition || definition.type !== AttributeType.INFORMATIONAL)) {
+                dynamicStatuses.push({ name: key, ...(stat as CharacterStat) });
             }
         }
-        
-        return { informational, statuses, knowledge };
-    }, [stats, statOrder, attributeMap]);
+        return { primaryAttributes, informationalAttributes, dynamicStatuses };
+    }, [gameState.worldContext.customAttributes, gameState.playerStats, gameState.playerStatOrder]);
 
+    const formatValue = (key: string, isPercent?: boolean) => {
+        const value = gameState.coreStats[key as keyof typeof gameState.coreStats];
+        if (typeof value !== 'number') return 'N/A';
+        if (isPercent) {
+             return `${(value * 100).toFixed(1)}%`;
+        }
+        return String(Math.floor(value));
+    };
+
+    const character = gameState.worldContext.character;
+    const age = gameState.playerStats['Tuổi']?.description || 'Chưa rõ';
+    const bioSnippet = character.biography.split('.').slice(0, 2).join('.') + (character.biography.includes('.') ? '.' : '');
+    const gender = character.gender === 'Tự định nghĩa' ? character.customGender : character.gender;
 
     return (
-        <div className="p-4 flex-grow flex flex-col min-h-0">
-            <header className="flex justify-between items-center pb-2 mb-3 border-b border-white/10 flex-shrink-0">
-                <h2 className="text-xl font-bold text-center text-white" style={{ textShadow: '0 0 5px rgba(255,255,255,0.4)' }}>
-                    Thuộc tính & Trạng thái
-                </h2>
-                <button
-                    onClick={onOpenCreateStatModal}
-                    className="flex items-center gap-1 text-sm text-yellow-300 hover:text-yellow-200 transition-colors"
-                    title="Tạo thuộc tính mới cho nhân vật"
-                >
-                    <PlusIcon />
-                    Tạo Mới
-                </button>
-            </header>
-            
-            <div className="flex-grow overflow-y-auto custom-scrollbar pr-2">
-                {categorizedStats.informational.length === 0 && categorizedStats.statuses.length === 0 && categorizedStats.knowledge.length === 0 ? (
-                    <p className="text-center text-sm text-neutral-400 py-4">Nhân vật không có trạng thái nào.</p>
-                ) : (
-                    <div className="space-y-4">
-                        {categorizedStats.informational.length > 0 && (
-                            <div>
-                                <h3 className="text-sm font-semibold uppercase text-neutral-500 tracking-wider mb-2">Thông tin</h3>
-                                <div className="space-y-1">
-                                    {categorizedStats.informational.map(stat => (
-                                        <InfoStatItem
-                                            key={stat.name}
-                                            name={attributeMap.get(stat.name)?.name || stat.name}
-                                            value={stat.description}
-                                            icon={attributeMap.get(stat.name)?.icon}
-                                            isHighlighted={recentlyUpdatedStats.has(stat.name)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {categorizedStats.statuses.length > 0 && (
-                            <div>
-                                <h3 className="text-sm font-semibold uppercase text-neutral-500 tracking-wider mb-2">Trạng Thái & Hiệu Ứng</h3>
-                                <div className="space-y-2">
-                                    {categorizedStats.statuses.map(stat => (
-                                        <StatusItem
-                                            key={stat.name}
-                                            statName={stat.name}
-                                            stat={stat}
-                                            isHighlighted={recentlyUpdatedStats.has(stat.name)}
-                                            onClick={() => onStatClick(stat, ownerName, 'player')}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {categorizedStats.knowledge.length > 0 && (
-                             <div>
-                                <h3 className="text-sm font-semibold uppercase text-neutral-500 tracking-wider mb-2">Tri Thức & Nhận Thức</h3>
-                                <div className="space-y-2">
-                                     {categorizedStats.knowledge.map(stat => (
-                                        <StatusItem
-                                            key={stat.name}
-                                            statName={stat.name}
-                                            stat={stat}
-                                            isHighlighted={recentlyUpdatedStats.has(stat.name)}
-                                            onClick={() => onStatClick(stat, ownerName, 'player')}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
+        <div className="p-4 h-full flex flex-col min-h-0">
+            {/* 1. Header with character info */}
+            <div className="flex-shrink-0 pb-4 mb-4 border-b border-white/10">
+                <h2 className="text-2xl font-bold text-white font-rajdhani">{character.name}</h2>
+                <div className="flex flex-wrap text-sm text-neutral-400 gap-x-4 gap-y-1 mt-1">
+                    <span><strong>Tuổi:</strong> <span className="text-neutral-200">{age}</span></span>
+                    <span><strong>Giới tính:</strong> <span className="text-neutral-200">{gender}</span></span>
+                    <span><strong>Tính cách:</strong> <span className="text-neutral-200">{character.personality}</span></span>
+                </div>
+                <p className="text-xs text-neutral-500 italic mt-2">{bioSnippet}</p>
+            </div>
+
+            <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-4">
+                {/* 2. Vital Bars - Conditionally rendered */}
+                <section className="space-y-1.5">
+                    {gameState.coreStats.sinhLucToiDa > 0 && <StatBar current={gameState.coreStats.sinhLuc} max={gameState.coreStats.sinhLucToiDa} label="Sinh Lực" barColor="bg-red-500" borderColor="border-neutral-700" />}
+                    {gameState.coreStats.linhLucToiDa > 0 && <StatBar current={gameState.coreStats.linhLuc} max={gameState.coreStats.linhLucToiDa} label="Linh Lực" barColor="bg-blue-500" borderColor="border-neutral-700" />}
+                    {gameState.coreStats.theLucToiDa > 0 && <StatBar current={gameState.coreStats.theLuc} max={gameState.coreStats.theLucToiDa} label="Thể Lực" barColor="bg-green-500" borderColor="border-neutral-700" />}
+                    {gameState.coreStats.doNoToiDa > 0 && <StatBar current={gameState.coreStats.doNo} max={gameState.coreStats.doNoToiDa} label="Độ No" barColor="bg-orange-500" borderColor="border-neutral-700" />}
+                    {gameState.coreStats.doNuocToiDa > 0 && <StatBar current={gameState.coreStats.doNuoc} max={gameState.coreStats.doNuocToiDa} label="Độ Nước" barColor="bg-sky-500" borderColor="border-neutral-700" />}
+                </section>
+                
+                {/* 3. Attribute Sections - Driven by world context */}
+                 {primaryAttributes.length > 0 && (
+                    <section>
+                        <h3 className="text-sm font-semibold uppercase text-neutral-500 tracking-wider mb-2">Chỉ số Chính</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                            {primaryAttributes.map(attr => (
+                                <StatGridItem
+                                    key={attr.id}
+                                    label={attr.name}
+                                    value={formatValue(attr.id, ['chiMang', 'satThuongChiMang', 'giamHoiChieu'].includes(attr.id))}
+                                    icon={<GetIconComponent name={attr.icon} className="w-5 h-5" />}
+                                    title={attr.description}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                )}
+                
+                {informationalAttributes.length > 0 && (
+                    <section>
+                        <h3 className="text-sm font-semibold uppercase text-neutral-500 tracking-wider mb-2">Chỉ số Thông tin</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                            {informationalAttributes.map(attr => (
+                                 <StatGridItem
+                                    key={attr.id}
+                                    label={attr.name}
+                                    value={gameState.playerStats[attr.id]?.description || String(attr.baseValue)}
+                                    icon={<GetIconComponent name={attr.icon} className="w-5 h-5" />}
+                                    title={attr.description}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 4. Dynamic Statuses Section */}
+                {dynamicStatuses.length > 0 && (
+                    <section>
+                        <h3 className="text-sm font-semibold uppercase text-neutral-500 tracking-wider mb-2">Trạng Thái & Hiệu Ứng</h3>
+                        <div className="space-y-2">
+                             {dynamicStatuses.map(stat => (
+                                <StatusItem
+                                    key={stat.name}
+                                    statName={stat.name}
+                                    stat={stat}
+                                    isHighlighted={recentlyUpdatedStats.has(stat.name)}
+                                    onClick={() => onStatClick(stat, character.name, 'player')}
+                                />
+                            ))}
+                        </div>
+                    </section>
                 )}
             </div>
              <style>{`
@@ -181,11 +197,6 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ stats, statOrder, onSta
                     50% { box-shadow: 0 0 10px 3px rgba(255, 255, 255, 0.8); }
                 }
                 .animate-flash { animation: flash 1.5s ease-in-out infinite; }
-                @keyframes flash-info { 
-                    0%, 100% { background-color: rgba(0,0,0,0.2); } 
-                    50% { background-color: rgba(255, 255, 255, 0.15); }
-                }
-                .animate-flash-info { animation: flash-info 1.5s ease-in-out infinite; }
              `}</style>
         </div>
     );

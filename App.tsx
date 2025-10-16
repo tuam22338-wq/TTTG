@@ -34,6 +34,10 @@ const App: React.FC = () => {
     }
   }, [isKeyConfigured]);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('zoom', String(settingsHook.settings.zoomLevel));
+  }, [settingsHook.settings.zoomLevel]);
+
   const startNewGameFlow = () => {
     setGameStartData(null);
     setCurrentScreen('world-creator');

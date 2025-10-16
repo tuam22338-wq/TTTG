@@ -5,7 +5,30 @@ import Button from './ui/Button';
 import ToggleSwitch from './ui/ToggleSwitch';
 import InputField from './ui/InputField';
 import { useSettings } from '../hooks/useSettings';
+import { CogIcon } from './icons/CogIcon';
 
+// --- Start: Local Icon Definitions ---
+const PaintBrushIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
+    </svg>
+);
+const SpeakerWaveIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+    </svg>
+);
+const ShieldCheckIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.917L12 23l9-2.083c0-3.16-1.5-6.02-3.882-8.082z" />
+    </svg>
+);
+const ExclamationTriangleIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+);
+// --- End: Local Icon Definitions ---
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,7 +36,7 @@ interface SettingsModalProps {
   settingsHook: ReturnType<typeof useSettings>;
 }
 
-type Tab = 'interface' | 'audio' | 'ai_model' | 'safety' | 'advanced';
+type SettingsTab = 'interface' | 'audio' | 'ai_model' | 'safety' | 'advanced';
 
 const MODEL_OPTIONS: { id: GeminiModel; name: string }[] = [
     { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Mặc định)' },
@@ -43,21 +66,33 @@ const TrashIcon: React.FC = () => (
     </svg>
 );
 
-const RangeSlider: React.FC<{ label: string; id: string; min: number; max: number; step: number; value: number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; unit?: string }> = ({ label, id, min, max, step, value, onChange, unit }) => (
+const RangeSlider: React.FC<{ 
+    label: string; 
+    id: string; 
+    min: number; 
+    max: number; 
+    step: number; 
+    value: number; 
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; 
+    unit?: string;
+    displayTransform?: (value: number) => string;
+}> = ({ label, id, min, max, step, value, onChange, unit, displayTransform }) => (
     <div>
         <label htmlFor={id} className="block text-sm font-medium text-neutral-300 mb-1">{label}</label>
         <div className="flex items-center gap-4">
             <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={onChange} className="w-full h-2 bg-black/30 rounded-lg appearance-none cursor-pointer" />
-            <span className="text-sm font-mono text-white w-16 text-center">{value}{unit}</span>
+            <span className="text-sm font-mono text-white w-16 text-center">
+                {displayTransform ? displayTransform(value) : `${value}${unit || ''}`}
+            </span>
         </div>
     </div>
 );
 
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settingsHook }) => {
-    const [activeTab, setActiveTab] = useState<Tab>('ai_model');
+    const [activeTab, setActiveTab] = useState<SettingsTab>('interface');
     const { settings, setSettings, setApiKeySource, setCustomApiKeys, updateAiModelSetting, updateAudioSetting, updateSafetySetting, isKeyConfigured, resetSettings } = settingsHook;
-
+    
     const handleAddKey = () => setCustomApiKeys([...settings.customApiKeys, '']);
     const handleKeyChange = (index: number, value: string) => {
         const newKeys = [...settings.customApiKeys];
@@ -66,28 +101,51 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
     };
     const handleRemoveKey = (index: number) => setCustomApiKeys(settings.customApiKeys.filter((_, i) => i !== index));
 
-    const TabButton: React.FC<{ tabId: Tab; children: React.ReactNode }> = ({ tabId, children }) => {
-        const isActive = activeTab === tabId;
-        return <button onClick={() => setActiveTab(tabId)} className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-300 focus:outline-none ${isActive ? 'text-white bg-[#e02585] shadow-[0_0_8px_rgba(224,37,133,0.5)]' : 'text-[#a08cb6] bg-black/20 hover:bg-white/10'}`}>{children}</button>
-    };
+    const settingsTabs = [
+        { id: 'interface', label: 'Giao diện', Icon: PaintBrushIcon },
+        { id: 'audio', label: 'Âm Thanh', Icon: SpeakerWaveIcon },
+        { id: 'ai_model', label: 'Model AI', Icon: CogIcon },
+        { id: 'safety', label: 'An Toàn', Icon: ShieldCheckIcon },
+        { id: 'advanced', label: 'Nâng Cao', Icon: ExclamationTriangleIcon },
+    ];
 
     const currentPerspectiveDescription = perspectiveDescriptions[settings.narrativePerspective];
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Thiết Lập">
-            <div className="flex flex-col h-[75vh]">
-                <div className="flex-shrink-0 flex overflow-hidden rounded-t-lg border-b-2 border-[#e02585]">
-                    <TabButton tabId="interface">Giao diện</TabButton>
-                    <TabButton tabId="audio">Âm Thanh</TabButton>
-                    <TabButton tabId="ai_model">AI & Model</TabButton>
-                    <TabButton tabId="safety">An Toàn</TabButton>
-                    <TabButton tabId="advanced">Nâng Cao</TabButton>
+            <div className="flex flex-col max-h-[75vh] min-h-[60vh]">
+                <div className="flex-shrink-0 border-b border-neutral-700">
+                    <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar">
+                        {settingsTabs.map((tab) => {
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as SettingsTab)}
+                                    className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-semibold transition-colors duration-200 focus:outline-none ${isActive ? 'border-pink-500 text-white' : 'border-transparent text-neutral-400 hover:bg-white/5 hover:text-white'}`}
+                                >
+                                    <tab.Icon className={`h-5 w-5 ${isActive ? 'text-pink-400' : ''}`} />
+                                    <span>{tab.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
-                <div className="flex-grow p-4 overflow-y-auto custom-scrollbar">
+                <div className="flex-grow overflow-y-auto custom-scrollbar p-6">
                     {activeTab === 'interface' && (
-                        <div className="space-y-6">
+                        <div className="space-y-6 animate-fade-in-fast">
                             <ToggleSwitch id="auto-hide-panel" label="Tự động ẩn Bảng Hành Động" description="Tự động thu gọn bảng lựa chọn sau khi bạn gửi đi một hành động." enabled={settings.autoHideActionPanel} setEnabled={val => setSettings({ ...settings, autoHideActionPanel: val })} />
+                            <RangeSlider 
+                                label="Thu phóng Giao diện" 
+                                id="zoom-slider" 
+                                min={0.5} 
+                                max={1.0} 
+                                step={0.01} 
+                                value={settings.zoomLevel} 
+                                onChange={e => setSettings({ ...settings, zoomLevel: parseFloat(e.target.value) })}
+                                displayTransform={val => `${Math.round(val * 100)}%`}
+                            />
                             <div>
                                 <label htmlFor="narrative-perspective-ingame" className="block text-sm font-medium text-neutral-300 mb-2">Ngôi kể</label>
                                 <select id="narrative-perspective-ingame" value={settings.narrativePerspective} onChange={e => setSettings({ ...settings, narrativePerspective: e.target.value as NarrativePerspective })} className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
@@ -100,13 +158,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                         </div>
                     )}
                     {activeTab === 'audio' && (
-                         <div className="space-y-6">
+                        <div className="space-y-6 animate-fade-in-fast">
                             <ToggleSwitch id="audio-enabled" label="Kích hoạt Âm thanh" description="Bật/tắt tất cả các hiệu ứng âm thanh trong game (chức năng tương lai)." enabled={settings.audio.enabled} setEnabled={val => updateAudioSetting('enabled', val)} />
-                             <RangeSlider label="Âm lượng" id="audio-volume" min={0} max={1} step={0.01} value={settings.audio.volume} onChange={(e) => updateAudioSetting('volume', parseFloat(e.target.value))} />
+                            <RangeSlider label="Âm lượng" id="audio-volume" min={0} max={1} step={0.01} value={settings.audio.volume} onChange={(e) => updateAudioSetting('volume', parseFloat(e.target.value))} />
                         </div>
                     )}
                     {activeTab === 'ai_model' && (
-                        <div className="space-y-6">
+                        <div className="space-y-6 animate-fade-in-fast">
                             <div>
                                 <h3 className="text-lg font-bold text-white mb-2">Nguồn Khóa API</h3>
                                 <div className="flex gap-2 rounded-lg bg-black/30 p-1">
@@ -114,7 +172,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                     <button onClick={() => setApiKeySource(ApiKeySource.CUSTOM)} className={`flex-1 py-2 text-sm rounded ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>Tùy chỉnh</button>
                                 </div>
                             </div>
-                             <div className={`space-y-3 transition-opacity ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'opacity-100' : 'opacity-50'}`}>
+                            <div className={`space-y-3 transition-opacity ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'opacity-100' : 'opacity-50'}`}>
                                 <h3 className="text-lg font-bold text-white">Danh sách khóa API tùy chỉnh</h3>
                                 {settings.customApiKeys.map((key, index) => (
                                     <div key={index} className="flex items-center gap-2">
@@ -124,14 +182,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                 ))}
                                 <Button onClick={handleAddKey} variant="secondary" disabled={settings.apiKeySource !== ApiKeySource.CUSTOM}>+ Thêm khóa</Button>
                             </div>
-                             <div>
+                            <div>
                                 <h3 className="text-lg font-bold text-white mb-2">Cấu hình Model</h3>
-                                 <label htmlFor="model-select" className="text-sm font-medium text-neutral-300">Model Tường thuật</label>
-                                 <select id="model-select" value={settings.aiModelSettings.model} onChange={e => updateAiModelSetting('model', e.target.value as GeminiModel)} className="w-full mt-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
-                                     {MODEL_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
-                                 </select>
+                                <label htmlFor="model-select" className="text-sm font-medium text-neutral-300">Model Tường thuật</label>
+                                <select id="model-select" value={settings.aiModelSettings.model} onChange={e => updateAiModelSetting('model', e.target.value as GeminiModel)} className="w-full mt-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
+                                    {MODEL_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                                </select>
                             </div>
-                             <div className="space-y-4">
+                            <div className="space-y-4">
                                 <h3 className="text-lg font-bold text-white">Tinh chỉnh Tham số</h3>
                                 <RangeSlider label="Temperature (Sáng tạo)" id="temp-slider" min={0} max={1} step={0.05} value={settings.aiModelSettings.temperature} onChange={e => updateAiModelSetting('temperature', parseFloat(e.target.value))} />
                                 <RangeSlider label="Top-P" id="topp-slider" min={0} max={1} step={0.05} value={settings.aiModelSettings.topP} onChange={e => updateAiModelSetting('topP', parseFloat(e.target.value))} />
@@ -145,25 +203,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                         </div>
                     )}
                     {activeTab === 'safety' && (
-                        <div className="space-y-4">
-                             <h3 className="text-lg font-bold text-white mb-2">Lọc Nội dung An toàn</h3>
-                             <p className="text-sm text-neutral-400">Điều chỉnh mức độ lọc nội dung của Gemini. "Không Chặn" được khuyến khích cho các câu chuyện NSFW.</p>
-                             <div className="space-y-2">
-                                 {SAFETY_LEVELS.map(level => (
-                                     <label key={level.id} className={`flex items-start p-3 bg-black/20 rounded-lg cursor-pointer border-2 transition-colors ${settings.safety.level === level.id ? 'border-pink-500' : 'border-transparent hover:border-white/10'}`}>
-                                         <input type="radio" name="safetyLevel" value={level.id} checked={settings.safety.level === level.id} onChange={() => updateSafetySetting('level', level.id)} className="h-5 w-5 mt-0.5 text-pink-500 bg-neutral-900 border-neutral-700 focus:ring-pink-500"/>
-                                         <span className="ml-3">
-                                             <span className="font-semibold text-white">{level.name}</span>
-                                             <p className="text-xs text-neutral-400">{level.description}</p>
-                                         </span>
-                                     </label>
-                                 ))}
-                             </div>
+                        <div className="space-y-4 animate-fade-in-fast">
+                            <h3 className="text-lg font-bold text-white mb-2">Lọc Nội dung An toàn</h3>
+                            <p className="text-sm text-neutral-400">Điều chỉnh mức độ lọc nội dung của Gemini. "Không Chặn" được khuyến khích cho các câu chuyện NSFW.</p>
+                            <div className="space-y-2">
+                                {SAFETY_LEVELS.map(level => (
+                                    <label key={level.id} className={`flex items-start p-3 bg-black/20 rounded-lg cursor-pointer border-2 transition-colors ${settings.safety.level === level.id ? 'border-pink-500' : 'border-transparent hover:border-white/10'}`}>
+                                        <input type="radio" name="safetyLevel" value={level.id} checked={settings.safety.level === level.id} onChange={() => updateSafetySetting('level', level.id)} className="h-5 w-5 mt-0.5 text-pink-500 bg-neutral-900 border-neutral-700 focus:ring-pink-500"/>
+                                        <span className="ml-3">
+                                            <span className="font-semibold text-white">{level.name}</span>
+                                            <p className="text-xs text-neutral-400">{level.description}</p>
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                     )}
                     {activeTab === 'advanced' && (
-                         <div className="space-y-6">
-                             <div>
+                        <div className="space-y-6 animate-fade-in-fast">
+                            <div>
                                 <h3 className="text-lg font-bold text-red-400 mb-2">Khu vực Nguy hiểm</h3>
                                 <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
                                     <p className="text-sm text-red-200 mb-3">Hành động này sẽ xóa tất cả các cài đặt tùy chỉnh của bạn và khôi phục về trạng thái mặc định.</p>
@@ -174,7 +232,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                     )}
                 </div>
 
-                <div className="flex-shrink-0 p-4 border-t border-white/10">
+                <div className="flex-shrink-0 p-4 border-t border-neutral-700">
                      {!isKeyConfigured && (
                         <div className="text-yellow-300 text-sm text-center bg-yellow-500/10 p-2 rounded-md mb-3">
                             Chưa có khóa API nào được cấu hình.
@@ -184,9 +242,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                 </div>
             </div>
             <style>{`
-                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 6px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #555; border-radius: 10px; }
+                @keyframes fade-in-fast {
+                    from { opacity: 0; transform: translateY(5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in-fast {
+                    animation: fade-in-fast 0.3s ease-out forwards;
+                }
             `}</style>
         </Modal>
     );

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGameEngine } from '../../hooks/useGameEngine';
 import { useSettings } from '../../hooks/useSettings';
-import { GameState, WorldCreationState, ViewMode } from '../../types';
+import { GameState, WorldCreationState, ViewMode, Skill, CharacterStat, Ability, SpecialItem, Equipment, EquipmentSlot, NPC } from '../../types';
 import StoryLog from '../game/StoryLog';
 import ChoiceBox from '../game/ChoiceBox';
 import CharacterPanel from '../game/CharacterPanel';
@@ -19,6 +19,15 @@ import PaginationControls from '../game/PaginationControls';
 import InGameMenuModal from '../game/InGameMenuModal';
 import { MenuIcon } from '../icons/MenuActionIcons';
 import { UserIcon } from '../icons/UserIcon';
+import CombatScreen from './CombatScreen';
+import StatDetailModal from '../game/StatDetailModal';
+import StatCreationModal from '../game/StatCreationModal';
+import PowerCreationModal from '../game/PowerCreationModal';
+import AbilityEditModal from '../game/AbilityEditModal';
+import IllustrationBookModal from '../game/achievements/IllustrationBookModal';
+import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
+import CodexPanel from '../game/CodexPanel';
+import { BookIcon } from '../icons/BookIcon';
 
 
 interface GameScreenProps {
@@ -33,7 +42,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     const { 
         gameState, isLoading, error, processTurn, 
         updateAiSettings, newlyAcquiredSkill, handleAcknowledgeSkill, 
-        handleDeclineSkill, showIntroductoryModal, setShowIntroductoryModal
+        handleDeclineSkill, showIntroductoryModal, setShowIntroductoryModal,
+        executeEntityAction, setGameState, addPlayerSkill,
     } = useGameEngine(initialData, settingsHook.geminiService, settings.aiModelSettings, settings.safety);
     
     const [viewMode, setViewMode] = useLocalStorage<ViewMode>('gameViewMode', 'desktop');
@@ -41,26 +51,72 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [isCharPanelOpen, setIsCharPanelOpen] = useState(false);
     const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
+    const [isCodexOpen, setIsCodexOpen] = useState(false);
+    const [isPowerCreationModalOpen, setIsPowerCreationModalOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isStatDetailModalOpen, setIsStatDetailModalOpen] = useState(false);
+    const [isCreateStatModalOpen, setIsCreateStatModalOpen] = useState(false);
+    const [isAbilityEditModalOpen, setIsAbilityEditModalOpen] = useState(false);
+    const [isAchievementModalOpen, setIsAchievementModalOpen] = useState(false);
+
+    const [statDetailData, setStatDetailData] = useState<{ stat: CharacterStat & { name: string }; ownerName: string; ownerType: 'player' | 'npc'; ownerId?: string } | null>(null);
+    const [abilityEditData, setAbilityEditData] = useState<{ skillName: string; ability: Ability } | null>(null);
+    const [achievementData, setAchievementData] = useState<SpecialItem | null>(null);
+
+    const [usedOneTimeEffectSources, setUsedOneTimeEffectSources] = useState<string[]>([]);
+    
+    const mainContentRef = useRef<HTMLElement>(null);
 
     const [currentPage, setCurrentPage] = useState(() => 
       'history' in initialData && initialData.history.length > 0 ? initialData.history.length : 1
     );
 
     useEffect(() => {
-        if (gameState && gameState.history.length > 0) {
+        if (gameState && gameState.history.length > 0 && !isLoading) {
             setCurrentPage(gameState.history.length);
         }
-    }, [gameState?.history.length]);
+    }, [gameState?.history.length, isLoading]);
+
+    useEffect(() => {
+        if (currentPage !== gameState?.history.length) return;
+        const element = mainContentRef.current;
+        if (element) {
+            const isScrolledToBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 200;
+            if (isScrolledToBottom) {
+                setTimeout(() => {
+                    element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+                }, 100);
+            }
+        }
+    }, [gameState?.history[gameState?.history.length - 1]?.storyText, currentPage, gameState?.history.length]);
     
     const handleChoice = (choice: string) => {
+        if (currentPage !== gameState?.history.length) {
+            setCurrentPage(gameState.history.length);
+        }
         processTurn(choice);
         setCustomAction('');
     };
+    
+    const handleRewrite = () => {
+        if (!gameState) return;
+        if (currentPage !== gameState.history.length) {
+            setCurrentPage(gameState.history.length);
+        }
+        processTurn(gameState.history[gameState.history.length - 1].playerAction || "", true);
+    }
+    
+    const handleCorrection = () => {
+         if (!gameState || !gameState.history[gameState.history.length - 1].playerAction) return;
+         if (currentPage !== gameState.history.length) {
+            setCurrentPage(gameState.history.length);
+        }
+        processTurn(gameState.history[gameState.history.length - 1].playerAction, false, true);
+    }
 
     const handleSave = () => {
         if (gameState) {
             GameSaveService.saveManualSave(gameState);
-            console.log("Game saved manually!");
             setIsGameMenuOpen(false);
         }
     };
@@ -70,6 +126,47 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
             GameSaveService.saveManualSave(gameState);
         }
         onBackToMenu();
+    };
+    
+    const handleStatClick = (stat: CharacterStat & { name: string }, ownerName: string, ownerType: 'player' | 'npc', ownerId?: string) => {
+        setStatDetailData({ stat, ownerName, ownerType, ownerId });
+        setIsStatDetailModalOpen(true);
+    };
+    
+    const handleCreatePower = async (data: { name: string, description: string }) => {
+        if (!gameState || !settingsHook.geminiService) return;
+        setIsSubmitting(true);
+        try {
+            const newSkill = await GeminiStorytellerService.generateSkillFromUserInput(
+                data.name,
+                data.description,
+                gameState.worldContext,
+                settingsHook.geminiService,
+                settings.aiModelSettings,
+                settings.safety,
+            );
+            addPlayerSkill(newSkill);
+        } catch (e: any) {
+            console.error(e);
+            alert("Lỗi tạo kỹ năng: " + e.message);
+        } finally {
+            setIsSubmitting(false);
+            setIsPowerCreationModalOpen(false);
+        }
+    };
+    
+    const endCombat = (result: 'win' | 'loss' | 'flee', turns: number, finalCombatants: any[]) => {
+        if (!gameState) return;
+        // This is a simplified end combat logic. A full implementation would update player/NPC stats based on `finalCombatants`.
+        setGameState(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                isInCombat: false,
+                combatants: [],
+            };
+        });
+        setUsedOneTimeEffectSources([]);
     };
 
     const totalPages = gameState ? gameState.history.length : 1;
@@ -98,6 +195,16 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         return <div className="flex items-center justify-center h-screen bg-black text-white">Lỗi: Không thể tải trạng thái game.</div>;
     }
     
+     if (gameState.isInCombat) {
+        return <CombatScreen 
+            gameState={gameState} 
+            endCombat={endCombat} 
+            isLoading={isLoading}
+            usedOneTimeEffectSources={usedOneTimeEffectSources}
+            onUseOneTimeEffect={(sourceId) => setUsedOneTimeEffectSources(prev => [...prev, sourceId])}
+        />
+    }
+    
     const lastTurn = gameState.history[gameState.history.length - 1];
     const currentTurnForView = gameState.history[currentPage - 1];
 
@@ -105,9 +212,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     return (
         <>
             <div className="h-screen bg-neutral-900 text-neutral-300 flex flex-col overflow-hidden">
-                {/* Header */}
                 <header className="flex-shrink-0 bg-black/30 backdrop-blur-sm p-2 flex items-center border-b border-white/10 z-20">
-                    <div className="flex-1 flex justify-start">
+                    <div className="flex-1 flex justify-start items-center gap-2">
                         <button onClick={() => setIsGameMenuOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở menu">
                             <MenuIcon />
                         </button>
@@ -119,20 +225,21 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                         <TokenCounter lastTurn={lastTurn.tokenCount || 0} total={gameState.totalTokens} />
                         <RequestCounter count={gameState.requestCount} />
                         <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} disabled={isLoading} />
+                         <button onClick={() => setIsCodexOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở sổ tay">
+                            <BookIcon className="h-6 w-6"/>
+                        </button>
                         <button onClick={() => setIsCharPanelOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở bảng nhân vật">
                             <UserIcon className="h-6 w-6"/>
                         </button>
                     </div>
                 </header>
                 
-                {/* Main Content */}
-                <main className="flex-grow flex flex-col p-4 overflow-y-auto custom-scrollbar">
+                <main ref={mainContentRef} className="flex-grow flex flex-col p-4 overflow-y-auto custom-scrollbar">
                     <div className="max-w-4xl mx-auto w-full">
                        <StoryLog turn={currentTurnForView} />
                     </div>
                 </main>
 
-                {/* Footer / Action Panel */}
                 <footer className="flex-shrink-0 p-4 bg-black/30 z-10">
                     <div className="max-w-4xl mx-auto space-y-2">
                        {gameState.history.length > 0 && (
@@ -153,9 +260,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                             onCustomActionChange={setCustomAction}
                             onOpenAiControlModal={() => setIsAiModalOpen(true)}
                             canRewrite={gameState.history.length > 0}
-                            onRequestRewrite={() => processTurn(lastTurn.playerAction || "", true)}
+                            onRequestRewrite={handleRewrite}
                             canCorrect={!!lastTurn.playerAction}
-                            onRequestCorrection={() => processTurn(lastTurn.playerAction || "", false, true)}
+                            onRequestCorrection={handleCorrection}
                         />
                     </div>
                 </footer>
@@ -180,17 +287,17 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 onClose={() => setIsCharPanelOpen(false)}
                 gameState={gameState}
                 finalCoreStats={gameState.coreStats}
-                onStatClick={() => {}} // Placeholder
-                recentlyUpdatedPlayerStats={new Set()} // Placeholder
-                onOpenCreateStatModal={() => {}} // Placeholder
-                onUseSkill={() => {}} // Placeholder
-                onRequestDeleteSkill={() => {}} // Placeholder
-                onRequestEditAbility={() => {}} // Placeholder
-                onOpenPowerCreationModal={() => {}} // Placeholder
+                onStatClick={handleStatClick}
+                recentlyUpdatedPlayerStats={new Set()}
+                onOpenCreateStatModal={() => setIsCreateStatModalOpen(true)}
+                onUseSkill={() => {}} 
+                onRequestDeleteSkill={() => {}}
+                onRequestEditAbility={(skillName, ability) => { setAbilityEditData({ skillName, ability }); setIsAbilityEditModalOpen(true); }}
+                onOpenPowerCreationModal={() => setIsPowerCreationModalOpen(true)}
                 isLoading={isLoading}
-                onEquipItem={() => {}} // Placeholder
-                onUnequipItem={() => {}} // Placeholder
-                onShowAchievement={() => {}} // Placeholder
+                onEquipItem={() => {}}
+                onUnequipItem={() => {}}
+                onShowAchievement={(item) => { setAchievementData(item); setIsAchievementModalOpen(true); }}
             />
             
             <AiControlModal
@@ -200,7 +307,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 onSettingsChange={updateAiSettings}
                 isLoading={isLoading}
                 npcs={gameState.npcs}
-                onExecuteEntityAction={() => {}} // Placeholder
+                onExecuteEntityAction={executeEntityAction}
             />
 
             <InGameMenuModal
@@ -213,6 +320,49 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                     openSettings();
                 }}
                 onExitWithoutSaving={onBackToMenu}
+            />
+
+            <CodexPanel 
+                isOpen={isCodexOpen}
+                onClose={() => setIsCodexOpen(false)}
+                gameState={gameState}
+                onNpcClick={(npc) => { handleStatClick({ name: 'Thông tin NPC', ...npc }, npc.name, 'npc', npc.id) }}
+            />
+
+            <StatDetailModal
+                isOpen={isStatDetailModalOpen}
+                onClose={() => setIsStatDetailModalOpen(false)}
+                stat={statDetailData?.stat || null}
+                ownerName={statDetailData?.ownerName || ''}
+                onSave={() => {}} // Placeholder
+                onDelete={() => {}} // Placeholder
+            />
+            
+            <StatCreationModal 
+                isOpen={isCreateStatModalOpen}
+                onClose={() => setIsCreateStatModalOpen(false)}
+                onSubmit={() => {}} // Placeholder
+            />
+
+            <PowerCreationModal
+                isOpen={isPowerCreationModalOpen}
+                onClose={() => setIsPowerCreationModalOpen(false)}
+                onSubmit={handleCreatePower}
+                isLoading={isSubmitting}
+            />
+
+            <AbilityEditModal
+                isOpen={isAbilityEditModalOpen}
+                onClose={() => setIsAbilityEditModalOpen(false)}
+                abilityData={abilityEditData}
+                onSave={() => {}} // Placeholder
+                isLoading={isSubmitting}
+            />
+            
+            <IllustrationBookModal 
+                isOpen={isAchievementModalOpen}
+                onClose={() => setIsAchievementModalOpen(false)}
+                item={achievementData}
             />
         </>
     );

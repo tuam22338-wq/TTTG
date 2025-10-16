@@ -16,14 +16,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
       onClick={onClose}
     >
       <div 
-        className="bg-neutral-900/80 backdrop-blur-md border border-white/10 rounded-2xl w-full max-w-lg mx-auto my-auto shadow-2xl shadow-black/50 transform transition-all duration-300 ease-out scale-95 animate-scale-in"
+        className="bg-black/40 backdrop-blur-xl border border-neutral-700 rounded-3xl w-full max-w-lg mx-auto my-auto shadow-2xl shadow-purple-900/40 transform transition-all duration-300 ease-out scale-95 animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center p-6 border-b border-white/10">
-          <h2 className="text-2xl font-bold text-white">{title}</h2>
+        <div className="flex justify-between items-center p-6 border-b border-neutral-700">
+          <h2 className="text-2xl font-bold text-white font-rajdhani">{title}</h2>
           <button 
             onClick={onClose}
-            className="text-neutral-400 hover:text-white transition-colors rounded-full p-2 -mr-2 focus:outline-none focus:ring-2 focus:ring-[#e02585]"
+            className="text-neutral-400 hover:text-white transition-colors rounded-full p-2 -mr-2 focus:outline-none focus:ring-2 focus:ring-pink-500"
             aria-label="Đóng"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -31,7 +31,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
             </svg>
           </button>
         </div>
-        <div className="p-6">
+        <div className="modal-content-container">
           {children}
         </div>
       </div>
@@ -42,6 +42,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
         }
         .animate-scale-in {
           animation: scale-in 0.2s ease-out forwards;
+        }
+        .modal-content-container {
+          padding: 1.5rem; /* Equivalent to p-6 */
+        }
+        .modal-content-container:has(.flex.flex-col) {
+          padding: 0;
         }
       `}</style>
     </div>
