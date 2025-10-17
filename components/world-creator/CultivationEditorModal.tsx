@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { WorldCreationState, CultivationSystemSettings, CultivationMainTier, CultivationSubTier, CultivationStatBonus } from '../../types';
 import Button from '../ui/Button';
 import InputField from '../ui/InputField';
@@ -6,6 +6,7 @@ import TextareaField from '../ui/TextareaField';
 import StatBonusModal from './StatBonusModal';
 import { STAT_BONUS_OPTIONS } from './StatBonusModal';
 import ChevronIcon from '../icons/ChevronIcon';
+import { allCultivationTemplates } from '../../services/cultivationTemplates';
 
 
 interface CultivationEditorModalProps {
@@ -24,7 +25,24 @@ const TrashIcon: React.FC = () => (
 const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen, onClose, state, setState }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [isStatBonusModalOpen, setIsStatBonusModalOpen] = useState(false);
-    const [currentTargetTierId, setCurrentTargetTierId] = useState<string | null>(null);
+    const [bonusTarget, setBonusTarget] = useState<{ mainTierId: string; subTierId?: string } | null>(null);
+
+    const currentTemplateId = useMemo(() => {
+        const currentSystemString = JSON.stringify(state.cultivationSystem);
+        for (const template of allCultivationTemplates) {
+            if (JSON.stringify(template.system) === currentSystemString) {
+                return template.id;
+            }
+        }
+        return 'custom';
+    }, [state.cultivationSystem]);
+
+    const handleSelectTemplate = (templateId: string) => {
+        const template = allCultivationTemplates.find(t => t.id === templateId);
+        if (template) {
+            setState(s => ({ ...s, cultivationSystem: JSON.parse(JSON.stringify(template.system)) }));
+        }
+    };
 
     const handleSystemChange = (field: keyof CultivationSystemSettings, value: string) => {
         setState(s => ({
@@ -76,7 +94,7 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
     };
 
     const handleAddSubTier = (mainTierId: string) => {
-        const newSubTier: CultivationSubTier = { id: `sub_${Date.now()}`, name: '' };
+        const newSubTier: CultivationSubTier = { id: `sub_${Date.now()}`, name: '', statBonuses: [] };
         setState(s => ({
             ...s,
             cultivationSystem: {
@@ -112,22 +130,38 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
         }));
     };
 
-    const handleOpenStatBonusModal = (mainTierId: string) => {
-        setCurrentTargetTierId(mainTierId);
+    const handleOpenStatBonusModal = (mainTierId: string, subTierId?: string) => {
+        setBonusTarget({ mainTierId, subTierId });
         setIsStatBonusModalOpen(true);
     };
     
     const handleAddStatBonus = (bonus: CultivationStatBonus) => {
-        if (!currentTargetTierId) return;
-        setState(s => ({
-            ...s,
-            cultivationSystem: {
-                ...s.cultivationSystem,
-                mainTiers: s.cultivationSystem.mainTiers.map(t => 
-                    t.id === currentTargetTierId ? { ...t, statBonuses: [...t.statBonuses, bonus] } : t
-                )
-            }
-        }));
+        if (!bonusTarget) return;
+
+        setState(s => {
+            const newMainTiers = s.cultivationSystem.mainTiers.map(tier => {
+                if (tier.id === bonusTarget.mainTierId) {
+                    if (bonusTarget.subTierId) {
+                        // Add to sub-tier
+                        const newSubTiers = tier.subTiers.map(sub => {
+                            if (sub.id === bonusTarget.subTierId) {
+                                return { ...sub, statBonuses: [...(sub.statBonuses || []), bonus] };
+                            }
+                            return sub;
+                        });
+                        return { ...tier, subTiers: newSubTiers };
+                    } else {
+                        // Add to main tier
+                        return { ...tier, statBonuses: [...(tier.statBonuses || []), bonus] };
+                    }
+                }
+                return tier;
+            });
+            return {
+                ...s,
+                cultivationSystem: { ...s.cultivationSystem, mainTiers: newMainTiers }
+            };
+        });
     };
 
     const handleRemoveStatBonus = (mainTierId: string, bonusIndex: number) => {
@@ -141,6 +175,26 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
             }
         }));
     };
+    
+    const handleRemoveSubTierStatBonus = (mainTierId: string, subTierId: string, bonusIndex: number) => {
+        setState(s => ({
+            ...s,
+            cultivationSystem: {
+                ...s.cultivationSystem,
+                mainTiers: s.cultivationSystem.mainTiers.map(t => 
+                    t.id === mainTierId ? { 
+                        ...t, 
+                        subTiers: t.subTiers.map(st => 
+                            st.id === subTierId ? {
+                                ...st, 
+                                statBonuses: (st.statBonuses || []).filter((_, i) => i !== bonusIndex)
+                            } : st
+                        ) 
+                    } : t
+                )
+            }
+        }));
+    };
 
 
     if (!isOpen) return null;
@@ -149,7 +203,7 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
         <>
             <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-start p-4 sm:p-6 md:p-8 animate-fade-in-fast overflow-y-auto">
                 <div 
-                    className="bg-neutral-900 backdrop-blur-xl border-2 border-neutral-700 shadow-2xl rounded-2xl w-full max-w-4xl h-auto md:h-[90vh] my-auto flex flex-col"
+                    className="bg-neutral-900 backdrop-blur-xl border-2 border-neutral-700 shadow-2xl rounded-2xl w-full max-w-4xl h-auto md:max-h-[90vh] my-auto flex flex-col"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <header className="flex-shrink-0 p-6 text-center border-b-2 border-neutral-800">
@@ -162,6 +216,18 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
                         <section className="bg-neutral-800/50 p-4 rounded-lg">
                              <h3 className="text-xl font-bold text-neutral-100 mb-3">Thông Tin Hệ Thống</h3>
                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="template-select" className="block text-sm font-medium text-neutral-400 mb-2">Mẫu Hệ Thống</label>
+                                    <select 
+                                        id="template-select" 
+                                        onChange={e => handleSelectTemplate(e.target.value)} 
+                                        className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                                        value={currentTemplateId}
+                                    >
+                                        <option value="custom" disabled>-- Tự định nghĩa --</option>
+                                        {allCultivationTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
                                 <InputField id="sys-name" label="Tên Hệ Thống" placeholder="VD: Hệ Thống Hồn Sư" value={state.cultivationSystem.systemName} onChange={e => handleSystemChange('systemName', e.target.value)} />
                                 <InputField id="sys-resource" label="Tên Tài Nguyên" placeholder="VD: Hồn Lực" value={state.cultivationSystem.resourceName} onChange={e => handleSystemChange('resourceName', e.target.value)} />
                                 <InputField id="sys-unit" label="Đơn Vị" placeholder="VD: năm, cấp" value={state.cultivationSystem.unitName} onChange={e => handleSystemChange('unitName', e.target.value)} />
@@ -192,11 +258,26 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
                                                 
                                                 <div>
                                                     <h4 className="text-sm font-semibold text-neutral-400 mb-2">Cấp Bậc Nhỏ</h4>
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-3">
                                                         {tier.subTiers.map(sub => (
-                                                            <div key={sub.id} className="flex items-center gap-2">
-                                                                <InputField value={sub.name} onChange={e => handleSubTierChange(tier.id, sub.id, e.target.value)} id={`sub-name-${sub.id}`} placeholder="VD: Sơ kỳ, Trung kỳ..." className="!py-1.5 flex-grow"/>
-                                                                <button onClick={() => handleRemoveSubTier(tier.id, sub.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full"><TrashIcon /></button>
+                                                            <div key={sub.id} className="p-2 bg-black/20 rounded-md border border-neutral-800">
+                                                                <div className="flex items-center gap-2">
+                                                                    <InputField value={sub.name} onChange={e => handleSubTierChange(tier.id, sub.id, e.target.value)} id={`sub-name-${sub.id}`} placeholder="VD: Sơ kỳ, Trung kỳ..." className="!py-1.5 flex-grow"/>
+                                                                    <button onClick={() => handleRemoveSubTier(tier.id, sub.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full"><TrashIcon /></button>
+                                                                </div>
+                                                                <div className="mt-2 pl-2">
+                                                                     <h5 className="text-xs font-semibold text-neutral-500 mb-1">Thuộc tính cộng thêm</h5>
+                                                                     <div className="space-y-1">
+                                                                        {(sub.statBonuses || []).length === 0 && <p className="text-xs text-gray-600 italic">Không có.</p>}
+                                                                        {(sub.statBonuses || []).map((bonus, index) => (
+                                                                            <div key={index} className="flex justify-between items-center bg-black/20 px-2 py-0.5 rounded text-xs">
+                                                                                <span className="text-green-400">{STAT_BONUS_OPTIONS.find(o => o.value === bonus.stat)?.label || bonus.stat}: +{bonus.value}</span>
+                                                                                <button onClick={() => handleRemoveSubTierStatBonus(tier.id, sub.id, index)} className="p-1 text-gray-500 hover:text-red-500"><TrashIcon /></button>
+                                                                            </div>
+                                                                        ))}
+                                                                     </div>
+                                                                     <button onClick={() => handleOpenStatBonusModal(tier.id, sub.id)} className="w-full rounded-md transition-colors duration-200 ease-in-out py-0.5 text-xs border border-dashed border-neutral-600 text-neutral-500 hover:bg-neutral-700/50 hover:text-white hover:border-neutral-500 hover:border-solid font-semibold mt-2">+ Cộng</button>
+                                                                </div>
                                                             </div>
                                                         ))}
                                                         <button onClick={() => handleAddSubTier(tier.id)} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-1 text-xs border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-neutral-700/50 hover:text-white hover:border-neutral-500 hover:border-solid font-semibold">+ Thêm Cấp Bậc Nhỏ</button>
@@ -204,7 +285,7 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
                                                 </div>
 
                                                 <div>
-                                                    <h4 className="text-sm font-semibold text-neutral-400 mb-2">Thuộc Tính Cộng Thêm (Khi đạt cấp này)</h4>
+                                                    <h4 className="text-sm font-semibold text-neutral-400 mb-2">Thuộc Tính Cộng Thêm (Khi đột phá Đại cảnh giới)</h4>
                                                     <div className="space-y-1">
                                                         {tier.statBonuses.length === 0 && <p className="text-xs text-gray-500 italic">Không có.</p>}
                                                         {tier.statBonuses.map((bonus, index) => (

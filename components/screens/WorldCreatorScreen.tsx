@@ -190,7 +190,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
     );
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 md:p-8">
+    <div className="flex flex-col items-center justify-center h-full p-4 sm:p-6 md:p-8">
        <style>{`
         @keyframes content-fade-in {
           from { opacity: 0; transform: translateY(-10px); }
@@ -201,7 +201,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
         }
        `}</style>
       
-       <div className="relative z-10 w-full max-w-4xl h-[90vh] bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 p-4 sm:p-8 flex flex-col">
+       <div className="relative z-10 w-full max-w-4xl max-h-[90vh] bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 p-4 sm:p-8 flex flex-col">
           <header className="flex justify-between items-center mb-4 flex-shrink-0">
               <button onClick={onBackToMenu} className="p-2 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="Quay lại">
                   <ArrowLeftIcon className="h-6 w-6" />

@@ -26,6 +26,7 @@ import * as GeminiStorytellerService from '../services/GeminiStorytellerService'
 import * as GameSaveService from '../services/GameSaveService';
 import { GoogleGenAI } from '@google/genai';
 import { AiModelSettings, SafetySettings } from '../types';
+import { ApiClient } from '../services/gemini/client';
 
 const INITIAL_AI_SETTINGS: AiSettings = {
     isLogicModeOn: true,
@@ -73,7 +74,7 @@ function getInitialCoreStats(worldState: WorldCreationState): CharacterCoreStats
 
 export function useGameEngine(
     initialData: WorldCreationState | GameState,
-    geminiService: GoogleGenAI | null,
+    apiClient: ApiClient,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings
 ) {
@@ -85,7 +86,7 @@ export function useGameEngine(
     const [showIntroductoryModal, setShowIntroductoryModal] = useState(false);
 
     const initializeGame = useCallback(async (worldState: WorldCreationState) => {
-        if (!geminiService) {
+        if (!apiClient.getApiClient()) {
             setError("Lỗi: Dịch vụ AI chưa được khởi tạo.");
             setIsLoading(false);
             return;
@@ -100,7 +101,7 @@ export function useGameEngine(
                 presentNpcIds,
                 summaryText,
                 initialInventory,
-            } = await GeminiStorytellerService.initializeStory(worldState, geminiService, aiModelSettings, safetySettings);
+            } = await GeminiStorytellerService.initializeStory(worldState, apiClient, aiModelSettings, safetySettings);
 
             const initialCoreStats = getInitialCoreStats(worldState);
             
@@ -139,7 +140,7 @@ export function useGameEngine(
         } finally {
             setIsLoading(false);
         }
-    }, [geminiService, aiModelSettings, safetySettings]);
+    }, [apiClient, aiModelSettings, safetySettings]);
 
     useEffect(() => {
         if ('history' in initialData) {
@@ -263,7 +264,7 @@ export function useGameEngine(
     };
 
     const processTurn = async (choice: string, isRewrite: boolean = false, isCorrection: boolean = false) => {
-        if (!gameState || !geminiService) {
+        if (!gameState || !apiClient.getApiClient()) {
             setError("Trạng thái game hoặc dịch vụ AI không hợp lệ.");
             return;
         }
@@ -325,7 +326,7 @@ export function useGameEngine(
                 combatantNpcIds,
                 totalTokens
             } = await GeminiStorytellerService.continueStory(
-                gameState, choice, geminiService,
+                gameState, choice, apiClient,
                 gameState.aiSettings.isLogicModeOn, gameState.aiSettings.lustModeFlavor,
                 gameState.aiSettings.npcMindset, gameState.aiSettings.isConscienceModeOn,
                 gameState.aiSettings.isStrictInterpretationOn, gameState.aiSettings.destinyCompassMode,

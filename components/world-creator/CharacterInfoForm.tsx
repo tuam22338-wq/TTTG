@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { WorldCreationState, CharacterSkillInput } from '../../types';
 import FormSection from './FormSection';
@@ -26,14 +25,15 @@ const TrashIcon: React.FC = () => (
 const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, settingsHook }) => {
     const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
     const [expandedSkills, setExpandedSkills] = useState<Set<string>>(new Set());
-    const { geminiService, settings } = settingsHook;
+    const { settings, getApiClient, cycleToNextApiKey, apiStats } = settingsHook;
+    const apiClient = { getApiClient, cycleToNextApiKey, apiStats };
     
     const handleCharacterChange = (field: keyof WorldCreationState['character'], value: any) => {
         setState(s => ({ ...s, character: { ...s.character, [field]: value } }));
     };
 
     const handleGenerateBiography = async () => {
-         if (!geminiService) {
+         if (!getApiClient()) {
             alert("Dịch vụ AI chưa sẵn sàng.");
             return;
         }
@@ -98,16 +98,8 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
                 { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ] : [];
 
-            const response = await geminiService.models.generateContent({
-                model: settings.aiModelSettings.model,
-                contents: prompt,
-                config: {
-                    safetySettings: safetySettingsConfig,
-                    temperature: settings.aiModelSettings.temperature,
-                    topP: settings.aiModelSettings.topP,
-                    topK: settings.aiModelSettings.topK,
-                },
-            });
+            const response = await client.callCreativeTextAI(prompt, apiClient, settings.aiModelSettings, safetySettingsConfig);
+            
             const text = response.text;
             handleCharacterChange('biography', text);
         } catch (error) {
@@ -158,7 +150,7 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
     };
 
     const handleGenerateSkillComponent = async (id: string, type: 'description' | 'effect') => {
-        if (!geminiService) {
+        if (!getApiClient()) {
             alert("Dịch vụ AI chưa sẵn sàng.");
             return;
         }
@@ -186,7 +178,7 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
         try {
             const result = await client.callCreativeTextAI(
                 prompt, 
-                geminiService, 
+                apiClient, 
                 settings.aiModelSettings,
                 state.isNsfw ? [
                     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },

@@ -91,7 +91,7 @@ const RangeSlider: React.FC<{
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settingsHook }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('interface');
-    const { settings, setSettings, setApiKeySource, setCustomApiKeys, updateAiModelSetting, updateAudioSetting, updateSafetySetting, isKeyConfigured, resetSettings } = settingsHook;
+    const { settings, setSettings, setApiKeySource, setCustomApiKeys, updateAiModelSetting, updateAudioSetting, updateSafetySetting, isKeyConfigured, resetSettings, apiStats } = settingsHook;
     
     const handleAddKey = () => setCustomApiKeys([...settings.customApiKeys, '']);
     const handleKeyChange = (index: number, value: string) => {
@@ -165,6 +165,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                     )}
                     {activeTab === 'ai_model' && (
                         <div className="space-y-6 animate-fade-in-fast">
+                             <div>
+                                <h3 className="text-lg font-bold text-white mb-2">Thống Kê API</h3>
+                                <div className="p-3 bg-black/30 rounded-lg space-y-2 border border-neutral-700">
+                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Keys / Active:</span> <span className="font-mono font-bold text-cyan-400">{apiStats.totalKeys} / {apiStats.activeKeys}</span></div>
+                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Usage:</span> <span className="font-mono font-bold">{apiStats.totalUsage}</span></div>
+                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Lỗi:</span> <span className={`font-mono font-bold ${apiStats.totalErrors > 0 ? 'text-red-400' : 'text-green-400'}`}>{apiStats.totalErrors}</span></div>
+                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Queue / Active:</span> <span className="font-mono font-bold text-yellow-400">{apiStats.activeRequests}</span></div>
+                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Avg. Response Time:</span> <span className="font-mono font-bold text-purple-400">{apiStats.avgResponseTime}ms</span></div>
+                                    <Button onClick={apiStats.resetStats} variant="secondary" className="w-full !text-xs !py-1 mt-2">Reset Thống Kê</Button>
+                                </div>
+                            </div>
                             <div>
                                 <h3 className="text-lg font-bold text-white mb-2">Nguồn Khóa API</h3>
                                 <div className="flex gap-2 rounded-lg bg-black/30 p-1">
@@ -197,7 +208,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                     <label htmlFor="topk-input" className="block text-sm font-medium text-neutral-300 mb-1">Top-K</label>
                                     <InputField id="topk-input" type="number" value={settings.aiModelSettings.topK} onChange={e => updateAiModelSetting('topK', parseInt(e.target.value) || 0)} />
                                 </div>
-                                <RangeSlider label="Độ dài Phản hồi Tối đa" id="tokens-slider" min={100} max={5000} step={100} value={settings.aiModelSettings.maxOutputTokens} onChange={e => updateAiModelSetting('maxOutputTokens', parseInt(e.target.value))} unit=" tokens" />
+                                <RangeSlider
+                                    label="Độ dài Phản hồi Tối đa"
+                                    id="words-slider"
+                                    min={100}
+                                    max={4000}
+                                    step={50}
+                                    value={Math.round(settings.aiModelSettings.maxOutputTokens / 1.5)}
+                                    onChange={e => updateAiModelSetting('maxOutputTokens', Math.round(parseInt(e.target.value, 10) * 1.5))}
+                                    unit=" từ"
+                                />
                                 <RangeSlider label="Thinking Budget" id="thinking-slider" min={0} max={16000} step={100} value={settings.aiModelSettings.thinkingBudget} onChange={e => updateAiModelSetting('thinkingBudget', parseInt(e.target.value))} unit=" tokens" />
                             </div>
                         </div>

@@ -59,6 +59,20 @@ const CombatScreen: React.FC<CombatScreenProps> = ({ gameState, endCombat, isLoa
     const enemies = useMemo(() => combatants.filter(c => c.type === 'ENEMY'), [combatants]);
     
     useEffect(() => {
+        document.body.style.backgroundImage = "url('https://raw.githubusercontent.com/caobababacao/IMG_Game/d60d4a80849a1a7a6a6b44ed8781edd02fe37ad8/IMG_BackG/Nen_COMBAT.jpg')";
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+        document.body.style.backgroundColor = 'black';
+    
+        return () => {
+            document.body.style.backgroundImage = 'none';
+            document.body.style.backgroundSize = '';
+            document.body.style.backgroundPosition = '';
+            // GameScreen's useEffect will still be active, resetting the color back to neutral-900
+        };
+    }, []);
+
+    useEffect(() => {
         const sorted = [...combatants].sort((a, b) => b.agi - a.agi).map(c => c.id);
         setTurnOrder(sorted);
         setSelectedTargetId(enemies.find(e => e.hp > 0)?.id || null);
@@ -565,7 +579,7 @@ const CombatScreen: React.FC<CombatScreenProps> = ({ gameState, endCombat, isLoa
     }
 
     return (
-        <div className="relative h-screen bg-black text-white flex flex-col p-4 overflow-hidden bg-cover bg-center" style={{backgroundImage: "url('https://raw.githubusercontent.com/caobababacao/IMG_Game/d60d4a80849a1a7a6a6b44ed8781edd02fe37ad8/IMG_BackG/Nen_COMBAT.jpg')"}}>
+        <div className="relative h-full text-white flex flex-col p-4 overflow-hidden">
             <div className="absolute inset-0 bg-black/80"></div>
 
             <div className="relative flex-grow grid grid-cols-3 gap-4 h-full">

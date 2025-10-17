@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { Settings, ApiKeySource, AiModelSettings, AudioSettings, SafetySettings, NarrativePerspective, GeminiModel } from '../types';
+import { useApiStats } from './useApiStats';
 
 const defaultAiModelSettings: AiModelSettings = {
   model: 'gemini-2.5-flash',
   temperature: 0.8,
   topK: 40,
   topP: 0.95,
-  maxOutputTokens: 2048,
+  maxOutputTokens: 2250,
   thinkingBudget: 1000,
   autoRotateModels: true,
   rotationDelay: 0,
@@ -104,6 +105,8 @@ export function useSettings() {
     return defaultSettings;
   });
 
+  const apiStats = useApiStats();
+
   useEffect(() => {
     try {
       localStorage.setItem('appSettings', JSON.stringify(settings));
@@ -111,6 +114,11 @@ export function useSettings() {
       console.error("Failed to save settings to localStorage", error);
     }
   }, [settings]);
+
+   useEffect(() => {
+    const validKeys = settings.customApiKeys.filter(k => k.trim() !== '');
+    apiStats.setKeyCounts(settings.customApiKeys.length, validKeys.length);
+  }, [settings.customApiKeys, apiStats.setKeyCounts]);
   
   const updateSettings = (update: Partial<Settings>) => {
     setSettings(prev => ({ ...prev, ...update }));
@@ -157,14 +165,14 @@ export function useSettings() {
     });
   };
 
-  const rotateApiKey = useCallback(() => {
+  const cycleToNextApiKey = useCallback(() => {
     setSettings(prev => {
       const validKeys = prev.customApiKeys.filter(k => k.trim() !== '');
-      if (prev.apiKeySource !== ApiKeySource.CUSTOM || validKeys.length <= 1) {
+      if (prev.apiKeySource !== ApiKeySource.CUSTOM || validKeys.length === 0) {
         return prev;
       }
-      const nextIndex = (prev.currentApiKeyIndex + 1) % prev.customApiKeys.length;
-      console.log(`Rotating API key from index ${prev.currentApiKeyIndex} to ${nextIndex}`);
+      const nextIndex = (prev.currentApiKeyIndex + 1) % validKeys.length;
+      console.log(`Cycling API key to index ${nextIndex}`);
       return { ...prev, currentApiKeyIndex: nextIndex };
     });
   }, []);
@@ -175,18 +183,30 @@ export function useSettings() {
     }
   }, []);
   
-  const effectiveApiKey = useMemo(() => {
+  const getApiClient = useCallback(() => {
+    let apiKey: string | undefined;
     if (settings.apiKeySource === ApiKeySource.CUSTOM) {
-        const keys = settings.customApiKeys;
-        const index = settings.currentApiKeyIndex;
-        if (keys && keys.length > 0 && index >= 0 && index < keys.length) {
-            return keys[index];
+        const validKeys = settings.customApiKeys.filter(k => k.trim() !== '');
+        if (validKeys.length > 0) {
+            apiKey = validKeys[settings.currentApiKeyIndex];
         }
-        return '';
+    } else {
+        apiKey = process.env.API_KEY;
     }
-    return process.env.API_KEY;
-  }, [settings]);
-  
+    
+    if (!apiKey) {
+        console.error("No valid API key available to create a client.");
+        return null;
+    }
+
+    try {
+        return new GoogleGenAI({ apiKey });
+    } catch (error) {
+        console.error("Failed to initialize Gemini AI Client:", error);
+        return null;
+    }
+  }, [settings.apiKeySource, settings.customApiKeys, settings.currentApiKeyIndex]);
+
   const isKeyConfigured = useMemo(() => {
       if (settings.apiKeySource === ApiKeySource.DEFAULT) {
           return !!process.env.API_KEY;
@@ -194,30 +214,18 @@ export function useSettings() {
       return settings.customApiKeys.some(key => !!key.trim());
   }, [settings]);
 
-  const geminiService = useMemo(() => {
-    if (!effectiveApiKey) {
-      return null;
-    }
-    try {
-      return new GoogleGenAI({ apiKey: effectiveApiKey });
-    } catch (error) {
-      console.error("Failed to initialize Gemini AI Client:", error);
-      return null;
-    }
-  }, [effectiveApiKey]);
-
   return {
     settings,
     setSettings,
     setApiKeySource,
     setCustomApiKeys,
-    rotateApiKey,
+    cycleToNextApiKey,
     updateAiModelSetting,
     updateAudioSetting,
     updateSafetySetting,
     resetSettings,
-    effectiveApiKey,
     isKeyConfigured,
-    geminiService,
+    getApiClient,
+    apiStats,
   };
 }

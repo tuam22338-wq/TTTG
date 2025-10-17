@@ -119,6 +119,7 @@ export interface CultivationStatBonus {
 export interface CultivationSubTier {
     id: string;
     name: string;
+    statBonuses?: CultivationStatBonus[];
 }
 
 export interface CultivationMainTier {

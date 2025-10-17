@@ -86,16 +86,16 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick,
         const dynamicStatuses: (CharacterStat & { name: string })[] = [];
         const allStatKeys = gameState.playerStatOrder || Object.keys(gameState.playerStats);
 
+        // FIX: Add type guard to safely handle malformed stat data. This prevents errors when iterating
+        // over playerStats which might contain non-object values or objects missing required properties like 'type'.
         for (const key of allStatKeys) {
             const stat = gameState.playerStats[key];
             const definition = customAttrMap.get(key);
             
-            // FIX: To resolve "Property 'type' does not exist on type 'unknown'", a robust type guard is added.
-            // Malformed save data from localStorage can cause runtime objects to not match their static types.
-            // This strengthened type guard validates that `stat` is a well-formed object with the necessary
-            // properties ('type', 'description') before it's processed.
-            if (stat && typeof stat === 'object' && stat !== null && 'type' in stat && 'description' in stat && (!definition || definition.type !== AttributeType.INFORMATIONAL)) {
-                dynamicStatuses.push({ name: key, ...(stat as CharacterStat) });
+            if (stat && typeof stat === 'object' && stat !== null && 'type' in stat && 'description' in stat) {
+                if (!definition || definition.type !== AttributeType.INFORMATIONAL) {
+                    dynamicStatuses.push({ name: key, ...(stat as CharacterStat) });
+                }
             }
         }
         return { primaryAttributes, informationalAttributes, dynamicStatuses };
@@ -111,7 +111,7 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick,
     };
 
     const character = gameState.worldContext.character;
-    const age = gameState.playerStats['Tuổi']?.description || 'Chưa rõ';
+    const age = (gameState.playerStats['Tuổi'] as CharacterStat)?.description || 'Chưa rõ';
     const bioSnippet = character.biography.split('.').slice(0, 2).join('.') + (character.biography.includes('.') ? '.' : '');
     const gender = character.gender === 'Tự định nghĩa' ? character.customGender : character.gender;
 
@@ -164,7 +164,7 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick,
                                  <StatGridItem
                                     key={attr.id}
                                     label={attr.name}
-                                    value={gameState.playerStats[attr.id]?.description || String(attr.baseValue)}
+                                    value={(gameState.playerStats[attr.id] as CharacterStat)?.description || String(attr.baseValue)}
                                     icon={<GetIconComponent name={attr.icon} className="w-5 h-5" />}
                                     title={attr.description}
                                 />

@@ -1,17 +1,81 @@
-
-import { GameState } from '../types';
+import { GameState, AiSettings, GameTime, CultivationState } from '../types';
 
 const MANUAL_SAVE_KEY = 'BMS_TG_ManualSaveData';
 const AUTO_SAVE_KEY = 'BMS_TG_AutoSaveData';
 
+const DEFAULT_AI_SETTINGS: AiSettings = {
+    isLogicModeOn: true,
+    lustModeFlavor: null,
+    isConscienceModeOn: false,
+    isStrictInterpretationOn: false,
+    destinyCompassMode: 'NORMAL',
+    npcMindset: 'DEFAULT',
+    flowOfDestinyInterval: null,
+    authorsMandate: [],
+    isTurnBasedCombat: true,
+};
+const DEFAULT_TIME: GameTime = { day: 1, hour: 8, minute: 0, season: 'Xuân', weather: 'Quang đãng' };
+const DEFAULT_CULTIVATION: CultivationState = { level: 1, exp: 0, expToNextLevel: 100 };
+
 function validateAndHydrateGameState(parsedState: any): GameState | null {
-  // Basic validation
   if (parsedState && parsedState.history && parsedState.playerStats && parsedState.worldContext) {
-    // Ensure npcs array exists for backward compatibility
-    if (!Array.isArray(parsedState.npcs)) {
-      parsedState.npcs = [];
+    const hydratedState = { ...parsedState };
+
+    // --- Hydrate missing root-level properties ---
+    hydratedState.npcs = Array.isArray(parsedState.npcs) ? parsedState.npcs : [];
+    hydratedState.playerSkills = Array.isArray(parsedState.playerSkills) ? parsedState.playerSkills : [];
+    hydratedState.playerStatOrder = Array.isArray(parsedState.playerStatOrder) ? parsedState.playerStatOrder : [];
+    hydratedState.chronicle = Array.isArray(parsedState.chronicle) ? parsedState.chronicle : [];
+    hydratedState.combatants = Array.isArray(parsedState.combatants) ? parsedState.combatants : [];
+    hydratedState.isInCombat = typeof parsedState.isInCombat === 'boolean' ? parsedState.isInCombat : false;
+
+    // AI Settings
+    hydratedState.aiSettings = { ...DEFAULT_AI_SETTINGS, ...(parsedState.aiSettings || {}) };
+    hydratedState.aiSettings.authorsMandate = Array.isArray(hydratedState.aiSettings.authorsMandate) ? hydratedState.aiSettings.authorsMandate : [];
+
+    // Time
+    hydratedState.time = { ...DEFAULT_TIME, ...(parsedState.time || {}) };
+
+    // Cultivation
+    hydratedState.cultivation = { ...DEFAULT_CULTIVATION, ...(parsedState.cultivation || {}) };
+
+    // Inventory & Equipment
+    if (!parsedState.inventory) {
+      hydratedState.inventory = { items: [], capacity: 50, maxWeight: 25 };
+    } else {
+      hydratedState.inventory.items = Array.isArray(parsedState.inventory.items) ? parsedState.inventory.items : [];
     }
-    return parsedState as GameState;
+    if (!parsedState.equipment) {
+      hydratedState.equipment = { WEAPON: null, HEAD: null, CHEST: null, LEGS: null, HANDS: null, FEET: null };
+    }
+    
+    // Core Stats
+    hydratedState.coreStats = parsedState.coreStats || {};
+    
+    // World Context sub-properties
+    if (hydratedState.worldContext) {
+        hydratedState.worldContext.initialFactions = Array.isArray(hydratedState.worldContext.initialFactions) ? hydratedState.worldContext.initialFactions : [];
+        hydratedState.worldContext.initialNpcs = Array.isArray(hydratedState.worldContext.initialNpcs) ? hydratedState.worldContext.initialNpcs : [];
+        hydratedState.worldContext.specialRules = Array.isArray(hydratedState.worldContext.specialRules) ? hydratedState.worldContext.specialRules : [];
+        hydratedState.worldContext.initialLore = Array.isArray(hydratedState.worldContext.initialLore) ? hydratedState.worldContext.initialLore : [];
+        if (hydratedState.worldContext.character) {
+             hydratedState.worldContext.character.skills = Array.isArray(hydratedState.worldContext.character.skills) ? hydratedState.worldContext.character.skills : [];
+        }
+        if (hydratedState.worldContext.cultivationSystem && hydratedState.worldContext.cultivationSystem.mainTiers) {
+            hydratedState.worldContext.cultivationSystem.mainTiers = hydratedState.worldContext.cultivationSystem.mainTiers.map((mainTier: any) => {
+                const newMainTier = { ...mainTier };
+                newMainTier.statBonuses = Array.isArray(newMainTier.statBonuses) ? newMainTier.statBonuses : [];
+                newMainTier.subTiers = (newMainTier.subTiers || []).map((subTier: any) => {
+                    const newSubTier = { ...subTier };
+                    newSubTier.statBonuses = Array.isArray(newSubTier.statBonuses) ? newSubTier.statBonuses : [];
+                    return newSubTier;
+                });
+                return newMainTier;
+            });
+        }
+    }
+
+    return hydratedState as GameState;
   }
   return null;
 }

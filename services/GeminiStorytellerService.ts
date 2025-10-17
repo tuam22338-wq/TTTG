@@ -56,7 +56,7 @@ export async function generateSkillFromUserInput(
     name: string,
     description: string,
     worldContext: WorldCreationState,
-    geminiService: GoogleGenAI,
+    apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings
 ): Promise<Skill> {
@@ -65,7 +65,7 @@ export async function generateSkillFromUserInput(
         .replace('{SKILL_NAME_PLACEHOLDER}', name)
         .replace('{SKILL_DESCRIPTION_PLACEHOLDER}', description);
 
-    const result = await client.callJsonAI(prompt, schemas.skillSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+    const result = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
     const skill = client.parseAndValidateJsonResponse(result.text);
 
     // Ensure the name matches the user's input, as the AI might change it slightly.
@@ -78,7 +78,7 @@ export async function generateSkillFromUserInput(
 export async function generateSkillFromStat(
     statName: string, 
     worldContext: WorldCreationState, 
-    geminiService: GoogleGenAI,
+    apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings
 ): Promise<Skill> {
@@ -86,7 +86,7 @@ export async function generateSkillFromStat(
         .replace('{WORLD_CONTEXT_PLACEHOLDER}', worldContext.description)
         .replace('{STAT_NAME_PLACEHOLDER}', statName);
     
-    const result = await client.callJsonAI(prompt, schemas.skillSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+    const result = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
     const skill = client.parseAndValidateJsonResponse(result.text);
 
     // Ensure the name matches, sometimes AI might change it slightly
@@ -97,7 +97,7 @@ export async function generateSkillFromStat(
 
 export async function initializeStory(
     worldState: WorldCreationState, 
-    geminiService: GoogleGenAI,
+    apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings
 ): Promise<{
@@ -171,7 +171,7 @@ Bắt đầu cuộc phiêu lưu.
 
     console.debug("Initializing story with custom token limit:", initialModelSettings.maxOutputTokens);
 
-    const result = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, geminiService, initialModelSettings, getSafetySettings(safetySettings));
+    const result = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, initialModelSettings, getSafetySettings(safetySettings));
     const aiResponse = client.parseAndValidateJsonResponse(result.text);
 
     return {
@@ -196,7 +196,7 @@ Bắt đầu cuộc phiêu lưu.
 export async function continueStory(
     gameState: GameState,
     choice: string,
-    geminiService: GoogleGenAI,
+    apiClient: client.ApiClient,
     isLogicModeOn: boolean,
     lustModeFlavor: LustModeFlavor | null,
     npcMindset: NpcMindset,
@@ -282,7 +282,7 @@ ${choice}
 
     let fullResponseText = '';
     let totalTokens = 0;
-    const stream = await client.callJsonAIStream(fullPrompt, schemas.coreLogicSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+    const stream = await client.callJsonAIStream(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
 
     for await (const chunk of stream) {
         const chunkText = chunk.text;
@@ -307,7 +307,7 @@ ${logicAiResponse.storyText}
 **Danh sách NPC hiện diện và tóm tắt cũ:**
 ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt cũ: "${npc.lastInteractionSummary}")`).join('\n')}
 `;
-        const creativeResult = await client.callCreativeTextAI(prompts.CREATIVE_TEXT_SYSTEM_PROMPT + '\n\n' + creativeTextUserPrompt, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+        const creativeResult = await client.callCreativeTextAI(prompts.CREATIVE_TEXT_SYSTEM_PROMPT + '\n\n' + creativeTextUserPrompt, apiClient, aiModelSettings, getSafetySettings(safetySettings));
         const creativeData = client.parseNpcCreativeText(creativeResult.text);
         
         logicAiResponse.npcUpdates = logicAiResponse.npcUpdates.map((update: NPCUpdate) => {
@@ -357,7 +357,7 @@ ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt c�
 
 export async function generateDefeatStory(
     gameState: GameState,
-    geminiService: GoogleGenAI,
+    apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings
 ): Promise<{ newTurn: GameTurn; }> {
@@ -384,7 +384,7 @@ ${JSON.stringify({ ...gameState.coreStats }, null, 2)}
 
     const fullPrompt = prompts.DEFEAT_SYSTEM_PROMPT + '\n\n' + userPrompt;
 
-    const result = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+    const result = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
     const aiResponse = client.parseAndValidateJsonResponse(result.text);
 
     return {
@@ -400,14 +400,14 @@ ${JSON.stringify({ ...gameState.coreStats }, null, 2)}
 export async function refineEntityStats(
     statsToRefine: CharacterStats,
     worldContext: WorldCreationState,
-    geminiService: GoogleGenAI,
+    apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings
 ): Promise<StatChanges> {
     const prompt = prompts.STAT_REFINEMENT_SYSTEM_PROMPT
         .replace('{STATS_JSON_PLACEHOLDER}', JSON.stringify(statsToRefine, null, 2));
 
-    const result = await client.callJsonAI(prompt, schemas.statChangesSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+    const result = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
     const changes = client.parseAndValidateJsonResponse(result.text);
 
     return changes as StatChanges;
@@ -418,7 +418,7 @@ export async function reconstructEntity(
     target: EntityTarget,
     directive: string,
     newPersonality: string | undefined,
-    geminiService: GoogleGenAI,
+    apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings
 ): Promise<StatChanges> {
@@ -441,7 +441,7 @@ export async function reconstructEntity(
         .replace('{OLD_STATS_LIST_PLACEHOLDER}', JSON.stringify(Object.keys(oldStats), null, 2))
         .replace('{USER_DIRECTIVE_PLACEHOLDER}', directive || 'Không có.');
 
-    const result = await client.callJsonAI(prompt, schemas.statChangesSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+    const result = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
     const changes = client.parseAndValidateJsonResponse(result.text);
 
     return changes as StatChanges;
@@ -449,7 +449,7 @@ export async function reconstructEntity(
 
 export async function sanitizeGameState(
     gameState: GameState,
-    geminiService: GoogleGenAI,
+    apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings
 ): Promise<{
@@ -466,7 +466,7 @@ export async function sanitizeGameState(
     const prompt = prompts.GAME_STATE_SANITIZATION_PROMPT
         .replace('{GAME_DATA_JSON_PLACEHOLDER}', JSON.stringify(dataToSanitize, null, 2));
 
-    const result = await client.callJsonAI(prompt, schemas.sanitizedGameStateSchema, geminiService, aiModelSettings, getSafetySettings(safetySettings));
+    const result = await client.callJsonAI(prompt, schemas.sanitizedGameStateSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
     const sanitizedData = client.parseAndValidateJsonResponse(result.text);
 
     return sanitizedData;

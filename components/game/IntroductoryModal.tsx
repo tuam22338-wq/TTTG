@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { WorldCreationState } from '../../types';
 import Button from '../ui/Button';
@@ -22,7 +21,7 @@ const IntroductoryModal: React.FC<IntroductoryModalProps> = ({ isOpen, onClose, 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-start p-4 sm:p-6 md:p-8 animate-fade-in-fast overflow-y-auto">
       <div 
-        className="bg-neutral-900 backdrop-blur-xl border-2 border-neutral-700 shadow-2xl rounded-2xl w-full max-w-6xl h-auto md:h-[90vh] my-auto flex flex-col"
+        className="bg-neutral-900 backdrop-blur-xl border-2 border-neutral-700 shadow-2xl rounded-2xl w-full max-w-6xl h-auto md:max-h-[90vh] my-auto flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex-shrink-0 p-6 text-center border-b-2 border-neutral-800">

@@ -5,37 +5,36 @@ import * as GameSaveService from '../services/GameSaveService';
 import { PlusCircleIcon } from './icons/PlusCircleIcon';
 import { ContinueIcon } from './icons/ContinueIcon';
 import { UploadIcon } from './icons/UploadIcon';
-import { BookIcon } from './icons/BookIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { CogIcon } from './icons/CogIcon';
 import { ChevronRightIcon } from './icons/ChevronRightIcon';
 import { KeyIcon } from './icons/KeyIcon';
 import { DatabaseIcon } from './icons/DatabaseIcon';
 import { GameLogoIcon } from './icons/GameLogoIcon';
+import { HeartIcon } from './icons/HeartIcon';
+import { DiscordIcon } from './icons/DiscordIcon';
 
 
 interface MainMenuProps {
   onStart: () => void;
-  onContinueManualSave: () => void;
-  onContinueAutoSave: () => void;
-  onSettings: () => void;
-  onShowChangelog: () => void;
+  onContinue: () => void;
   onLoadFromFile: (state: GameState) => void;
-  manualSaveDisabled: boolean;
-  autoSaveDisabled: boolean;
+  onSettings: () => void;
+  onShowInfo: () => void;
+  onShowSupport: () => void;
+  continueDisabled: boolean;
   isKeyConfigured: boolean;
   versionName: string;
 }
 
 const MainMenu: React.FC<MainMenuProps> = ({ 
     onStart, 
-    onContinueManualSave, 
-    onContinueAutoSave, 
+    onContinue,
     onLoadFromFile, 
     onSettings, 
-    onShowChangelog,
-    manualSaveDisabled, 
-    autoSaveDisabled,
+    onShowInfo,
+    onShowSupport,
+    continueDisabled, 
     isKeyConfigured,
     versionName
 }) => {
@@ -67,33 +66,28 @@ const MainMenu: React.FC<MainMenuProps> = ({
     fileInputRef.current?.click();
   };
   
-  const handleOpenGuide = () => {
-    const guideUrl = 'https://docs.google.com/document/d/1xqN7Qmy7XV3X7P0wNjHsZcN-6kxHnPXi-c-FXT5cfuM/edit?tab=t.0';
-    window.open(guideUrl, '_blank', 'noopener,noreferrer');
+  const handleDiscordClick = () => {
+    window.open('https://discord.gg/sPq3Y37eR7', '_blank', 'noopener,noreferrer');
   };
 
   const menuItems = [
     { id: 'start', label: 'Bắt đầu Game Mới', description: 'Tạo một thế giới và nhân vật mới từ đầu.', action: onStart, disabled: false, Icon: PlusCircleIcon },
-    { id: 'continueManual', label: 'Tiếp tục (Lưu & Thoát)', description: 'Tải lại từ điểm bạn đã chủ động lưu và thoát.', action: onContinueManualSave, disabled: manualSaveDisabled, Icon: ContinueIcon },
-    { id: 'continueAuto', label: 'Tiếp tục (Lưu tự động)', description: 'Tải lại từ lượt đi cuối cùng của bạn.', action: onContinueAutoSave, disabled: autoSaveDisabled, Icon: ContinueIcon },
+    { id: 'continue', label: 'Tiếp tục', description: 'Tải lại từ điểm lưu thủ công hoặc tự động.', action: onContinue, disabled: continueDisabled, Icon: ContinueIcon },
     { id: 'load', label: 'Tải game từ file', description: 'Tải một file save (.json) từ máy tính của bạn.', action: triggerFileLoad, disabled: false, Icon: UploadIcon },
-    { id: 'guide', label: 'Hướng dẫn', description: 'Mở tài liệu hướng dẫn chi tiết về cách chơi.', action: handleOpenGuide, disabled: false, Icon: BookIcon },
-    { id: 'changelog', label: 'Thông Tin Cập nhật', description: 'Xem các tính năng và sửa lỗi mới nhất.', action: onShowChangelog, disabled: false, Icon: InfoIcon },
+    { id: 'info', label: 'Thông tin', description: 'Hiển thị thông tin về nhà phát triển dự án.', action: onShowInfo, disabled: false, Icon: InfoIcon },
+    { id: 'support', label: 'Ủng hộ', description: 'Ủng hộ dự án nếu bạn cảm thấy nó có giá trị.', action: onShowSupport, disabled: false, Icon: HeartIcon },
+    { id: 'discord', label: 'Discord', description: 'Tham gia cộng đồng Discord của dự án.', action: handleDiscordClick, disabled: false, Icon: DiscordIcon },
     { id: 'settings', label: 'Thiết lập', description: 'Tùy chỉnh khóa API, model AI và các cài đặt khác.', action: onSettings, disabled: false, Icon: CogIcon },
   ];
 
   const storageStatusText = useMemo(() => {
-    const hasManual = !manualSaveDisabled;
-    const hasAuto = !autoSaveDisabled;
-    if (hasManual && hasAuto) return 'Thủ công & Tự động';
-    if (hasManual) return 'Chỉ có Thủ công';
-    if (hasAuto) return 'Chỉ có Tự động';
-    return 'Trống';
-  }, [manualSaveDisabled, autoSaveDisabled]);
+    const hasSave = !continueDisabled;
+    return hasSave ? 'Có Dữ liệu' : 'Trống';
+  }, [continueDisabled]);
 
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen p-4">
+    <div className="relative flex flex-col items-center justify-center h-full p-4">
        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
       
        <div className={`text-center mb-12 transition-all duration-700 ease-out ${isReady ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-5'}`}>

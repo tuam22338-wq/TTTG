@@ -8,6 +8,7 @@ import { UserIcon } from '../icons/UserIcon';
 import { WandIcon } from '../icons/WandIcon';
 import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
 import { ChevronRightIcon } from '../icons/ChevronRightIcon';
+import { getRealmString } from '../../services/CultivationService';
 
 interface CharacterPanelProps {
   isOpen: boolean;
@@ -29,42 +30,6 @@ interface CharacterPanelProps {
 
 type PanelView = 'menu' | 'stats' | 'skills' | 'equipment';
 
-function getRealmStringFromCustomSystem(level: number, worldContext: WorldCreationState): string {
-    if (!worldContext.isCultivationEnabled || !worldContext.cultivationSystem?.mainTiers || worldContext.cultivationSystem.mainTiers.length === 0) {
-        return `Cấp ${level}`;
-    }
-
-    let levelCounter = 1;
-    for (const mainTier of worldContext.cultivationSystem.mainTiers) {
-        if (mainTier.subTiers && mainTier.subTiers.length > 0) {
-            for (const subTier of mainTier.subTiers) {
-                if (levelCounter === level) {
-                    return `${mainTier.name} - ${subTier.name}`;
-                }
-                levelCounter++;
-            }
-        } else {
-            // Main tier without sub-tiers, assume it's one level
-            if (levelCounter === level) {
-                return mainTier.name;
-            }
-            levelCounter++;
-        }
-    }
-    
-    // Fallback if level is higher than defined tiers
-    const lastTier = worldContext.cultivationSystem.mainTiers[worldContext.cultivationSystem.mainTiers.length - 1];
-    if (lastTier) {
-        const lastSubTier = lastTier.subTiers.length > 0 ? lastTier.subTiers[lastTier.subTiers.length - 1] : null;
-        if (lastSubTier) {
-             return `${lastTier.name} - ${lastSubTier.name} (Đại viên mãn)`;
-        }
-        return `${lastTier.name} (Đại viên mãn)`;
-    }
-
-    return `Cấp ${level}`;
-}
-
 const CharacterPanel: React.FC<CharacterPanelProps> = (props) => {
   const { isOpen, onClose, gameState } = props;
   const [view, setView] = useState<PanelView>('menu');
@@ -78,7 +43,7 @@ const CharacterPanel: React.FC<CharacterPanelProps> = (props) => {
   ];
 
   const currentViewItem = menuItems.find(item => item.id === view);
-  const realmString = getRealmStringFromCustomSystem(gameState.cultivation.level, gameState.worldContext);
+  const realmString = getRealmString(gameState.cultivation.level, gameState.worldContext);
 
   const renderContent = () => {
     switch (view) {
@@ -128,7 +93,7 @@ const CharacterPanel: React.FC<CharacterPanelProps> = (props) => {
   return (
     <div className="fixed inset-0 bg-black/70 z-30 flex justify-center items-center p-4 animate-fade-in-fast" onClick={onClose}>
         <div 
-            className="relative w-full max-w-5xl h-[90vh] bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 flex flex-col animate-scale-in"
+            className="relative w-full max-w-5xl max-h-[90vh] bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 flex flex-col animate-scale-in"
             onClick={(e) => e.stopPropagation()}
         >
             <header className="flex-shrink-0 p-4 pl-6 flex justify-between items-center border-b border-white/10">

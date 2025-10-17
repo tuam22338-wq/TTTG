@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { WorldCreationState, NarrativePerspective } from '../../types';
 import FormSection from './FormSection';
@@ -9,6 +8,7 @@ import { useSettings } from '../../hooks/useSettings';
 import { SparklesIcon } from '../icons/SparklesIcon';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import Button from '../ui/Button';
+import * as client from '../../services/gemini/client';
 
 interface WorldInfoFormProps {
     state: WorldCreationState;
@@ -38,11 +38,13 @@ const perspectiveDescriptions: Record<NarrativePerspective, { title: string; tex
 
 const WorldInfoForm: React.FC<WorldInfoFormProps> = ({ state, setState, settingsHook }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const { geminiService, settings } = settingsHook;
+    const { settings, getApiClient, cycleToNextApiKey, apiStats } = settingsHook;
+    const apiClient = { getApiClient, cycleToNextApiKey, apiStats };
+
 
     const handleGenerateDescription = async () => {
-        if (!geminiService) {
-            alert("Dịch vụ AI chưa sẵn sàng.");
+        if (!getApiClient()) {
+            alert("Dịch vụ AI chưa sẵn sàng hoặc chưa cấu hình API Key.");
             return;
         }
         if (!state.genre && !state.description.trim()) {
@@ -98,16 +100,8 @@ Hãy viết một đoạn văn mạch lạc, kết hợp các yếu-tố trên �
                 { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ] : [];
 
-            const response = await geminiService.models.generateContent({
-                model: settings.aiModelSettings.model,
-                contents: prompt,
-                config: {
-                    safetySettings: safetySettingsConfig,
-                    temperature: settings.aiModelSettings.temperature,
-                    topP: settings.aiModelSettings.topP,
-                    topK: settings.aiModelSettings.topK,
-                },
-            });
+            const response = await client.callCreativeTextAI(prompt, apiClient, settings.aiModelSettings, safetySettingsConfig);
+            
             const text = response.text;
             setState(s => ({ ...s, description: text }));
         } catch (error) {

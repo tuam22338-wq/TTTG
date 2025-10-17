@@ -28,6 +28,7 @@ import IllustrationBookModal from '../game/achievements/IllustrationBookModal';
 import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
 import CodexPanel from '../game/CodexPanel';
 import { BookIcon } from '../icons/BookIcon';
+import ApiStatusOverlay from '../game/ApiStatusOverlay';
 
 
 interface GameScreenProps {
@@ -38,13 +39,20 @@ interface GameScreenProps {
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, settingsHook, openSettings }) => {
-    const { settings } = settingsHook;
+    const { settings, getApiClient, cycleToNextApiKey, apiStats } = settingsHook;
+
+    const apiClient = useMemo(() => ({
+        getApiClient,
+        cycleToNextApiKey,
+        apiStats
+    }), [getApiClient, cycleToNextApiKey]);
+
     const { 
         gameState, isLoading, error, processTurn, 
         updateAiSettings, newlyAcquiredSkill, handleAcknowledgeSkill, 
         handleDeclineSkill, showIntroductoryModal, setShowIntroductoryModal,
         executeEntityAction, setGameState, addPlayerSkill,
-    } = useGameEngine(initialData, settingsHook.geminiService, settings.aiModelSettings, settings.safety);
+    } = useGameEngine(initialData, apiClient, settings.aiModelSettings, settings.safety);
     
     const [viewMode, setViewMode] = useLocalStorage<ViewMode>('gameViewMode', 'desktop');
     const [customAction, setCustomAction] = useState('');
@@ -70,6 +78,16 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     const [currentPage, setCurrentPage] = useState(() => 
       'history' in initialData && initialData.history.length > 0 ? initialData.history.length : 1
     );
+
+    useEffect(() => {
+        // Set a specific background for the game screen to ensure it fills the viewport under zoom
+        document.body.style.backgroundColor = '#171717'; // Tailwind's neutral-900
+        
+        // Cleanup function to reset the background when the component unmounts
+        return () => {
+            document.body.style.backgroundColor = '#0a0a0a'; // Original body color from index.html
+        };
+    }, []);
 
     useEffect(() => {
         if (gameState && gameState.history.length > 0 && !isLoading) {
@@ -134,14 +152,14 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     };
     
     const handleCreatePower = async (data: { name: string, description: string }) => {
-        if (!gameState || !settingsHook.geminiService) return;
+        if (!gameState) return;
         setIsSubmitting(true);
         try {
             const newSkill = await GeminiStorytellerService.generateSkillFromUserInput(
                 data.name,
                 data.description,
                 gameState.worldContext,
-                settingsHook.geminiService,
+                apiClient,
                 settings.aiModelSettings,
                 settings.safety,
             );
@@ -211,7 +229,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
 
     return (
         <>
-            <div className="h-screen bg-neutral-900 text-neutral-300 flex flex-col overflow-hidden">
+            <ApiStatusOverlay stats={apiStats} />
+            <div className="h-full text-neutral-300 flex flex-col overflow-hidden">
                 <header className="flex-shrink-0 bg-black/30 backdrop-blur-sm p-2 flex items-center border-b border-white/10 z-20">
                     <div className="flex-1 flex justify-start items-center gap-2">
                         <button onClick={() => setIsGameMenuOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở menu">
@@ -235,13 +254,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 </header>
                 
                 <main ref={mainContentRef} className="flex-grow flex flex-col p-4 overflow-y-auto custom-scrollbar">
-                    <div className="max-w-4xl mx-auto w-full">
+                    <div className="max-w-7xl mx-auto w-full">
                        <StoryLog turn={currentTurnForView} />
                     </div>
                 </main>
 
                 <footer className="flex-shrink-0 p-4 bg-black/30 z-10">
-                    <div className="max-w-4xl mx-auto space-y-2">
+                    <div className="max-w-7xl mx-auto space-y-2">
                        {gameState.history.length > 0 && (
                             <PaginationControls
                                 currentPage={currentPage}

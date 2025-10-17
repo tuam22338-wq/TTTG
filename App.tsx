@@ -9,8 +9,9 @@ import { GameState, WorldCreationState } from './types';
 import ConfirmationModal from './components/ui/ConfirmationModal';
 import Modal from './components/ui/Modal';
 import Button from './components/ui/Button';
-import { changelogHistory, LATEST_VERSION_NAME } from './services/changelogData';
+import { LATEST_VERSION_NAME } from './services/changelogData';
 import LoadingScreen from './components/LoadingScreen';
+import ContinueGameModal from './components/ui/ContinueGameModal';
 
 type Screen = 'menu' | 'game' | 'world-creator';
 
@@ -19,12 +20,16 @@ const App: React.FC = () => {
   const { isKeyConfigured } = settingsHook;
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isNewGameConfirmOpen, setIsNewGameConfirmOpen] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
   const [gameStartData, setGameStartData] = useState<WorldCreationState | GameState | null>(null);
   const [hasManualSave, setHasManualSave] = useState(false);
   const [hasAutoSave, setHasAutoSave] = useState(false);
+  
+  const [isContinueModalOpen, setIsContinueModalOpen] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+
 
   useEffect(() => {
     setHasManualSave(GameSaveService.hasManualSave());
@@ -113,6 +118,7 @@ const App: React.FC = () => {
     setCurrentScreen('menu');
   };
 
+  const continueDisabled = !hasManualSave && !hasAutoSave;
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -127,13 +133,12 @@ const App: React.FC = () => {
           // Fallback if somehow game screen is reached without data
           return <MainMenu
             onStart={handleStartGame}
-            onContinueManualSave={handleContinueManualSave}
-            onContinueAutoSave={handleContinueAutoSave}
+            onContinue={() => setIsContinueModalOpen(true)}
             onLoadFromFile={handleLoadFromFile}
             onSettings={() => setIsSettingsOpen(true)}
-            onShowChangelog={() => setIsChangelogOpen(true)}
-            manualSaveDisabled={!hasManualSave}
-            autoSaveDisabled={!hasAutoSave}
+            onShowInfo={() => setIsInfoModalOpen(true)}
+            onShowSupport={() => setIsSupportModalOpen(true)}
+            continueDisabled={continueDisabled}
             isKeyConfigured={isKeyConfigured}
             versionName={LATEST_VERSION_NAME}
           />;
@@ -149,13 +154,12 @@ const App: React.FC = () => {
         return (
           <MainMenu
             onStart={handleStartGame}
-            onContinueManualSave={handleContinueManualSave}
-            onContinueAutoSave={handleContinueAutoSave}
+            onContinue={() => setIsContinueModalOpen(true)}
             onLoadFromFile={handleLoadFromFile}
             onSettings={() => setIsSettingsOpen(true)}
-            onShowChangelog={() => setIsChangelogOpen(true)}
-            manualSaveDisabled={!hasManualSave}
-            autoSaveDisabled={!hasAutoSave}
+            onShowInfo={() => setIsInfoModalOpen(true)}
+            onShowSupport={() => setIsSupportModalOpen(true)}
+            continueDisabled={continueDisabled}
             isKeyConfigured={isKeyConfigured}
             versionName={LATEST_VERSION_NAME}
           />
@@ -186,52 +190,25 @@ const App: React.FC = () => {
             <p>Hành động này sẽ xóa vĩnh viễn các file lưu thủ công và tự động hiện tại.</p>
             <p className="font-bold mt-2">Bạn có chắc chắn muốn tiếp tục không?</p>
           </ConfirmationModal>
-          <Modal
-            isOpen={isChangelogOpen}
-            onClose={() => setIsChangelogOpen(false)}
-            title="Thông Tin Cập Nhật"
-          >
-            <div className="space-y-4">
-              <div className="max-h-[60vh] overflow-y-auto pr-3 space-y-6 custom-scrollbar">
-                {changelogHistory.map((versionData, index) => (
-                  <div key={index} className="animate-fade-in-up" style={{ animationDelay: `${index * 100}ms`}}>
-                    <div className="flex justify-between items-baseline pb-2 mb-3 border-b border-[#e02585]/40">
-                      <h3 className="text-xl font-bold text-[#e02585] tracking-wider" style={{ textShadow: '0 0 5px rgba(224, 37, 133, 0.7)' }}>
-                        {versionData.version}
-                      </h3>
-                      {versionData.date && <span className="text-sm text-[#a08cb6] font-mono">{versionData.date}</span>}
-                    </div>
-                    <ul className="list-none space-y-2 pl-2">
-                      {versionData.notes.map((note, noteIndex) => (
-                        <li key={noteIndex} className="flex items-start">
-                          <span className="text-[#e02585] mr-2 mt-1 flex-shrink-0">•</span>
-                          <span>{note}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-4">
-                <Button onClick={() => setIsChangelogOpen(false)} variant="secondary" className="w-full">
-                    Đóng
-                </Button>
+          <ContinueGameModal
+            isOpen={isContinueModalOpen}
+            onClose={() => setIsContinueModalOpen(false)}
+            onLoadManual={handleContinueManualSave}
+            onLoadAuto={handleContinueAutoSave}
+           />
+          <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title="Thông tin">
+            <div className="text-center p-4">
+              <p className="text-lg font-semibold text-white">Developer: NGUYEN HOANG TRUONG</p>
+            </div>
+          </Modal>
+          <Modal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} title="Ủng hộ dự án">
+            <div className="text-center p-4 space-y-4">
+              <p className="text-neutral-300">Nếu có lòng, bạn có thể ủng hộ để dự án tiếp tục phát triển.</p>
+              <div className="p-3 bg-black/20 rounded-lg border border-neutral-700">
+                <p className="text-sm text-neutral-400">MB BANK</p>
+                <p className="text-2xl font-bold font-mono tracking-widest text-white">0337892181</p>
               </div>
             </div>
-             <style>{`
-                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #633aab; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #e02585; }
-                 @keyframes fade-in-up {
-                  from { opacity: 0; transform: translateY(15px); }
-                  to { opacity: 1; transform: translateY(0); }
-                }
-                .animate-fade-in-up {
-                  opacity: 0;
-                  animation: fade-in-up 0.5s ease-out forwards;
-                }
-            `}</style>
           </Modal>
         </>
       )}
