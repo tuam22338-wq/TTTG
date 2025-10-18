@@ -21,6 +21,8 @@ import { DownloadIcon } from '../icons/DownloadIcon';
 import { UploadIcon } from '../icons/UploadIcon';
 import { TrashIcon } from '../icons/TrashIcon';
 import { LawIcon } from '../icons/LawIcon';
+import QuickAssistModal from '../world-creator/QuickAssistModal';
+import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
 
 
 interface WorldCreatorScreenProps {
@@ -65,9 +67,15 @@ type CreatorView = 'WORLD' | 'CHARACTER' | 'CULTIVATION' | 'ATTRIBUTES' | 'RULES
 const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, onWorldCreated, settingsHook }) => {
   const [expandedView, setExpandedView] = useState<CreatorView | null>(null);
   const [state, setState] = useState<WorldCreationState>(defaultWorldCreationState);
+  const [isQuickAssistModalOpen, setIsQuickAssistModalOpen] = useState(false);
+  const [isQuickAssistLoading, setIsQuickAssistLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const { getApiClient, cycleToNextApiKey, apiStats, settings } = settingsHook;
+  const apiClient = { getApiClient, cycleToNextApiKey, apiStats };
+
 
   const handleToggleView = (viewId: CreatorView) => {
     setExpandedView(prev => (prev === viewId ? null : viewId));
@@ -104,8 +112,42 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
   };
 
   const handleQuickAssist = () => {
-      alert("Chức năng AI hỗ trợ nhanh đang được phát triển!");
+    if (!getApiClient()) {
+        alert("Dịch vụ AI chưa sẵn sàng hoặc chưa cấu hình API Key.");
+        return;
+    }
+    setIsQuickAssistModalOpen(true);
   };
+  
+  const handleQuickAssistSubmit = async (idea: string) => {
+    setIsQuickAssistLoading(true);
+    try {
+        const generatedWorld = await GeminiStorytellerService.generateWorldFromPrompt(
+            idea,
+            state.isNsfw,
+            apiClient,
+            settings.aiModelSettings,
+            settings.safety
+        );
+
+        setState(prevState => ({
+            ...defaultWorldCreationState,
+            narrativePerspective: prevState.narrativePerspective,
+            isNsfw: prevState.isNsfw,
+            ...generatedWorld,
+        }));
+        
+        setExpandedView(null);
+        setIsQuickAssistModalOpen(false);
+
+    } catch (error: any) {
+        console.error("Error during Quick Assist:", error);
+        alert("Đã xảy ra lỗi khi tạo thế giới nhanh. Vui lòng thử lại.\n\nChi tiết: " + error.message);
+    } finally {
+        setIsQuickAssistLoading(false);
+    }
+  };
+
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -261,6 +303,12 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
             </Button>
           </footer>
       </div>
+       <QuickAssistModal 
+            isOpen={isQuickAssistModalOpen}
+            onClose={() => setIsQuickAssistModalOpen(false)}
+            onSubmit={handleQuickAssistSubmit}
+            isLoading={isQuickAssistLoading}
+        />
     </div>
   );
 };

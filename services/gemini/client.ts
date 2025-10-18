@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse, EmbedContentResponse, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import { AiModelSettings } from '../../types';
 import { ApiStatsManager } from '../../hooks/useApiStats';
 
@@ -10,10 +10,10 @@ export interface ApiClient {
     apiStats: ApiStatsManager;
 }
 
-async function callGeminiWithRetry(
+async function callGeminiWithRetry<T>(
     apiClient: ApiClient,
-    callFunction: (geminiService: GoogleGenAI) => Promise<GenerateContentResponse>
-): Promise<GenerateContentResponse> {
+    callFunction: (geminiService: GoogleGenAI) => Promise<T>
+): Promise<T> {
     for (let i = 0; i < MAX_RETRIES; i++) {
         const geminiService = apiClient.getApiClient();
         if (!geminiService) {
@@ -40,7 +40,7 @@ async function callGeminiWithRetry(
 }
 
 
-async function performApiCall<T extends GenerateContentResponse | AsyncGenerator<GenerateContentResponse>>(
+async function performApiCall<T>(
     apiClient: ApiClient,
     callLogic: (geminiService: GoogleGenAI) => Promise<T>
 ): Promise<T> {
@@ -48,7 +48,7 @@ async function performApiCall<T extends GenerateContentResponse | AsyncGenerator
     const startTime = Date.now();
     let success = false;
     try {
-        const response = await callLogic(apiClient.getApiClient()!);
+        const response = await callGeminiWithRetry(apiClient, callLogic);
         success = true;
         return response;
     } catch (e) {
@@ -88,14 +88,15 @@ export async function callJsonAI(
         });
     };
 
-    const response = await performApiCall(apiClient, () => callGeminiWithRetry(apiClient, callLogic));
+    const response = await performApiCall(apiClient, callLogic);
     
-    if (!response.text) {
-         const errorDetails = response.candidates?.[0]?.finishReason || JSON.stringify(response);
+    // FIX: Add type assertion to 'response' to resolve 'property does not exist on type unknown' error.
+    if (!(response as GenerateContentResponse).text) {
+         const errorDetails = (response as GenerateContentResponse).candidates?.[0]?.finishReason || JSON.stringify(response);
          console.error("API Error: No text in response. Details:", errorDetails);
          throw new Error(`AI không trả về nội dung JSON. Lý do: ${errorDetails}`);
     }
-    return response;
+    return response as GenerateContentResponse;
 }
 
 export async function callJsonAIStream(
@@ -154,15 +155,32 @@ export async function callCreativeTextAI(
         });
     };
 
-    const response = await performApiCall(apiClient, () => callGeminiWithRetry(apiClient, callLogic));
+    const response = await performApiCall(apiClient, callLogic);
 
-     if (!response.text) {
-         const errorDetails = response.candidates?.[0]?.finishReason || JSON.stringify(response);
+    // FIX: Add type assertion to 'response' to resolve 'property does not exist on type unknown' error.
+     if (!(response as GenerateContentResponse).text) {
+         const errorDetails = (response as GenerateContentResponse).candidates?.[0]?.finishReason || JSON.stringify(response);
          console.error("API Error: No text in response. Details:", errorDetails);
          throw new Error(`AI không trả về nội dung văn bản. Lý do: ${errorDetails}`);
     }
-    return response;
+    return response as GenerateContentResponse;
 }
+
+export async function callEmbeddingModel(
+    text: string,
+    apiClient: ApiClient,
+): Promise<number[]> {
+     const callLogic = (geminiService: GoogleGenAI): Promise<EmbedContentResponse> => {
+        return geminiService.models.embedContent({
+            model: 'text-embedding-004',
+            content: text,
+        });
+    };
+    
+    const response = await performApiCall(apiClient, callLogic);
+    return response.embedding.values;
+}
+
 
 function sanitizeObjectRecursively(obj: any): any {
     if (typeof obj === 'string') {

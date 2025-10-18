@@ -7,6 +7,11 @@ export type GeminiModel =
   | 'gemini-flash-lite-latest'
   | 'gemini-flash-latest';
 
+export enum AiProvider {
+  GEMINI = 'GEMINI',
+  DEEPSEEK = 'DEEPSEEK',
+}
+
 export enum ApiKeySource {
   DEFAULT = 'DEFAULT',
   CUSTOM = 'CUSTOM',
@@ -23,6 +28,13 @@ export interface AiModelSettings {
   rotationDelay: number;
 }
 
+export interface DeepSeekModelSettings {
+    model: 'deepseek-chat' | 'deepseek-coder';
+    temperature: number;
+    topP: number;
+    maxOutputTokens: number;
+}
+
 export interface AudioSettings {
   enabled: boolean;
   volume: number;
@@ -37,10 +49,13 @@ export interface SafetySettings {
 export type NarrativePerspective = 'Nhãn Quan Toàn Tri' | 'Ngôi thứ ba Giới hạn' | 'Ngôi thứ hai' | 'Ngôi thứ ba Toàn tri';
 
 export interface Settings {
+  aiProvider: AiProvider;
   apiKeySource: ApiKeySource;
   customApiKeys: string[];
   currentApiKeyIndex: number;
+  deepSeekApiKey: string;
   aiModelSettings: AiModelSettings;
+  deepSeekModelSettings: DeepSeekModelSettings;
   audio: AudioSettings;
   safety: SafetySettings;
   autoHideActionPanel: boolean;
@@ -143,6 +158,8 @@ export interface WorldRule {
   id: string;
   name: string;
   content: string;
+  isEnabled?: boolean;
+  tags?: string[];
 }
 
 export interface WorldCreationState {
@@ -477,6 +494,7 @@ export interface GameState {
     time: GameTime;
     isInCombat: boolean;
     combatants: Combatant[];
+    codex: WorldRule[];
 }
 
 export type ViewMode = 'desktop' | 'mobile';

@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import { GameState, CharacterStat, StatType, AttributeType } from '../../types';
 import { GetIconComponent } from '../icons/AttributeIcons';
+import { getRealmString } from '../../services/CultivationService';
 
 interface CharacterSheetProps {
     gameState: GameState;
@@ -86,8 +87,9 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick,
         const dynamicStatuses: (CharacterStat & { name: string })[] = [];
         const allStatKeys = gameState.playerStatOrder || Object.keys(gameState.playerStats);
 
-        // FIX: Add type guard to safely handle malformed stat data. This prevents errors when iterating
-        // over playerStats which might contain non-object values or objects missing required properties like 'type'.
+        // FIX: Add type guard to safely handle malformed stat data from old save files.
+        // This prevents runtime errors when iterating over playerStats which might contain 
+        // non-object values or objects missing required properties like 'type'.
         for (const key of allStatKeys) {
             const stat = gameState.playerStats[key];
             const definition = customAttrMap.get(key);
@@ -114,6 +116,8 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick,
     const age = (gameState.playerStats['Tuổi'] as CharacterStat)?.description || 'Chưa rõ';
     const bioSnippet = character.biography.split('.').slice(0, 2).join('.') + (character.biography.includes('.') ? '.' : '');
     const gender = character.gender === 'Tự định nghĩa' ? character.customGender : character.gender;
+    const realmString = getRealmString(gameState.cultivation.level, gameState.worldContext);
+
 
     return (
         <div className="p-4 h-full flex flex-col min-h-0">
@@ -137,6 +141,23 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick,
                     {gameState.coreStats.doNoToiDa > 0 && <StatBar current={gameState.coreStats.doNo} max={gameState.coreStats.doNoToiDa} label="Độ No" barColor="bg-orange-500" borderColor="border-neutral-700" />}
                     {gameState.coreStats.doNuocToiDa > 0 && <StatBar current={gameState.coreStats.doNuoc} max={gameState.coreStats.doNuocToiDa} label="Độ Nước" barColor="bg-sky-500" borderColor="border-neutral-700" />}
                 </section>
+                
+                {/* 2.5. Cultivation Section */}
+                {gameState.worldContext.isCultivationEnabled && (
+                    <section>
+                        <h3 className="text-sm font-semibold uppercase text-neutral-500 tracking-wider mb-2">Cảnh Giới Tu Luyện</h3>
+                        <div className="bg-black/20 p-3 rounded-md space-y-2">
+                             <p className="text-center font-bold text-lg text-purple-300">{realmString}</p>
+                             <StatBar 
+                                current={gameState.cultivation.exp} 
+                                max={gameState.cultivation.expToNextLevel} 
+                                label="Kinh nghiệm" 
+                                barColor="bg-purple-500" 
+                                borderColor="border-neutral-700" 
+                             />
+                        </div>
+                    </section>
+                )}
                 
                 {/* 3. Attribute Sections - Driven by world context */}
                  {primaryAttributes.length > 0 && (

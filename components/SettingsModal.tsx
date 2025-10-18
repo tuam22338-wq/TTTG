@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, ApiKeySource, GeminiModel, SafetyLevel, NarrativePerspective } from '../types';
+import { Settings, ApiKeySource, GeminiModel, SafetyLevel, NarrativePerspective, AiProvider, DeepSeekModelSettings } from '../types';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import ToggleSwitch from './ui/ToggleSwitch';
@@ -38,12 +38,17 @@ interface SettingsModalProps {
 
 type SettingsTab = 'interface' | 'audio' | 'ai_model' | 'safety' | 'advanced';
 
-const MODEL_OPTIONS: { id: GeminiModel; name: string }[] = [
+const GEMINI_MODEL_OPTIONS: { id: GeminiModel; name: string }[] = [
     { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Mặc định)' },
     { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
     { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' },
     { id: 'gemini-flash-lite-latest', name: 'Gemini Flash Lite Latest' },
     { id: 'gemini-flash-latest', name: 'Gemini Flash Latest' },
+];
+
+const DEEPSEEK_MODEL_OPTIONS: { id: DeepSeekModelSettings['model']; name: string }[] = [
+    { id: 'deepseek-chat', name: 'DeepSeek Chat (Mặc định)' },
+    { id: 'deepseek-coder', name: 'DeepSeek Coder' },
 ];
 
 const SAFETY_LEVELS: { id: SafetyLevel; name: string; description: string }[] = [
@@ -91,7 +96,7 @@ const RangeSlider: React.FC<{
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settingsHook }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('interface');
-    const { settings, setSettings, setApiKeySource, setCustomApiKeys, updateAiModelSetting, updateAudioSetting, updateSafetySetting, isKeyConfigured, resetSettings, apiStats } = settingsHook;
+    const { settings, setSettings, setApiKeySource, setCustomApiKeys, updateAiModelSetting, updateDeepSeekModelSetting, updateAudioSetting, updateSafetySetting, isKeyConfigured, resetSettings, apiStats } = settingsHook;
     
     const handleAddKey = () => setCustomApiKeys([...settings.customApiKeys, '']);
     const handleKeyChange = (index: number, value: string) => {
@@ -166,66 +171,108 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                     {activeTab === 'ai_model' && (
                         <div className="space-y-6 animate-fade-in-fast">
                              <div>
-                                <h3 className="text-lg font-bold text-white mb-2">Thống Kê API</h3>
-                                <div className="p-3 bg-black/30 rounded-lg space-y-2 border border-neutral-700">
-                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Keys / Active:</span> <span className="font-mono font-bold text-cyan-400">{apiStats.totalKeys} / {apiStats.activeKeys}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Usage:</span> <span className="font-mono font-bold">{apiStats.totalUsage}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Lỗi:</span> <span className={`font-mono font-bold ${apiStats.totalErrors > 0 ? 'text-red-400' : 'text-green-400'}`}>{apiStats.totalErrors}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Queue / Active:</span> <span className="font-mono font-bold text-yellow-400">{apiStats.activeRequests}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-neutral-400">Avg. Response Time:</span> <span className="font-mono font-bold text-purple-400">{apiStats.avgResponseTime}ms</span></div>
-                                    <Button onClick={apiStats.resetStats} variant="secondary" className="w-full !text-xs !py-1 mt-2">Reset Thống Kê</Button>
-                                </div>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-white mb-2">Nguồn Khóa API</h3>
+                                <h3 className="text-lg font-bold text-white mb-2">AI Provider</h3>
                                 <div className="flex gap-2 rounded-lg bg-black/30 p-1">
-                                    <button onClick={() => setApiKeySource(ApiKeySource.DEFAULT)} className={`flex-1 py-2 text-sm rounded ${settings.apiKeySource === ApiKeySource.DEFAULT ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>Mặc định</button>
-                                    <button onClick={() => setApiKeySource(ApiKeySource.CUSTOM)} className={`flex-1 py-2 text-sm rounded ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>Tùy chỉnh</button>
+                                    <button onClick={() => setSettings({ ...settings, aiProvider: AiProvider.GEMINI })} className={`flex-1 py-2 text-sm rounded ${settings.aiProvider === AiProvider.GEMINI ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>Gemini</button>
+                                    <button onClick={() => setSettings({ ...settings, aiProvider: AiProvider.DEEPSEEK })} className={`flex-1 py-2 text-sm rounded ${settings.aiProvider === AiProvider.DEEPSEEK ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>DeepSeek</button>
                                 </div>
                             </div>
-                            <div className={`space-y-3 transition-opacity ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'opacity-100' : 'opacity-50'}`}>
-                                <h3 className="text-lg font-bold text-white">Danh sách khóa API tùy chỉnh</h3>
-                                {settings.customApiKeys.map((key, index) => (
-                                    <div key={index} className="flex items-center gap-2">
-                                        <input type="password" placeholder="Nhập khóa API..." value={key} onChange={(e) => handleKeyChange(index, e.target.value)} disabled={settings.apiKeySource !== ApiKeySource.CUSTOM} className="flex-grow px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"/>
-                                        <button onClick={() => handleRemoveKey(index)} disabled={settings.apiKeySource !== ApiKeySource.CUSTOM} className="p-2 text-neutral-400 hover:text-red-500 rounded-full"><TrashIcon /></button>
+
+                            {settings.aiProvider === AiProvider.GEMINI && (
+                                <>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white mb-2">Thống Kê API (Gemini)</h3>
+                                        <div className="p-3 bg-black/30 rounded-lg space-y-2 border border-neutral-700">
+                                            <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Keys / Active:</span> <span className="font-mono font-bold text-cyan-400">{apiStats.totalKeys} / {apiStats.activeKeys}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Usage:</span> <span className="font-mono font-bold">{apiStats.totalUsage}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-neutral-400">Tổng Lỗi:</span> <span className={`font-mono font-bold ${apiStats.totalErrors > 0 ? 'text-red-400' : 'text-green-400'}`}>{apiStats.totalErrors}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-neutral-400">Queue / Active:</span> <span className="font-mono font-bold text-yellow-400">{apiStats.activeRequests}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-neutral-400">Avg. Response Time:</span> <span className="font-mono font-bold text-purple-400">{apiStats.avgResponseTime}ms</span></div>
+                                            <Button onClick={apiStats.resetStats} variant="secondary" className="w-full !text-xs !py-1 mt-2">Reset Thống Kê</Button>
+                                        </div>
                                     </div>
-                                ))}
-                                <Button onClick={handleAddKey} variant="secondary" disabled={settings.apiKeySource !== ApiKeySource.CUSTOM}>+ Thêm khóa</Button>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-white mb-2">Cấu hình Model</h3>
-                                <label htmlFor="model-select" className="text-sm font-medium text-neutral-300">Model Tường thuật</label>
-                                <select id="model-select" value={settings.aiModelSettings.model} onChange={e => updateAiModelSetting('model', e.target.value as GeminiModel)} className="w-full mt-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
-                                    {MODEL_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-bold text-white">Tinh chỉnh Tham số</h3>
-                                <RangeSlider label="Temperature (Sáng tạo)" id="temp-slider" min={0} max={1} step={0.05} value={settings.aiModelSettings.temperature} onChange={e => updateAiModelSetting('temperature', parseFloat(e.target.value))} />
-                                <RangeSlider label="Top-P" id="topp-slider" min={0} max={1} step={0.05} value={settings.aiModelSettings.topP} onChange={e => updateAiModelSetting('topP', parseFloat(e.target.value))} />
-                                <div>
-                                    <label htmlFor="topk-input" className="block text-sm font-medium text-neutral-300 mb-1">Top-K</label>
-                                    <InputField id="topk-input" type="number" value={settings.aiModelSettings.topK} onChange={e => updateAiModelSetting('topK', parseInt(e.target.value) || 0)} />
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white mb-2">Nguồn Khóa API</h3>
+                                        <div className="flex gap-2 rounded-lg bg-black/30 p-1">
+                                            <button onClick={() => setApiKeySource(ApiKeySource.DEFAULT)} className={`flex-1 py-2 text-sm rounded ${settings.apiKeySource === ApiKeySource.DEFAULT ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>Mặc định</button>
+                                            <button onClick={() => setApiKeySource(ApiKeySource.CUSTOM)} className={`flex-1 py-2 text-sm rounded ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>Tùy chỉnh</button>
+                                        </div>
+                                    </div>
+                                    <div className={`space-y-3 transition-opacity ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'opacity-100' : 'opacity-50'}`}>
+                                        <h3 className="text-lg font-bold text-white">Danh sách khóa API tùy chỉnh</h3>
+                                        {settings.customApiKeys.map((key, index) => (
+                                            <div key={index} className="flex items-center gap-2">
+                                                <input type="password" placeholder="Nhập khóa API..." value={key} onChange={(e) => handleKeyChange(index, e.target.value)} disabled={settings.apiKeySource !== ApiKeySource.CUSTOM} className="flex-grow px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"/>
+                                                <button onClick={() => handleRemoveKey(index)} disabled={settings.apiKeySource !== ApiKeySource.CUSTOM} className="p-2 text-neutral-400 hover:text-red-500 rounded-full"><TrashIcon /></button>
+                                            </div>
+                                        ))}
+                                        <Button onClick={handleAddKey} variant="secondary" disabled={settings.apiKeySource !== ApiKeySource.CUSTOM}>+ Thêm khóa</Button>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white mb-2">Cấu hình Model</h3>
+                                        <label htmlFor="model-select" className="text-sm font-medium text-neutral-300">Model Tường thuật</label>
+                                        <select id="model-select" value={settings.aiModelSettings.model} onChange={e => updateAiModelSetting('model', e.target.value as GeminiModel)} className="w-full mt-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
+                                            {GEMINI_MODEL_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <h3 className="text-lg font-bold text-white">Tinh chỉnh Tham số</h3>
+                                        <RangeSlider label="Temperature (Sáng tạo)" id="temp-slider" min={0} max={1} step={0.05} value={settings.aiModelSettings.temperature} onChange={e => updateAiModelSetting('temperature', parseFloat(e.target.value))} />
+                                        <RangeSlider label="Top-P" id="topp-slider" min={0} max={1} step={0.05} value={settings.aiModelSettings.topP} onChange={e => updateAiModelSetting('topP', parseFloat(e.target.value))} />
+                                        <div>
+                                            <label htmlFor="topk-input" className="block text-sm font-medium text-neutral-300 mb-1">Top-K</label>
+                                            <InputField id="topk-input" type="number" value={settings.aiModelSettings.topK} onChange={e => updateAiModelSetting('topK', parseInt(e.target.value) || 0)} />
+                                        </div>
+                                        <RangeSlider
+                                            label="Độ dài Phản hồi Tối đa"
+                                            id="words-slider"
+                                            min={100}
+                                            max={4000}
+                                            step={50}
+                                            value={Math.round(settings.aiModelSettings.maxOutputTokens / 1.5)}
+                                            onChange={e => updateAiModelSetting('maxOutputTokens', Math.round(parseInt(e.target.value, 10) * 1.5))}
+                                            unit=" từ"
+                                        />
+                                        <RangeSlider label="Thinking Budget" id="thinking-slider" min={0} max={16000} step={100} value={settings.aiModelSettings.thinkingBudget} onChange={e => updateAiModelSetting('thinkingBudget', parseInt(e.target.value))} unit=" tokens" />
+                                    </div>
+                                </>
+                            )}
+                            {settings.aiProvider === AiProvider.DEEPSEEK && (
+                                <div className="space-y-6 animate-fade-in-fast">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white mb-2">DeepSeek API Key</h3>
+                                        <InputField id="deepseek-api-key" type="password" value={settings.deepSeekApiKey} onChange={(e) => setSettings({ ...settings, deepSeekApiKey: e.target.value })} placeholder="Nhập khóa API DeepSeek..."/>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white mb-2">Cấu hình Model</h3>
+                                        <label htmlFor="deepseek-model-select" className="text-sm font-medium text-neutral-300">Model</label>
+                                        <select id="deepseek-model-select" value={settings.deepSeekModelSettings.model} onChange={e => updateDeepSeekModelSetting('model', e.target.value as DeepSeekModelSettings['model'])} className="w-full mt-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
+                                            {DEEPSEEK_MODEL_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                                        </select>
+                                    </div>
+                                     <div className="space-y-4">
+                                        <h3 className="text-lg font-bold text-white">Tinh chỉnh Tham số</h3>
+                                        <RangeSlider label="Temperature (Sáng tạo)" id="deepseek-temp-slider" min={0} max={2} step={0.05} value={settings.deepSeekModelSettings.temperature} onChange={e => updateDeepSeekModelSetting('temperature', parseFloat(e.target.value))} />
+                                        <RangeSlider label="Top-P" id="deepseek-topp-slider" min={0} max={1} step={0.05} value={settings.deepSeekModelSettings.topP} onChange={e => updateDeepSeekModelSetting('topP', parseFloat(e.target.value))} />
+                                        <RangeSlider
+                                            label="Độ dài Phản hồi Tối đa"
+                                            id="deepseek-words-slider"
+                                            min={100}
+                                            max={8000}
+                                            step={50}
+                                            value={Math.round(settings.deepSeekModelSettings.maxOutputTokens / 1.5)}
+                                            onChange={e => updateDeepSeekModelSetting('maxOutputTokens', Math.round(parseInt(e.target.value, 10) * 1.5))}
+                                            unit=" từ"
+                                        />
+                                    </div>
                                 </div>
-                                <RangeSlider
-                                    label="Độ dài Phản hồi Tối đa"
-                                    id="words-slider"
-                                    min={100}
-                                    max={4000}
-                                    step={50}
-                                    value={Math.round(settings.aiModelSettings.maxOutputTokens / 1.5)}
-                                    onChange={e => updateAiModelSetting('maxOutputTokens', Math.round(parseInt(e.target.value, 10) * 1.5))}
-                                    unit=" từ"
-                                />
-                                <RangeSlider label="Thinking Budget" id="thinking-slider" min={0} max={16000} step={100} value={settings.aiModelSettings.thinkingBudget} onChange={e => updateAiModelSetting('thinkingBudget', parseInt(e.target.value))} unit=" tokens" />
-                            </div>
+                            )}
                         </div>
                     )}
                     {activeTab === 'safety' && (
                         <div className="space-y-4 animate-fade-in-fast">
-                            <h3 className="text-lg font-bold text-white mb-2">Lọc Nội dung An toàn</h3>
-                            <p className="text-sm text-neutral-400">Điều chỉnh mức độ lọc nội dung của Gemini. "Không Chặn" được khuyến khích cho các câu chuyện NSFW.</p>
+                            <h3 className="text-lg font-bold text-white mb-2">Lọc Nội dung An toàn (Gemini)</h3>
+                            <p className="text-sm text-neutral-400">Điều chỉnh mức độ lọc nội dung của Gemini. "Không Chặn" được khuyến khích cho các câu chuyện NSFW. Cài đặt này không ảnh hưởng đến DeepSeek.</p>
                             <div className="space-y-2">
                                 {SAFETY_LEVELS.map(level => (
                                     <label key={level.id} className={`flex items-start p-3 bg-black/20 rounded-lg cursor-pointer border-2 transition-colors ${settings.safety.level === level.id ? 'border-pink-500' : 'border-transparent hover:border-white/10'}`}>
@@ -255,7 +302,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                 <div className="flex-shrink-0 p-4 border-t border-neutral-700">
                      {!isKeyConfigured && (
                         <div className="text-yellow-300 text-sm text-center bg-yellow-500/10 p-2 rounded-md mb-3">
-                            Chưa có khóa API nào được cấu hình.
+                            Chưa có khóa API nào được cấu hình cho provider đã chọn.
                         </div>
                     )}
                     <Button onClick={onClose} variant="secondary" className="w-full">Đóng</Button>

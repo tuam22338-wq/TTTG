@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
-import { Settings, ApiKeySource, AiModelSettings, AudioSettings, SafetySettings, NarrativePerspective, GeminiModel } from '../types';
+import { Settings, ApiKeySource, AiModelSettings, AudioSettings, SafetySettings, NarrativePerspective, GeminiModel, AiProvider, DeepSeekModelSettings } from '../types';
 import { useApiStats } from './useApiStats';
 
 const defaultAiModelSettings: AiModelSettings = {
@@ -14,6 +14,13 @@ const defaultAiModelSettings: AiModelSettings = {
   rotationDelay: 0,
 };
 
+const defaultDeepSeekModelSettings: DeepSeekModelSettings = {
+  model: 'deepseek-chat',
+  temperature: 0.8,
+  topP: 0.95,
+  maxOutputTokens: 2250,
+};
+
 const defaultAudioSettings: AudioSettings = {
   enabled: false,
   volume: 0.7,
@@ -24,10 +31,13 @@ const defaultSafetySettings: SafetySettings = {
 };
 
 const defaultSettings: Settings = {
+  aiProvider: AiProvider.GEMINI,
   apiKeySource: ApiKeySource.DEFAULT,
   customApiKeys: [],
+  deepSeekApiKey: '',
   currentApiKeyIndex: 0,
   aiModelSettings: defaultAiModelSettings,
+  deepSeekModelSettings: defaultDeepSeekModelSettings,
   audio: defaultAudioSettings,
   safety: defaultSafetySettings,
   autoHideActionPanel: false,
@@ -43,6 +53,13 @@ export function useSettings() {
         const parsed = JSON.parse(storedSettings);
         
         // --- Start Migration & Hydration ---
+        if (!parsed.aiProvider) {
+          parsed.aiProvider = defaultSettings.aiProvider;
+        }
+        if (typeof parsed.deepSeekApiKey !== 'string') {
+          parsed.deepSeekApiKey = '';
+        }
+
         // 1. Migrate old key format
         if (typeof parsed.customApiKey === 'string' && !Array.isArray(parsed.customApiKeys)) {
           parsed.customApiKeys = parsed.customApiKey ? [parsed.customApiKey] : [];
@@ -54,6 +71,12 @@ export function useSettings() {
           parsed.aiModelSettings = { ...defaultAiModelSettings };
         } else {
           parsed.aiModelSettings = { ...defaultAiModelSettings, ...parsed.aiModelSettings };
+        }
+
+        if (!parsed.deepSeekModelSettings) {
+          parsed.deepSeekModelSettings = { ...defaultDeepSeekModelSettings };
+        } else {
+          parsed.deepSeekModelSettings = { ...defaultDeepSeekModelSettings, ...parsed.deepSeekModelSettings };
         }
 
         if (!parsed.audio) {
@@ -87,10 +110,13 @@ export function useSettings() {
         // --- End Migration ---
 
         return {
+          aiProvider: parsed.aiProvider,
           apiKeySource: parsed.apiKeySource || defaultSettings.apiKeySource,
           customApiKeys: Array.isArray(parsed.customApiKeys) ? parsed.customApiKeys : [],
+          deepSeekApiKey: parsed.deepSeekApiKey,
           currentApiKeyIndex: typeof parsed.currentApiKeyIndex === 'number' ? parsed.currentApiKeyIndex : 0,
           aiModelSettings: parsed.aiModelSettings,
+          deepSeekModelSettings: parsed.deepSeekModelSettings,
           audio: parsed.audio,
           safety: parsed.safety,
           autoHideActionPanel: parsed.autoHideActionPanel,
@@ -129,6 +155,16 @@ export function useSettings() {
       ...prev,
       aiModelSettings: {
         ...prev.aiModelSettings,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateDeepSeekModelSetting = <K extends keyof DeepSeekModelSettings>(key: K, value: DeepSeekModelSettings[K]) => {
+    setSettings(prev => ({
+      ...prev,
+      deepSeekModelSettings: {
+        ...prev.deepSeekModelSettings,
         [key]: value,
       },
     }));
@@ -208,6 +244,11 @@ export function useSettings() {
   }, [settings.apiKeySource, settings.customApiKeys, settings.currentApiKeyIndex]);
 
   const isKeyConfigured = useMemo(() => {
+      if (settings.aiProvider === AiProvider.DEEPSEEK) {
+        return !!settings.deepSeekApiKey.trim();
+      }
+      
+      // Gemini Logic
       if (settings.apiKeySource === ApiKeySource.DEFAULT) {
           return !!process.env.API_KEY;
       }
@@ -221,6 +262,7 @@ export function useSettings() {
     setCustomApiKeys,
     cycleToNextApiKey,
     updateAiModelSetting,
+    updateDeepSeekModelSetting,
     updateAudioSetting,
     updateSafetySetting,
     resetSettings,

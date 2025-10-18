@@ -28,6 +28,7 @@ function validateAndHydrateGameState(parsedState: any): GameState | null {
     hydratedState.chronicle = Array.isArray(parsedState.chronicle) ? parsedState.chronicle : [];
     hydratedState.combatants = Array.isArray(parsedState.combatants) ? parsedState.combatants : [];
     hydratedState.isInCombat = typeof parsedState.isInCombat === 'boolean' ? parsedState.isInCombat : false;
+    hydratedState.codex = Array.isArray(parsedState.codex) ? parsedState.codex : [];
 
     // AI Settings
     hydratedState.aiSettings = { ...DEFAULT_AI_SETTINGS, ...(parsedState.aiSettings || {}) };
@@ -56,8 +57,18 @@ function validateAndHydrateGameState(parsedState: any): GameState | null {
     if (hydratedState.worldContext) {
         hydratedState.worldContext.initialFactions = Array.isArray(hydratedState.worldContext.initialFactions) ? hydratedState.worldContext.initialFactions : [];
         hydratedState.worldContext.initialNpcs = Array.isArray(hydratedState.worldContext.initialNpcs) ? hydratedState.worldContext.initialNpcs : [];
-        hydratedState.worldContext.specialRules = Array.isArray(hydratedState.worldContext.specialRules) ? hydratedState.worldContext.specialRules : [];
-        hydratedState.worldContext.initialLore = Array.isArray(hydratedState.worldContext.initialLore) ? hydratedState.worldContext.initialLore : [];
+        
+        hydratedState.worldContext.specialRules = (Array.isArray(hydratedState.worldContext.specialRules) ? hydratedState.worldContext.specialRules : []).map((rule: any) => ({
+            ...rule,
+            isEnabled: rule.isEnabled !== undefined ? rule.isEnabled : true, // Default to true if missing
+            tags: Array.isArray(rule.tags) ? rule.tags : []
+        }));
+        
+        hydratedState.worldContext.initialLore = (Array.isArray(hydratedState.worldContext.initialLore) ? hydratedState.worldContext.initialLore : []).map((rule: any) => ({
+            ...rule,
+            tags: Array.isArray(rule.tags) ? rule.tags : []
+        }));
+
         if (hydratedState.worldContext.character) {
              hydratedState.worldContext.character.skills = Array.isArray(hydratedState.worldContext.character.skills) ? hydratedState.worldContext.character.skills : [];
         }

@@ -209,3 +209,78 @@ export const sanitizedGameStateSchema = {
     },
     required: ['playerStatChanges', 'npcUpdates', 'sanitizedPlotChronicle']
 };
+
+const quickAssistCharacterSkillSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        description: { type: Type.STRING },
+        effect: { type: Type.STRING },
+    },
+    required: ['name', 'description', 'effect']
+};
+
+const quickAssistCharacterSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        gender: { type: Type.STRING, enum: ['Nam', 'Nữ'] },
+        personality: { type: Type.STRING },
+        biography: { type: Type.STRING },
+        skills: {
+            type: Type.ARRAY,
+            items: quickAssistCharacterSkillSchema,
+        }
+    },
+    required: ['name', 'gender', 'personality', 'biography', 'skills']
+};
+
+const quickAssistFactionSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        type: { type: Type.STRING },
+        style: { type: Type.STRING },
+        territory: { type: Type.STRING },
+        reputation: { type: Type.STRING },
+        powerLevel: { type: Type.STRING },
+        resources: { type: Type.STRING },
+        playerRelation: { type: Type.STRING },
+        description: { type: Type.STRING }
+    },
+    required: ['name', 'type', 'style', 'territory', 'reputation', 'powerLevel', 'resources', 'playerRelation', 'description']
+};
+
+const quickAssistNpcSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        gender: { type: Type.STRING },
+        personality: { type: Type.STRING },
+        initialRealm: { type: Type.STRING },
+        appearance: { type: Type.STRING },
+        backstory: { type: Type.STRING },
+        factionId: { type: Type.STRING, description: "ID tự tạo của phe phái mà họ thuộc về (ví dụ: 'faction_1'), hoặc 'independent' nếu không thuộc phe nào." },
+        playerRelation: { type: Type.STRING },
+        specialSetting: { type: Type.STRING }
+    },
+    required: ['name', 'gender', 'personality', 'initialRealm', 'appearance', 'backstory', 'factionId', 'playerRelation', 'specialSetting']
+};
+
+export const quickAssistSchema = {
+    type: Type.OBJECT,
+    properties: {
+        genre: { type: Type.STRING },
+        description: { type: Type.STRING, description: "Mô tả chi tiết về bối cảnh, lịch sử và các thế lực chính của thế giới." },
+        character: quickAssistCharacterSchema,
+        initialFactions: {
+            type: Type.ARRAY,
+            items: quickAssistFactionSchema
+        },
+        initialNpcs: {
+            type: Type.ARRAY,
+            items: quickAssistNpcSchema
+        }
+    },
+    required: ['genre', 'description', 'character', 'initialFactions', 'initialNpcs']
+};

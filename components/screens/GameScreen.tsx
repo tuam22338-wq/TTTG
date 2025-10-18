@@ -345,7 +345,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 isOpen={isCodexOpen}
                 onClose={() => setIsCodexOpen(false)}
                 gameState={gameState}
-                onNpcClick={(npc) => { handleStatClick({ name: 'Thông tin NPC', ...npc }, npc.name, 'npc', npc.id) }}
+                onUpdateRule={()=>{}}
+                onAddRule={()=>{}}
+                onDeleteRule={()=>{}}
             />
 
             <StatDetailModal

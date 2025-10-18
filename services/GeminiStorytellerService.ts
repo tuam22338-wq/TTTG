@@ -52,6 +52,79 @@ const getSafetySettings = (safety: SafetySettings) => {
 
 // --- CORE LOGIC ---
 
+export async function generateWorldFromPrompt(
+    userIdea: string,
+    isNsfw: boolean,
+    apiClient: client.ApiClient,
+    aiModelSettings: AiModelSettings,
+    safetySettings: SafetySettings
+): Promise<Partial<WorldCreationState>> {
+    const nsfwInstruction = isNsfw
+        ? "Quan trọng: Bối cảnh này có yếu tố 18+ (NSFW). Hãy sáng tạo các yếu tố nhân vật, phe phái, và bối cảnh phản ánh sự trưởng thành, phức tạp, và có thể bao gồm các chủ đề nhạy cảm một cách tinh tế."
+        : "Giữ cho bối cảnh phù hợp với mọi lứa tuổi.";
+
+    const prompt = `
+Bạn là một AI Sáng tạo Thế giới chuyên nghiệp cho game nhập vai. Dựa trên ý tưởng cốt lõi của người dùng, hãy xây dựng một thế giới hoàn chỉnh và trả về dưới dạng một đối tượng JSON.
+
+**Ý tưởng cốt lõi từ người dùng:**
+---
+${userIdea}
+---
+
+**Nhiệm vụ của bạn:**
+1.  **Phát triển Ý tưởng:** Mở rộng ý tưởng trên thành một thế giới có chiều sâu.
+2.  **Tạo các thực thể:**
+    *   **Genre:** Xác định thể loại chính của thế giới (VD: Tiên hiệp, Huyền huyễn đô thị, Tận thế).
+    *   **Description:** Viết một mô tả chi tiết về thế giới, bao gồm lịch sử, các thế lực chính, và bối cảnh hiện tại.
+    *   **Character:** Tạo một nhân vật chính phù hợp với thế giới, bao gồm tên, giới tính (chỉ 'Nam' hoặc 'Nữ'), tính cách, tiểu sử, và 2-3 kỹ năng khởi đầu.
+    *   **Initial Factions:** Tạo 2-3 phe phái/thế lực ban đầu có liên quan đến cốt truyện.
+    *   **Initial NPCs:** Tạo 2-3 NPC ban đầu thú vị. Nếu NPC thuộc một phe phái, hãy dùng ID tự tạo (VD: 'faction_1', 'faction_2') và đảm bảo các ID này nhất quán.
+3.  **${nsfwInstruction}**
+4.  **Định dạng JSON:** Trả về một đối tượng JSON duy nhất tuân thủ schema đã cung cấp.
+
+Hãy bắt đầu sáng tạo.`;
+
+    const result = await client.callJsonAI(prompt, schemas.quickAssistSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    const aiResponse = client.parseAndValidateJsonResponse(result.text);
+
+    const generatedFactions = (aiResponse.initialFactions || []).map((faction: any, index: number) => ({
+        ...faction,
+        id: `faction_${index + 1}_${Date.now()}`
+    }));
+
+    const factionIdMap = new Map(generatedFactions.map((f: any, i: number) => [ `faction_${i+1}`, f.id ]));
+
+    const generatedNpcs = (aiResponse.initialNpcs || []).map((npc: any, index: number) => ({
+        ...npc,
+        id: `npc_${index + 1}_${Date.now()}`,
+        factionId: factionIdMap.get(npc.factionId) || 'independent'
+    }));
+    
+    const generatedSkills = (aiResponse.character.skills || []).map((skill: any, index: number) => ({
+        ...skill,
+        id: `skill_${index + 1}_${Date.now()}`
+    }));
+    
+    const generatedCharacter = {
+        ...aiResponse.character,
+        customGender: '',
+        skills: generatedSkills
+    };
+
+    if (generatedCharacter.gender !== 'Nam' && generatedCharacter.gender !== 'Nữ') {
+        generatedCharacter.gender = 'Nam';
+    }
+
+    return {
+        genre: aiResponse.genre,
+        description: aiResponse.description,
+        character: generatedCharacter,
+        initialFactions: generatedFactions,
+        initialNpcs: generatedNpcs,
+    };
+}
+
+
 export async function generateSkillFromUserInput(
     name: string,
     description: string,
