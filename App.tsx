@@ -20,7 +20,6 @@ const App: React.FC = () => {
   const { isKeyConfigured } = settingsHook;
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isNewGameConfirmOpen, setIsNewGameConfirmOpen] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
   const [gameStartData, setGameStartData] = useState<WorldCreationState | GameState | null>(null);
   const [hasManualSave, setHasManualSave] = useState(false);
@@ -53,18 +52,6 @@ const App: React.FC = () => {
       setIsSettingsOpen(true);
       return;
     }
-    if (GameSaveService.hasManualSave() || GameSaveService.hasAutoSave()) {
-      setIsNewGameConfirmOpen(true);
-    } else {
-      startNewGameFlow();
-    }
-  };
-  
-  const handleConfirmStartNewGame = () => {
-    GameSaveService.deleteAllLocalSaves();
-    setHasManualSave(false);
-    setHasAutoSave(false);
-    setIsNewGameConfirmOpen(false);
     startNewGameFlow();
   };
   
@@ -107,6 +94,20 @@ const App: React.FC = () => {
     setCurrentScreen('game');
   };
 
+  const handleExportSave = () => {
+    const manualSave = GameSaveService.loadManualSave();
+    if (manualSave) {
+        GameSaveService.saveToFile(manualSave);
+        return;
+    }
+    const autoSave = GameSaveService.loadAutoSave();
+    if (autoSave) {
+        GameSaveService.saveToFile(autoSave);
+        return;
+    }
+    alert("Không có dữ liệu game đã lưu để xuất file.");
+  };
+
   const handleWorldCreated = (state: WorldCreationState) => {
     setGameStartData(state);
     setCurrentScreen('game');
@@ -138,6 +139,7 @@ const App: React.FC = () => {
             onSettings={() => setIsSettingsOpen(true)}
             onShowInfo={() => setIsInfoModalOpen(true)}
             onShowSupport={() => setIsSupportModalOpen(true)}
+            onExportSave={handleExportSave}
             continueDisabled={continueDisabled}
             isKeyConfigured={isKeyConfigured}
             versionName={LATEST_VERSION_NAME}
@@ -159,6 +161,7 @@ const App: React.FC = () => {
             onSettings={() => setIsSettingsOpen(true)}
             onShowInfo={() => setIsInfoModalOpen(true)}
             onShowSupport={() => setIsSupportModalOpen(true)}
+            onExportSave={handleExportSave}
             continueDisabled={continueDisabled}
             isKeyConfigured={isKeyConfigured}
             versionName={LATEST_VERSION_NAME}
@@ -179,17 +182,6 @@ const App: React.FC = () => {
             onClose={() => setIsSettingsOpen(false)}
             settingsHook={settingsHook}
           />
-          <ConfirmationModal
-            isOpen={isNewGameConfirmOpen}
-            onClose={() => setIsNewGameConfirmOpen(false)}
-            onConfirm={handleConfirmStartNewGame}
-            title="Xác nhận Hành động"
-            confirmText="Xóa và Bắt đầu"
-            cancelText="Hủy"
-          >
-            <p>Hành động này sẽ xóa vĩnh viễn các file lưu thủ công và tự động hiện tại.</p>
-            <p className="font-bold mt-2">Bạn có chắc chắn muốn tiếp tục không?</p>
-          </ConfirmationModal>
           <ContinueGameModal
             isOpen={isContinueModalOpen}
             onClose={() => setIsContinueModalOpen(false)}

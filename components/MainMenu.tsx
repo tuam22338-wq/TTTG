@@ -13,6 +13,7 @@ import { DatabaseIcon } from './icons/DatabaseIcon';
 import { GameLogoIcon } from './icons/GameLogoIcon';
 import { HeartIcon } from './icons/HeartIcon';
 import { DiscordIcon } from './icons/DiscordIcon';
+import { DownloadIcon } from './icons/DownloadIcon';
 
 
 interface MainMenuProps {
@@ -22,6 +23,7 @@ interface MainMenuProps {
   onSettings: () => void;
   onShowInfo: () => void;
   onShowSupport: () => void;
+  onExportSave: () => void;
   continueDisabled: boolean;
   isKeyConfigured: boolean;
   versionName: string;
@@ -34,6 +36,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
     onSettings, 
     onShowInfo,
     onShowSupport,
+    onExportSave,
     continueDisabled, 
     isKeyConfigured,
     versionName
@@ -73,6 +76,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
   const menuItems = [
     { id: 'start', label: 'Bắt đầu Game Mới', description: 'Tạo một thế giới và nhân vật mới từ đầu.', action: onStart, disabled: false, Icon: PlusCircleIcon },
     { id: 'continue', label: 'Tiếp tục', description: 'Tải lại từ điểm lưu thủ công hoặc tự động.', action: onContinue, disabled: continueDisabled, Icon: ContinueIcon },
+    { id: 'export', label: 'Xuất file save', description: 'Lưu game đã lưu ra file .json.', action: onExportSave, disabled: continueDisabled, Icon: DownloadIcon },
     { id: 'load', label: 'Tải game từ file', description: 'Tải một file save (.json) từ máy tính của bạn.', action: triggerFileLoad, disabled: false, Icon: UploadIcon },
     { id: 'info', label: 'Thông tin', description: 'Hiển thị thông tin về nhà phát triển dự án.', action: onShowInfo, disabled: false, Icon: InfoIcon },
     { id: 'support', label: 'Ủng hộ', description: 'Ủng hộ dự án nếu bạn cảm thấy nó có giá trị.', action: onShowSupport, disabled: false, Icon: HeartIcon },

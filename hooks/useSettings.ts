@@ -42,7 +42,7 @@ const defaultSettings: Settings = {
   safety: defaultSafetySettings,
   autoHideActionPanel: false,
   narrativePerspective: 'Nhãn Quan Toàn Tri',
-  zoomLevel: 0.55,
+  zoomLevel: 0.7,
 };
 
 export function useSettings() {

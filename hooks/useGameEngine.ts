@@ -361,7 +361,27 @@ export function useGameEngine(
                  newState.totalTokens += totalTokens || 0;
                  newState.requestCount += 1;
                  
-                 // 4. Handle time and environment
+                 // 4. Handle Experience and Leveling
+                if (expGained > 0) {
+                    let newExp = newState.cultivation.exp + expGained;
+                    let newLevel = newState.cultivation.level;
+                    let newExpToNext = newState.cultivation.expToNextLevel;
+
+                    while (newExp >= newExpToNext) {
+                        newExp -= newExpToNext;
+                        newLevel += 1;
+                        // Simple scaling formula for next level's XP requirement
+                        newExpToNext = Math.floor(newExpToNext * 1.5); 
+                    }
+
+                    newState.cultivation = {
+                        level: newLevel,
+                        exp: newExp,
+                        expToNextLevel: newExpToNext,
+                    };
+                }
+
+                 // 5. Handle time and environment
                  const newMinutes = prevState.time.minute + timeElapsed;
                  const newHour = prevState.time.hour + Math.floor(newMinutes / 60);
                  const newDay = prevState.time.day + Math.floor(newHour / 24);

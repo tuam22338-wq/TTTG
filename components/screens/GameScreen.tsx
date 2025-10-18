@@ -196,7 +196,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     };
     
     if (isLoading && !gameState) {
-        return <div className="flex items-center justify-center h-screen bg-black text-white text-2xl animate-pulse">Đang sáng tạo thế giới...</div>;
+        return <div className="flex items-center justify-center h-full bg-black text-white text-2xl animate-pulse">Đang sáng tạo thế giới...</div>;
     }
 
     if (error) {

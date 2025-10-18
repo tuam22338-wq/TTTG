@@ -87,15 +87,14 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick,
         const dynamicStatuses: (CharacterStat & { name: string })[] = [];
         const allStatKeys = gameState.playerStatOrder || Object.keys(gameState.playerStats);
 
-        // FIX: Add type guard to safely handle malformed stat data from old save files.
-        // This prevents runtime errors when iterating over playerStats which might contain 
-        // non-object values or objects missing required properties like 'type'.
+        // FIX: Reverting to a more direct type guard to avoid potential issues with type casting in specific compiler configurations, which was causing the "Property 'type' does not exist on type 'unknown'" error.
         for (const key of allStatKeys) {
             const stat = gameState.playerStats[key];
             const definition = customAttrMap.get(key);
             
-            if (stat && typeof stat === 'object' && stat !== null && 'type' in stat && 'description' in stat) {
-                if (!definition || definition.type !== AttributeType.INFORMATIONAL) {
+            // Check if stat is a valid stat object before processing
+            if (stat && typeof stat === 'object' && stat !== null && 'type' in stat && typeof (stat as any).description === 'string') {
+                 if (!definition || definition.type !== AttributeType.INFORMATIONAL) {
                     dynamicStatuses.push({ name: key, ...(stat as CharacterStat) });
                 }
             }

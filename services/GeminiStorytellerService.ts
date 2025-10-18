@@ -315,9 +315,25 @@ export async function continueStory(
     const perspectiveRules = getPerspectiveRules(worldContext.narrativePerspective);
     const destinyCompassRules = getDestinyCompassRules(destinyCompassMode);
     const combatSystemRules = getCombatSystemRules(isTurnBasedCombat);
-    const situationalRules = getSituationalRules(choice, isConscienceModeOn, lustModeFlavor, isStrictInterpretationOn, isLogicModeOn, npcMindset, isCorrection, authorsMandate);
+    let situationalRules = getSituationalRules(choice, isConscienceModeOn, lustModeFlavor, isStrictInterpretationOn, isLogicModeOn, npcMindset, isCorrection, authorsMandate);
     const flowOfDestinyRules = getFlowOfDestinyRules(shouldTriggerWorldTurn, choice);
     const worldRulesPrompt = getWorldRulesPrompt(worldContext.specialRules, worldContext.initialLore);
+
+    // Add story length guidance based on user settings.
+    const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 1.5);
+    const targetStoryWordCount = Math.max(80, Math.floor(approximateWordCount * 0.7)); // Reserve ~30% tokens for other JSON fields, with a minimum word count.
+    
+    const lengthInstruction = `
+**QUY TẮC ĐỘ DÀI TƯỜNG THUẬT (STORY LENGTH RULE):**
+Bạn PHẢI cố gắng viết đoạn \`storyText\` có độ dài khoảng **${targetStoryWordCount} từ**. Đây là một hướng dẫn quan trọng để đảm bảo trải nghiệm người dùng nhất quán. Hãy điều chỉnh mức độ chi tiết của mô tả để phù hợp với độ dài này.
+`;
+
+    // Append the new rule.
+    if (situationalRules) {
+        situationalRules += '\n\n---\n\n' + lengthInstruction;
+    } else {
+        situationalRules = lengthInstruction;
+    }
 
     const systemPrompt = prompts.CORE_LOGIC_SYSTEM_PROMPT
         .replace('{PERSPECTIVE_RULES_PLACEHOLDER}', perspectiveRules)
