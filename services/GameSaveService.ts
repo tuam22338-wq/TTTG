@@ -1,169 +1,42 @@
-import { GameState, AiSettings, GameTime, CultivationState } from '../types';
-
-const MANUAL_SAVE_KEY = 'BMS_TG_ManualSaveData';
-const AUTO_SAVE_KEY = 'BMS_TG_AutoSaveData';
-
-const DEFAULT_AI_SETTINGS: AiSettings = {
-    isLogicModeOn: true,
-    lustModeFlavor: null,
-    isConscienceModeOn: false,
-    isStrictInterpretationOn: false,
-    destinyCompassMode: 'NORMAL',
-    npcMindset: 'DEFAULT',
-    flowOfDestinyInterval: null,
-    authorsMandate: [],
-    isTurnBasedCombat: true,
-};
-const DEFAULT_TIME: GameTime = { day: 1, hour: 8, minute: 0, season: 'Xuân', weather: 'Quang đãng' };
-const DEFAULT_CULTIVATION: CultivationState = { level: 1, exp: 0, expToNextLevel: 100 };
-
-function validateAndHydrateGameState(parsedState: any): GameState | null {
-  if (parsedState && parsedState.history && parsedState.playerStats && parsedState.worldContext) {
-    const hydratedState = { ...parsedState };
-
-    // --- Hydrate missing root-level properties ---
-    hydratedState.npcs = Array.isArray(parsedState.npcs) ? parsedState.npcs : [];
-    hydratedState.playerSkills = Array.isArray(parsedState.playerSkills) ? parsedState.playerSkills : [];
-    hydratedState.playerStatOrder = Array.isArray(parsedState.playerStatOrder) ? parsedState.playerStatOrder : [];
-    hydratedState.chronicle = Array.isArray(parsedState.chronicle) ? parsedState.chronicle : [];
-    hydratedState.combatants = Array.isArray(parsedState.combatants) ? parsedState.combatants : [];
-    hydratedState.isInCombat = typeof parsedState.isInCombat === 'boolean' ? parsedState.isInCombat : false;
-    hydratedState.codex = Array.isArray(parsedState.codex) ? parsedState.codex : [];
-
-    // AI Settings
-    hydratedState.aiSettings = { ...DEFAULT_AI_SETTINGS, ...(parsedState.aiSettings || {}) };
-    hydratedState.aiSettings.authorsMandate = Array.isArray(hydratedState.aiSettings.authorsMandate) ? hydratedState.aiSettings.authorsMandate : [];
-
-    // Time
-    hydratedState.time = { ...DEFAULT_TIME, ...(parsedState.time || {}) };
-
-    // Cultivation
-    hydratedState.cultivation = { ...DEFAULT_CULTIVATION, ...(parsedState.cultivation || {}) };
-
-    // Inventory & Equipment
-    if (!parsedState.inventory) {
-      hydratedState.inventory = { items: [], capacity: 50, maxWeight: 25 };
-    } else {
-      hydratedState.inventory.items = Array.isArray(parsedState.inventory.items) ? parsedState.inventory.items : [];
-    }
-    if (!parsedState.equipment) {
-      hydratedState.equipment = { WEAPON: null, HEAD: null, CHEST: null, LEGS: null, HANDS: null, FEET: null };
-    }
-    
-    // Core Stats
-    hydratedState.coreStats = parsedState.coreStats || {};
-    
-    // World Context sub-properties
-    if (hydratedState.worldContext) {
-        hydratedState.worldContext.initialFactions = Array.isArray(hydratedState.worldContext.initialFactions) ? hydratedState.worldContext.initialFactions : [];
-        hydratedState.worldContext.initialNpcs = Array.isArray(hydratedState.worldContext.initialNpcs) ? hydratedState.worldContext.initialNpcs : [];
-        
-        hydratedState.worldContext.specialRules = (Array.isArray(hydratedState.worldContext.specialRules) ? hydratedState.worldContext.specialRules : []).map((rule: any) => ({
-            ...rule,
-            isEnabled: rule.isEnabled !== undefined ? rule.isEnabled : true, // Default to true if missing
-            tags: Array.isArray(rule.tags) ? rule.tags : []
-        }));
-        
-        hydratedState.worldContext.initialLore = (Array.isArray(hydratedState.worldContext.initialLore) ? hydratedState.worldContext.initialLore : []).map((rule: any) => ({
-            ...rule,
-            tags: Array.isArray(rule.tags) ? rule.tags : []
-        }));
-
-        if (hydratedState.worldContext.character) {
-             hydratedState.worldContext.character.skills = Array.isArray(hydratedState.worldContext.character.skills) ? hydratedState.worldContext.character.skills : [];
-        }
-        if (hydratedState.worldContext.cultivationSystem && hydratedState.worldContext.cultivationSystem.mainTiers) {
-            hydratedState.worldContext.cultivationSystem.mainTiers = hydratedState.worldContext.cultivationSystem.mainTiers.map((mainTier: any) => {
-                const newMainTier = { ...mainTier };
-                newMainTier.statBonuses = Array.isArray(newMainTier.statBonuses) ? newMainTier.statBonuses : [];
-                newMainTier.subTiers = (newMainTier.subTiers || []).map((subTier: any) => {
-                    const newSubTier = { ...subTier };
-                    newSubTier.statBonuses = Array.isArray(newSubTier.statBonuses) ? newSubTier.statBonuses : [];
-                    return newSubTier;
-                });
-                return newMainTier;
-            });
-        }
-    }
-
-    return hydratedState as GameState;
-  }
-  return null;
-}
-
+import { GameState } from '../types';
+import * as StorageService from './StorageService';
 
 // --- Manual Save ---
 
-export function saveManualSave(gameState: GameState): void {
-  try {
-    const serializedState = JSON.stringify(gameState);
-    localStorage.setItem(MANUAL_SAVE_KEY, serializedState);
-  } catch (error) {
-    console.error("Failed to save manual game to localStorage:", error);
-  }
+export async function saveManualSave(gameState: GameState): Promise<void> {
+  await StorageService.saveGameState('manual', gameState);
 }
 
-export function loadManualSave(): GameState | null {
-  try {
-    const serializedState = localStorage.getItem(MANUAL_SAVE_KEY);
-    if (serializedState === null) {
-      return null;
-    }
-    const parsed = JSON.parse(serializedState);
-    return validateAndHydrateGameState(parsed);
-  } catch (error) {
-    console.error("Failed to load manual game from localStorage:", error);
-    return null;
-  }
+export async function loadManualSave(): Promise<GameState | null> {
+  return await StorageService.loadGameState('manual');
 }
 
-export function hasManualSave(): boolean {
-  return localStorage.getItem(MANUAL_SAVE_KEY) !== null;
+export async function hasManualSave(): Promise<boolean> {
+  return await StorageService.hasSave('manual');
 }
 
 // --- Auto Save ---
 
-export function saveAutoSave(gameState: GameState): void {
-  try {
-    const serializedState = JSON.stringify(gameState);
-    localStorage.setItem(AUTO_SAVE_KEY, serializedState);
-  } catch (error) {
-    console.error("Failed to save auto game to localStorage:", error);
-  }
+export async function saveAutoSave(gameState: GameState): Promise<void> {
+  await StorageService.saveGameState('auto', gameState);
 }
 
-export function loadAutoSave(): GameState | null {
-  try {
-    const serializedState = localStorage.getItem(AUTO_SAVE_KEY);
-    if (serializedState === null) {
-      return null;
-    }
-    const parsed = JSON.parse(serializedState);
-    return validateAndHydrateGameState(parsed);
-  } catch (error) {
-    console.error("Failed to load auto game from localStorage:", error);
-    return null;
-  }
+export async function loadAutoSave(): Promise<GameState | null> {
+  return await StorageService.loadGameState('auto');
 }
 
-export function hasAutoSave(): boolean {
-  return localStorage.getItem(AUTO_SAVE_KEY) !== null;
+export async function hasAutoSave(): Promise<boolean> {
+  return await StorageService.hasSave('auto');
 }
-
 
 // --- General ---
 
-export function deleteAllLocalSaves(): void {
-  try {
-    localStorage.removeItem(MANUAL_SAVE_KEY);
-    localStorage.removeItem(AUTO_SAVE_KEY);
-  } catch (error) {
-    console.error("Failed to delete all saves from localStorage:", error);
-  }
+export async function deleteAllLocalSaves(): Promise<void> {
+  await StorageService.deleteSave('manual');
+  await StorageService.deleteSave('auto');
 }
 
-
-// --- File System ---
+// --- File System (remains synchronous) ---
 
 export function saveToFile(gameState: GameState): void {
   try {
@@ -195,7 +68,7 @@ export function loadFromFile(file: File): Promise<GameState> {
       try {
         const text = event.target?.result as string;
         const parsedState = JSON.parse(text);
-        const validatedState = validateAndHydrateGameState(parsedState);
+        const validatedState = StorageService.validateAndHydrateGameState(parsedState); // Reuse validation logic
         if (validatedState) {
           resolve(validatedState);
         } else {

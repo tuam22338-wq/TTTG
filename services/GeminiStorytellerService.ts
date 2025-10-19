@@ -303,7 +303,7 @@ export async function continueStory(
     combatantNpcIds: string[];
     totalTokens: number;
 }> {
-    const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history } = gameState;
+    const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history, presentNpcIds } = gameState;
     const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
 
     // Filter to only send relevant attributes to the AI, not core combat stats.
@@ -321,7 +321,7 @@ export async function continueStory(
 
     // Add story length guidance based on user settings.
     const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 1.5);
-    const targetStoryWordCount = Math.max(80, Math.floor(approximateWordCount * 0.7)); // Reserve ~30% tokens for other JSON fields, with a minimum word count.
+    const targetStoryWordCount = Math.max(80, Math.floor(approximateWordCount * 0.5)); // Reserve ~50% tokens for other JSON fields, with a minimum word count.
     
     const lengthInstruction = `
 **QUY TẮC ĐỘ DÀI TƯỜNG THUẬT (STORY LENGTH RULE):**
@@ -343,6 +343,11 @@ Bạn PHẢI cố gắng viết đoạn \`storyText\` có độ dài khoảng **
         .replace('{FLOW_OF_DESTINY_RULES_PLACEHOLDER}', flowOfDestinyRules)
         .replace('{SITUATIONAL_RULES_PLACEHOLDER}', situationalRules);
     
+    const presentNpcs = npcs.filter(npc => presentNpcIds?.includes(npc.id));
+    const otherNpcsSummary = npcs
+        .filter(npc => !presentNpcIds?.includes(npc.id))
+        .map(({ id, name, relationship, status, lastInteractionSummary }) => ({ id, name, relationship, status, lastInteractionSummary }));
+
     const userPrompt = `
 ### THÙY 4: KÝ ỨC & BỐI CẢNH (MEMORY & CONTEXT LOBE) ###
 Đây là toàn bộ thông tin bạn cần để đưa ra quyết định cho lượt truyện này.
@@ -355,7 +360,8 @@ Bạn PHẢI cố gắng viết đoạn \`storyText\` có độ dài khoảng **
 
 **4.2. TẦNG KÝ ỨC NGẮN HẠN (BỐI CẢNH GẦN NHẤT):**
 - **Lượt truyện cuối:** ${history.length > 0 ? history[history.length - 1].storyText : "Đây là lượt đầu tiên."}
-- **Toàn bộ NPC đã biết:** ${npcs.length > 0 ? JSON.stringify(npcs, null, 2) : "Chưa gặp NPC nào."}
+- **NPC đang có mặt (CHI TIẾT):** ${presentNpcs.length > 0 ? JSON.stringify(presentNpcs, null, 2) : "Không có NPC nào có mặt."}
+- **NPC khác đã biết (TÓM TẮT):** ${otherNpcsSummary.length > 0 ? JSON.stringify(otherNpcsSummary, null, 2) : "Không có."}
 - **Kỹ năng Người chơi:** ${playerSkills.length > 0 ? JSON.stringify(playerSkills, null, 2) : "Chưa có kỹ năng nào."}
 
 **4.3. TRẠNG THÁI HIỆN TẠI (SỰ THẬT TUYỆT ĐỐI):**

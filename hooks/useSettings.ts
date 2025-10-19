@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { Settings, ApiKeySource, AiModelSettings, AudioSettings, SafetySettings, NarrativePerspective, GeminiModel, AiProvider, DeepSeekModelSettings } from '../types';
 import { useApiStats } from './useApiStats';
+import * as StorageService from '../services/StorageService';
 
 const defaultAiModelSettings: AiModelSettings = {
   model: 'gemini-2.5-flash',
@@ -45,101 +46,77 @@ const defaultSettings: Settings = {
   zoomLevel: 0.7,
 };
 
+function hydrateSettings(parsed: Partial<Settings>): Settings {
+  const hydrated: Settings = { ...defaultSettings, ...parsed };
+
+  // --- Start Migration & Hydration ---
+  if (!parsed.aiProvider) {
+    hydrated.aiProvider = defaultSettings.aiProvider;
+  }
+  if (typeof parsed.deepSeekApiKey !== 'string') {
+    hydrated.deepSeekApiKey = '';
+  }
+
+  // 1. Migrate old key format
+  if (typeof (parsed as any).customApiKey === 'string' && !Array.isArray(parsed.customApiKeys)) {
+    hydrated.customApiKeys = (parsed as any).customApiKey ? [(parsed as any).customApiKey] : [];
+    delete (hydrated as any).customApiKey;
+  }
+
+  // 2. Hydrate new nested settings objects if they don't exist
+  hydrated.aiModelSettings = { ...defaultAiModelSettings, ...(parsed.aiModelSettings || {}) };
+  hydrated.deepSeekModelSettings = { ...defaultDeepSeekModelSettings, ...(parsed.deepSeekModelSettings || {}) };
+  hydrated.audio = { ...defaultAudioSettings, ...(parsed.audio || {}) };
+  hydrated.safety = { ...defaultSafetySettings, ...(parsed.safety || {}) };
+  
+  if (typeof parsed.autoHideActionPanel !== 'boolean') {
+    hydrated.autoHideActionPanel = defaultSettings.autoHideActionPanel;
+  }
+
+  if (typeof parsed.zoomLevel !== 'number' || parsed.zoomLevel < 0.5 || parsed.zoomLevel > 1.0) {
+      hydrated.zoomLevel = defaultSettings.zoomLevel;
+  }
+
+  // FIX: Cast narrativePerspective to string for comparison to allow migration of old setting values that don't match the current type definition.
+  // Migration from old perspective name
+  if ((parsed.narrativePerspective as string) === 'Ngôi thứ ba Toàn Tri') {
+    hydrated.narrativePerspective = 'Ngôi thứ ba Toàn tri';
+  } else if (typeof parsed.narrativePerspective !== 'string' || !['Ngôi thứ hai', 'Ngôi thứ ba Giới hạn', 'Ngôi thứ ba Toàn tri', 'Nhãn Quan Toàn Tri'].includes(parsed.narrativePerspective)) {
+    hydrated.narrativePerspective = defaultSettings.narrativePerspective;
+  }
+
+  hydrated.apiKeySource = parsed.apiKeySource || defaultSettings.apiKeySource;
+  hydrated.customApiKeys = Array.isArray(parsed.customApiKeys) ? parsed.customApiKeys : [];
+  hydrated.currentApiKeyIndex = typeof parsed.currentApiKeyIndex === 'number' ? parsed.currentApiKeyIndex : 0;
+
+  return hydrated;
+}
+
+
 export function useSettings() {
-  const [settings, setSettings] = useState<Settings>(() => {
-    try {
-      const storedSettings = localStorage.getItem('appSettings');
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Asynchronous loading from IndexedDB
+  useEffect(() => {
+    async function load() {
+      const storedSettings = await StorageService.loadSettings();
       if (storedSettings) {
-        const parsed = JSON.parse(storedSettings);
-        
-        // --- Start Migration & Hydration ---
-        if (!parsed.aiProvider) {
-          parsed.aiProvider = defaultSettings.aiProvider;
-        }
-        if (typeof parsed.deepSeekApiKey !== 'string') {
-          parsed.deepSeekApiKey = '';
-        }
-
-        // 1. Migrate old key format
-        if (typeof parsed.customApiKey === 'string' && !Array.isArray(parsed.customApiKeys)) {
-          parsed.customApiKeys = parsed.customApiKey ? [parsed.customApiKey] : [];
-          delete parsed.customApiKey;
-        }
-
-        // 2. Hydrate new nested settings objects if they don't exist
-        if (!parsed.aiModelSettings) {
-          parsed.aiModelSettings = { ...defaultAiModelSettings };
-        } else {
-          parsed.aiModelSettings = { ...defaultAiModelSettings, ...parsed.aiModelSettings };
-        }
-
-        if (!parsed.deepSeekModelSettings) {
-          parsed.deepSeekModelSettings = { ...defaultDeepSeekModelSettings };
-        } else {
-          parsed.deepSeekModelSettings = { ...defaultDeepSeekModelSettings, ...parsed.deepSeekModelSettings };
-        }
-
-        if (!parsed.audio) {
-          parsed.audio = { ...defaultAudioSettings };
-        } else {
-          parsed.audio = { ...defaultAudioSettings, ...parsed.audio };
-        }
-
-        if (!parsed.safety) {
-          parsed.safety = { ...defaultSafetySettings };
-        } else {
-           parsed.safety = { ...defaultSafetySettings, ...parsed.safety };
-        }
-        
-        if (typeof parsed.autoHideActionPanel !== 'boolean') {
-          parsed.autoHideActionPanel = defaultSettings.autoHideActionPanel;
-        }
-
-        if (typeof parsed.zoomLevel !== 'number' || parsed.zoomLevel < 0.5 || parsed.zoomLevel > 1.0) {
-            parsed.zoomLevel = defaultSettings.zoomLevel;
-        }
-
-        // Migration from old perspective name
-        if (parsed.narrativePerspective === 'Ngôi thứ ba Toàn Tri') {
-          parsed.narrativePerspective = 'Ngôi thứ ba Toàn tri';
-        } else if (typeof parsed.narrativePerspective !== 'string' || !['Ngôi thứ hai', 'Ngôi thứ ba Giới hạn', 'Ngôi thứ ba Toàn tri', 'Nhãn Quan Toàn Tri'].includes(parsed.narrativePerspective)) {
-          parsed.narrativePerspective = defaultSettings.narrativePerspective;
-        }
-
-
-        // --- End Migration ---
-
-        return {
-          aiProvider: parsed.aiProvider,
-          apiKeySource: parsed.apiKeySource || defaultSettings.apiKeySource,
-          customApiKeys: Array.isArray(parsed.customApiKeys) ? parsed.customApiKeys : [],
-          deepSeekApiKey: parsed.deepSeekApiKey,
-          currentApiKeyIndex: typeof parsed.currentApiKeyIndex === 'number' ? parsed.currentApiKeyIndex : 0,
-          aiModelSettings: parsed.aiModelSettings,
-          deepSeekModelSettings: parsed.deepSeekModelSettings,
-          audio: parsed.audio,
-          safety: parsed.safety,
-          autoHideActionPanel: parsed.autoHideActionPanel,
-          narrativePerspective: parsed.narrativePerspective,
-          zoomLevel: parsed.zoomLevel,
-        };
+        setSettings(hydrateSettings(storedSettings));
       }
-    } catch (error) {
-      console.error("Failed to parse settings from localStorage", error);
+      setIsInitialized(true);
     }
-    // Return complete default settings if anything fails
-    return defaultSettings;
-  });
+    load();
+  }, []);
 
   const apiStats = useApiStats();
 
+  // Asynchronous saving to IndexedDB
   useEffect(() => {
-    try {
-      localStorage.setItem('appSettings', JSON.stringify(settings));
-    } catch (error) {
-      console.error("Failed to save settings to localStorage", error);
+    if (isInitialized) {
+      StorageService.saveSettings(settings);
     }
-  }, [settings]);
+  }, [settings, isInitialized]);
 
    useEffect(() => {
     const validKeys = settings.customApiKeys.filter(k => k.trim() !== '');

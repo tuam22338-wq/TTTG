@@ -12,6 +12,7 @@ import Button from './components/ui/Button';
 import { LATEST_VERSION_NAME } from './services/changelogData';
 import LoadingScreen from './components/LoadingScreen';
 import ContinueGameModal from './components/ui/ContinueGameModal';
+import { migrateFromLocalStorage } from './services/StorageService';
 
 type Screen = 'menu' | 'game' | 'world-creator';
 
@@ -31,9 +32,17 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
-    setHasManualSave(GameSaveService.hasManualSave());
-    setHasAutoSave(GameSaveService.hasAutoSave());
-    if (!isKeyConfigured && !localStorage.getItem('appSettings')) {
+    // Perform one-time migration from localStorage to IndexedDB
+    migrateFromLocalStorage().then(() => {
+      // After migration (or if no migration was needed), check for saves in IndexedDB
+      const checkSaves = async () => {
+        setHasManualSave(await GameSaveService.hasManualSave());
+        setHasAutoSave(await GameSaveService.hasAutoSave());
+      };
+      checkSaves();
+    });
+
+    if (!isKeyConfigured && !localStorage.getItem('db_migrated')) { // Use a flag to check if settings were ever saved
       setIsSettingsOpen(true);
     }
   }, [isKeyConfigured]);
@@ -55,12 +64,12 @@ const App: React.FC = () => {
     startNewGameFlow();
   };
   
-  const handleContinueManualSave = () => {
+  const handleContinueManualSave = async () => {
     if (!isKeyConfigured) {
       setIsSettingsOpen(true);
       return;
     }
-    const savedGame = GameSaveService.loadManualSave();
+    const savedGame = await GameSaveService.loadManualSave();
     if (savedGame) {
       setGameStartData(savedGame);
       setCurrentScreen('game');
@@ -70,12 +79,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleContinueAutoSave = () => {
+  const handleContinueAutoSave = async () => {
     if (!isKeyConfigured) {
       setIsSettingsOpen(true);
       return;
     }
-    const savedGame = GameSaveService.loadAutoSave();
+    const savedGame = await GameSaveService.loadAutoSave();
     if (savedGame) {
       setGameStartData(savedGame);
       setCurrentScreen('game');
@@ -94,13 +103,13 @@ const App: React.FC = () => {
     setCurrentScreen('game');
   };
 
-  const handleExportSave = () => {
-    const manualSave = GameSaveService.loadManualSave();
+  const handleExportSave = async () => {
+    const manualSave = await GameSaveService.loadManualSave();
     if (manualSave) {
         GameSaveService.saveToFile(manualSave);
         return;
     }
-    const autoSave = GameSaveService.loadAutoSave();
+    const autoSave = await GameSaveService.loadAutoSave();
     if (autoSave) {
         GameSaveService.saveToFile(autoSave);
         return;
@@ -113,9 +122,9 @@ const App: React.FC = () => {
     setCurrentScreen('game');
   };
 
-  const handleBackToMenu = () => {
-    setHasManualSave(GameSaveService.hasManualSave());
-    setHasAutoSave(GameSaveService.hasAutoSave());
+  const handleBackToMenu = async () => {
+    setHasManualSave(await GameSaveService.hasManualSave());
+    setHasAutoSave(await GameSaveService.hasAutoSave());
     setCurrentScreen('menu');
   };
 
