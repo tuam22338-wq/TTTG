@@ -190,6 +190,15 @@ export const coreLogicSchema = {
     required: ['storyText', 'choices', 'summaryText']
 };
 
+export const novelModeSchema = {
+    type: Type.OBJECT,
+    properties: {
+        storyText: { type: Type.STRING },
+        summaryText: { type: Type.STRING },
+    },
+    required: ['storyText', 'summaryText']
+};
+
 export const sanitizedGameStateSchema = {
     type: Type.OBJECT,
     properties: {

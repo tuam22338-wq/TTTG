@@ -61,6 +61,7 @@ export interface Settings {
   autoHideActionPanel: boolean;
   narrativePerspective: NarrativePerspective;
   zoomLevel: number;
+  isNovelMode: boolean;
 }
 
 export interface CharacterSkillInput {

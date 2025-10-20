@@ -84,9 +84,13 @@ ${userIdea}
 
 Hãy bắt đầu sáng tạo.`;
 
-    const result = await client.callJsonAI(prompt, schemas.quickAssistSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-    const aiResponse = client.parseAndValidateJsonResponse(result.text);
+    const worldGenModelSettings: AiModelSettings = {
+        ...aiModelSettings,
+        maxOutputTokens: 8192, // Increase token limit for complex world generation.
+    };
 
+    const { parsed: aiResponse } = await client.callJsonAI(prompt, schemas.quickAssistSchema, apiClient, worldGenModelSettings, getSafetySettings(safetySettings));
+    
     const generatedFactions = (aiResponse.initialFactions || []).map((faction: any, index: number) => ({
         ...faction,
         id: `faction_${index + 1}_${Date.now()}`
@@ -138,8 +142,7 @@ export async function generateSkillFromUserInput(
         .replace('{SKILL_NAME_PLACEHOLDER}', name)
         .replace('{SKILL_DESCRIPTION_PLACEHOLDER}', description);
 
-    const result = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-    const skill = client.parseAndValidateJsonResponse(result.text);
+    const { parsed: skill } = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
 
     // Ensure the name matches the user's input, as the AI might change it slightly.
     skill.name = name;
@@ -159,8 +162,7 @@ export async function generateSkillFromStat(
         .replace('{WORLD_CONTEXT_PLACEHOLDER}', worldContext.description)
         .replace('{STAT_NAME_PLACEHOLDER}', statName);
     
-    const result = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-    const skill = client.parseAndValidateJsonResponse(result.text);
+    const { parsed: skill } = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
 
     // Ensure the name matches, sometimes AI might change it slightly
     skill.name = statName;
@@ -244,8 +246,7 @@ Bắt đầu cuộc phiêu lưu.
 
     console.debug("Initializing story with custom token limit:", initialModelSettings.maxOutputTokens);
 
-    const result = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, initialModelSettings, getSafetySettings(safetySettings));
-    const aiResponse = client.parseAndValidateJsonResponse(result.text);
+    const { parsed: aiResponse, response: result } = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, initialModelSettings, getSafetySettings(safetySettings));
 
     return {
         initialTurn: {
@@ -284,7 +285,8 @@ export async function continueStory(
     isTurnBasedCombat: boolean,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    isNovelMode: boolean
 ): Promise<{
     newTurn: GameTurn;
     playerStatChanges: StatChanges;
@@ -304,6 +306,74 @@ export async function continueStory(
     totalTokens: number;
 }> {
     const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history, presentNpcIds } = gameState;
+
+    if (isNovelMode) {
+        const novelHistory = isRewrite ? history.slice(0, -1) : history;
+        const lastTurnText = novelHistory.length > 0 ? novelHistory[novelHistory.length - 1].storyText : "Đây là chương đầu tiên.";
+
+        const userPrompt = `
+### Bối Cảnh & Tóm Tắt ###
+**Bối cảnh thế giới:** ${worldContext.description}
+**Tóm tắt câu chuyện đến nay:** ${plotChronicle || "Chưa có sự kiện nào."}
+**Đoạn truyện cuối:** ${lastTurnText}
+
+### Chỉ Dẫn Của Tác Giả ###
+${choice}
+`;
+
+        const fullPrompt = prompts.NOVEL_MODE_SYSTEM_PROMPT + '\n\n' + userPrompt;
+        
+        let fullResponseText = '';
+        let totalTokens = 0;
+        
+        try {
+            const stream = await client.callJsonAIStream(fullPrompt, schemas.novelModeSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+            for await (const chunk of stream) {
+                const chunkText = chunk.text;
+                if (chunkText) {
+                    fullResponseText += chunkText;
+                    onChunk(chunkText);
+                }
+                if (chunk.candidates?.[0]?.tokenCount) {
+                   totalTokens = chunk.candidates[0].tokenCount;
+                }
+            }
+            
+            const novelResponse = client.parseAndValidateJsonResponse(fullResponseText);
+            
+            const newPlotChronicle = isRewrite ? plotChronicle : (plotChronicle + '\n- ' + novelResponse.summaryText);
+
+            return {
+                newTurn: {
+                    playerAction: choice,
+                    storyText: novelResponse.storyText,
+                    statusNarration: null,
+                    choices: [], // NO CHOICES in novel mode
+                    tokenCount: totalTokens,
+                    omniscientInterlude: null,
+                },
+                summaryText: novelResponse.summaryText,
+                newPlotChronicle,
+                playerStatChanges: { statsToUpdate: [], statsToDelete: [] },
+                npcUpdates: [],
+                newlyAcquiredSkill: null,
+                presentNpcIds: gameState.presentNpcIds,
+                itemsReceived: [],
+                timeElapsed: 0,
+                nsfwSceneStateChange: 'NONE',
+                expGained: 0,
+                coreStatsChanges: null,
+                weatherChange: null,
+                isInCombat: false,
+                combatantNpcIds: [],
+                totalTokens,
+            };
+        } catch (error: any) {
+             console.error("Lỗi khi viết tiểu thuyết:", error);
+             throw new Error(`AI đã gặp lỗi khi viết tiếp câu chuyện. Lỗi: ${error.message}\n\nDữ liệu gốc từ AI:\n${fullResponseText}`);
+        }
+    }
+
     const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
 
     // Filter to only send relevant attributes to the AI, not core combat stats.
@@ -319,16 +389,14 @@ export async function continueStory(
     const flowOfDestinyRules = getFlowOfDestinyRules(shouldTriggerWorldTurn, choice);
     const worldRulesPrompt = getWorldRulesPrompt(worldContext.specialRules, worldContext.initialLore);
 
-    // Add story length guidance based on user settings.
     const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 1.5);
-    const targetStoryWordCount = Math.max(80, Math.floor(approximateWordCount * 0.5)); // Reserve ~50% tokens for other JSON fields, with a minimum word count.
+    const targetStoryWordCount = Math.max(80, Math.floor(approximateWordCount * 0.5));
     
     const lengthInstruction = `
 **QUY TẮC ĐỘ DÀI TƯỜNG THUẬT (STORY LENGTH RULE):**
 Bạn PHẢI cố gắng viết đoạn \`storyText\` có độ dài khoảng **${targetStoryWordCount} từ**. Đây là một hướng dẫn quan trọng để đảm bảo trải nghiệm người dùng nhất quán. Hãy điều chỉnh mức độ chi tiết của mô tả để phù hợp với độ dài này.
 `;
 
-    // Append the new rule.
     if (situationalRules) {
         situationalRules += '\n\n---\n\n' + lengthInstruction;
     } else {
@@ -373,81 +441,101 @@ Bạn PHẢI cố gắng viết đoạn \`storyText\` có độ dài khoảng **
 ${choice}
 `;
 
-    const fullPrompt = systemPrompt + '\n\n' + userPrompt;
+    let fullPrompt = systemPrompt + '\n\n' + userPrompt;
+    const MAX_JSON_RETRIES = 2;
 
-    let fullResponseText = '';
-    let totalTokens = 0;
-    const stream = await client.callJsonAIStream(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    for (let attempt = 0; attempt < MAX_JSON_RETRIES; attempt++) {
+        let fullResponseText = '';
+        let totalTokens = 0;
+        
+        try {
+            const stream = await client.callJsonAIStream(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
 
-    for await (const chunk of stream) {
-        const chunkText = chunk.text;
-        if (chunkText) {
-            fullResponseText += chunkText;
-            onChunk(chunkText);
-        }
-        if (chunk.candidates?.[0]?.tokenCount) {
-           totalTokens = chunk.candidates[0].tokenCount;
-        }
-    }
+            for await (const chunk of stream) {
+                const chunkText = chunk.text;
+                if (chunkText) {
+                    fullResponseText += chunkText;
+                    onChunk(chunkText);
+                }
+                if (chunk.candidates?.[0]?.tokenCount) {
+                   totalTokens = chunk.candidates[0].tokenCount;
+                }
+            }
+            
+            if (!fullResponseText.trim()) {
+                 throw new Error(`AI không trả về nội dung sau khi streaming. Có thể đã bị chặn vì lý do an toàn.`);
+            }
 
-    const logicAiResponse = client.parseAndValidateJsonResponse(fullResponseText);
+            const logicAiResponse = client.parseAndValidateJsonResponse(fullResponseText);
 
-
-    const presentNpcsForCreative = npcs.filter(npc => logicAiResponse.presentNpcIds?.includes(npc.id));
-    if (presentNpcsForCreative.length > 0) {
-        const creativeTextUserPrompt = `
+            const presentNpcsForCreative = npcs.filter(npc => logicAiResponse.presentNpcIds?.includes(npc.id));
+            if (presentNpcsForCreative.length > 0) {
+                const creativeTextUserPrompt = `
 **Bối cảnh (Đoạn truyện vừa diễn ra):**
 ${logicAiResponse.storyText}
 
 **Danh sách NPC hiện diện và tóm tắt cũ:**
 ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt cũ: "${npc.lastInteractionSummary}")`).join('\n')}
 `;
-        const creativeResult = await client.callCreativeTextAI(prompts.CREATIVE_TEXT_SYSTEM_PROMPT + '\n\n' + creativeTextUserPrompt, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-        const creativeData = client.parseNpcCreativeText(creativeResult.text);
-        
-        logicAiResponse.npcUpdates = logicAiResponse.npcUpdates.map((update: NPCUpdate) => {
-            if ((update.action === 'UPDATE' || update.action === 'CREATE') && creativeData.has(update.id)) {
-                const creative = creativeData.get(update.id)!;
-                if (!update.payload) { 
-                    // @ts-ignore
-                    update.payload = {};
-                 }
-                // @ts-ignore
-                update.payload.status = creative.status;
-                // @ts-ignore
-                update.payload.lastInteractionSummary = creative.lastInteractionSummary;
+                const creativeResult = await client.callCreativeTextAI(prompts.CREATIVE_TEXT_SYSTEM_PROMPT + '\n\n' + creativeTextUserPrompt, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+                const creativeData = client.parseNpcCreativeText(creativeResult.text);
+                
+                logicAiResponse.npcUpdates = (logicAiResponse.npcUpdates || []).map((update: NPCUpdate) => {
+                    if ((update.action === 'UPDATE' || update.action === 'CREATE') && creativeData.has(update.id)) {
+                        const creative = creativeData.get(update.id)!;
+                        if (!update.payload) { 
+                            // @ts-ignore
+                            update.payload = {};
+                         }
+                        // @ts-ignore
+                        update.payload.status = creative.status;
+                        // @ts-ignore
+                        update.payload.lastInteractionSummary = creative.lastInteractionSummary;
+                    }
+                    return update;
+                });
             }
-            return update;
-        });
+
+            const newPlotChronicle = isRewrite ? plotChronicle : (plotChronicle + '\n- ' + logicAiResponse.summaryText);
+
+            return {
+                newTurn: {
+                    playerAction: choice,
+                    storyText: logicAiResponse.storyText,
+                    statusNarration: logicAiResponse.statusNarration,
+                    choices: logicAiResponse.choices,
+                    tokenCount: totalTokens,
+                    omniscientInterlude: logicAiResponse.omniscientInterlude
+                },
+                playerStatChanges: logicAiResponse.playerStatChanges || { statsToUpdate: [], statsToDelete: [] },
+                npcUpdates: logicAiResponse.npcUpdates || [],
+                newlyAcquiredSkill: logicAiResponse.newlyAcquiredSkill || null,
+                newPlotChronicle: newPlotChronicle,
+                presentNpcIds: logicAiResponse.presentNpcIds || [],
+                summaryText: logicAiResponse.summaryText,
+                itemsReceived: logicAiResponse.itemsReceived || [],
+                timeElapsed: logicAiResponse.timeElapsed || 10,
+                nsfwSceneStateChange: logicAiResponse.nsfwSceneStateChange || 'NONE',
+                expGained: logicAiResponse.expGained || 0,
+                coreStatsChanges: logicAiResponse.coreStatsChanges || null,
+                weatherChange: logicAiResponse.weatherChange || null,
+                isInCombat: logicAiResponse.isInCombat || false,
+                combatantNpcIds: logicAiResponse.combatantNpcIds || [],
+                totalTokens: totalTokens,
+            };
+
+        } catch (error: any) {
+            console.warn(`Attempt ${attempt + 1} failed in continueStory. Error: ${error.message}`);
+            if (attempt === MAX_JSON_RETRIES - 1) {
+                console.error("All retry attempts failed for continueStory.");
+                throw new Error(`AI đã trả về một phản hồi JSON không hợp lệ sau nhiều lần thử. Lỗi: ${error.message}\n\nDữ liệu gốc từ AI:\n${fullResponseText}`);
+            }
+
+            fullPrompt = `${systemPrompt}\n\n${userPrompt}\n\n---SYSTEM NOTE---\nYour previous streaming response resulted in invalid JSON and caused a parsing error. This is a critical error. You MUST regenerate the entire response and ensure it is a single, complete, valid JSON object that strictly follows the provided schema. Pay close attention to escaping double quotes (\\") within strings and ensure all brackets and braces are correctly closed.\n\nHere is the invalid/incomplete JSON you streamed:\n\`\`\`\n${fullResponseText || '(empty response)'}\n\`\`\``;
+            console.log("Retrying continueStory with corrective prompt...");
+        }
     }
-
-    const newPlotChronicle = isRewrite ? plotChronicle : (plotChronicle + '\n- ' + logicAiResponse.summaryText);
-
-    return {
-        newTurn: {
-            playerAction: choice,
-            storyText: logicAiResponse.storyText,
-            statusNarration: logicAiResponse.statusNarration,
-            choices: logicAiResponse.choices,
-            tokenCount: totalTokens,
-            omniscientInterlude: logicAiResponse.omniscientInterlude
-        },
-        playerStatChanges: logicAiResponse.playerStatChanges || { statsToUpdate: [], statsToDelete: [] },
-        npcUpdates: logicAiResponse.npcUpdates || [],
-        newlyAcquiredSkill: logicAiResponse.newlyAcquiredSkill || null,
-        newPlotChronicle: newPlotChronicle,
-        presentNpcIds: logicAiResponse.presentNpcIds || [],
-        summaryText: logicAiResponse.summaryText,
-        itemsReceived: logicAiResponse.itemsReceived || [],
-        timeElapsed: logicAiResponse.timeElapsed || 10,
-        nsfwSceneStateChange: logicAiResponse.nsfwSceneStateChange || 'NONE',
-        expGained: logicAiResponse.expGained || 0,
-        coreStatsChanges: logicAiResponse.coreStatsChanges || null,
-        weatherChange: logicAiResponse.weatherChange || null,
-        isInCombat: logicAiResponse.isInCombat || false,
-        combatantNpcIds: logicAiResponse.combatantNpcIds || [],
-        totalTokens: totalTokens,
-    };
+    throw new Error("Lỗi logic trong cơ chế thử lại của continueStory.");
 }
 
 export async function generateDefeatStory(
@@ -479,8 +567,7 @@ ${JSON.stringify({ ...gameState.coreStats }, null, 2)}
 
     const fullPrompt = prompts.DEFEAT_SYSTEM_PROMPT + '\n\n' + userPrompt;
 
-    const result = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-    const aiResponse = client.parseAndValidateJsonResponse(result.text);
+    const { parsed: aiResponse, response: result } = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
 
     return {
         newTurn: {
@@ -502,8 +589,7 @@ export async function refineEntityStats(
     const prompt = prompts.STAT_REFINEMENT_SYSTEM_PROMPT
         .replace('{STATS_JSON_PLACEHOLDER}', JSON.stringify(statsToRefine, null, 2));
 
-    const result = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-    const changes = client.parseAndValidateJsonResponse(result.text);
+    const { parsed: changes } = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
 
     return changes as StatChanges;
 }
@@ -536,8 +622,7 @@ export async function reconstructEntity(
         .replace('{OLD_STATS_LIST_PLACEHOLDER}', JSON.stringify(Object.keys(oldStats), null, 2))
         .replace('{USER_DIRECTIVE_PLACEHOLDER}', directive || 'Không có.');
 
-    const result = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-    const changes = client.parseAndValidateJsonResponse(result.text);
+    const { parsed: changes } = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
 
     return changes as StatChanges;
 }
@@ -561,8 +646,7 @@ export async function sanitizeGameState(
     const prompt = prompts.GAME_STATE_SANITIZATION_PROMPT
         .replace('{GAME_DATA_JSON_PLACEHOLDER}', JSON.stringify(dataToSanitize, null, 2));
 
-    const result = await client.callJsonAI(prompt, schemas.sanitizedGameStateSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-    const sanitizedData = client.parseAndValidateJsonResponse(result.text);
+    const { parsed: sanitizedData } = await client.callJsonAI(prompt, schemas.sanitizedGameStateSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
 
     return sanitizedData;
 }

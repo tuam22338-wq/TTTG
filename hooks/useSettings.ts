@@ -44,6 +44,7 @@ const defaultSettings: Settings = {
   autoHideActionPanel: false,
   narrativePerspective: 'Nhãn Quan Toàn Tri',
   zoomLevel: 0.7,
+  isNovelMode: false,
 };
 
 function hydrateSettings(parsed: Partial<Settings>): Settings {
@@ -75,6 +76,10 @@ function hydrateSettings(parsed: Partial<Settings>): Settings {
 
   if (typeof parsed.zoomLevel !== 'number' || parsed.zoomLevel < 0.5 || parsed.zoomLevel > 1.0) {
       hydrated.zoomLevel = defaultSettings.zoomLevel;
+  }
+  
+  if (typeof parsed.isNovelMode !== 'boolean') {
+    hydrated.isNovelMode = defaultSettings.isNovelMode;
   }
 
   // FIX: Cast narrativePerspective to string for comparison to allow migration of old setting values that don't match the current type definition.

@@ -6,6 +6,7 @@ import ToggleSwitch from './ui/ToggleSwitch';
 import InputField from './ui/InputField';
 import { useSettings } from '../hooks/useSettings';
 import { CogIcon } from './icons/CogIcon';
+import { BookIcon } from './icons/BookIcon';
 
 // --- Start: Local Icon Definitions ---
 const PaintBrushIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -36,7 +37,7 @@ interface SettingsModalProps {
   settingsHook: ReturnType<typeof useSettings>;
 }
 
-type SettingsTab = 'interface' | 'audio' | 'ai_model' | 'safety' | 'advanced';
+type SettingsTab = 'interface' | 'audio' | 'ai_model' | 'novel' | 'safety' | 'advanced';
 
 const GEMINI_MODEL_OPTIONS: { id: GeminiModel; name: string }[] = [
     { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Mặc định)' },
@@ -110,6 +111,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
         { id: 'interface', label: 'Giao diện', Icon: PaintBrushIcon },
         { id: 'audio', label: 'Âm Thanh', Icon: SpeakerWaveIcon },
         { id: 'ai_model', label: 'Model AI', Icon: CogIcon },
+        { id: 'novel', label: 'Tiểu Thuyết', Icon: BookIcon },
         { id: 'safety', label: 'An Toàn', Icon: ShieldCheckIcon },
         { id: 'advanced', label: 'Nâng Cao', Icon: ExclamationTriangleIcon },
     ];
@@ -267,6 +269,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+                    {activeTab === 'novel' && (
+                        <div className="space-y-6 animate-fade-in-fast">
+                            <h3 className="text-lg font-bold text-white mb-2">Chế độ Viết Tiểu Thuyết</h3>
+                            <div className="p-4 bg-black/20 rounded-lg border border-neutral-700">
+                                <ToggleSwitch 
+                                    id="novel-mode-toggle" 
+                                    label="Kích hoạt Chế độ Tiểu Thuyết" 
+                                    description="Biến AI thành một người đồng sáng tác tiểu thuyết. AI sẽ tập trung vào việc viết truyện dài, chất lượng cao dựa trên chỉ dẫn của bạn, bỏ qua các cơ chế game như chỉ số, lựa chọn, và kỹ năng." 
+                                    enabled={settings.isNovelMode} 
+                                    setEnabled={val => setSettings({ ...settings, isNovelMode: val })} 
+                                />
+                            </div>
+                             <div className="text-sm text-neutral-400 p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                                <p><strong className="text-yellow-300">Lưu ý:</strong> Khi bật chế độ này, giao diện trong game sẽ được đơn giản hóa, ẩn đi các bảng trạng thái nhân vật và các lựa chọn do AI tạo ra. Bạn sẽ trực tiếp ra lệnh cho AI viết tiếp câu chuyện.</p>
+                            </div>
                         </div>
                     )}
                     {activeTab === 'safety' && (

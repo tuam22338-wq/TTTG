@@ -52,7 +52,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         updateAiSettings, newlyAcquiredSkill, handleAcknowledgeSkill, 
         handleDeclineSkill, showIntroductoryModal, setShowIntroductoryModal,
         executeEntityAction, setGameState, addPlayerSkill,
-    } = useGameEngine(initialData, apiClient, settings.aiModelSettings, settings.safety);
+    } = useGameEngine(initialData, apiClient, settings.aiModelSettings, settings.safety, settings.isNovelMode);
     
     const [viewMode, setViewMode] = useLocalStorage<ViewMode>('gameViewMode', 'desktop');
     const [customAction, setCustomAction] = useState('');
@@ -213,7 +213,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         return <div className="flex items-center justify-center h-screen bg-black text-white">Lỗi: Không thể tải trạng thái game.</div>;
     }
     
-     if (gameState.isInCombat) {
+     if (gameState.isInCombat && !settings.isNovelMode) {
         return <CombatScreen 
             gameState={gameState} 
             endCombat={endCombat} 
@@ -247,9 +247,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                          <button onClick={() => setIsCodexOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở sổ tay">
                             <BookIcon className="h-6 w-6"/>
                         </button>
-                        <button onClick={() => setIsCharPanelOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở bảng nhân vật">
-                            <UserIcon className="h-6 w-6"/>
-                        </button>
+                        {!settings.isNovelMode && (
+                            <button onClick={() => setIsCharPanelOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở bảng nhân vật">
+                                <UserIcon className="h-6 w-6"/>
+                            </button>
+                        )}
                     </div>
                 </header>
                 
@@ -282,6 +284,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                             onRequestRewrite={handleRewrite}
                             canCorrect={!!lastTurn.playerAction}
                             onRequestCorrection={handleCorrection}
+                            isNovelMode={settings.isNovelMode}
                         />
                     </div>
                 </footer>
@@ -294,30 +297,70 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 confirmText="Bắt đầu cuộc hành trình"
             />
 
-            <SkillAcquisitionModal 
-                isOpen={!!newlyAcquiredSkill}
-                skill={newlyAcquiredSkill}
-                onConfirm={handleAcknowledgeSkill}
-                onDecline={handleDeclineSkill}
-            />
+            {!settings.isNovelMode && (
+                <>
+                    <SkillAcquisitionModal 
+                        isOpen={!!newlyAcquiredSkill}
+                        skill={newlyAcquiredSkill}
+                        onConfirm={handleAcknowledgeSkill}
+                        onDecline={handleDeclineSkill}
+                    />
 
-            <CharacterPanel 
-                isOpen={isCharPanelOpen}
-                onClose={() => setIsCharPanelOpen(false)}
-                gameState={gameState}
-                finalCoreStats={gameState.coreStats}
-                onStatClick={handleStatClick}
-                recentlyUpdatedPlayerStats={new Set()}
-                onOpenCreateStatModal={() => setIsCreateStatModalOpen(true)}
-                onUseSkill={() => {}} 
-                onRequestDeleteSkill={() => {}}
-                onRequestEditAbility={(skillName, ability) => { setAbilityEditData({ skillName, ability }); setIsAbilityEditModalOpen(true); }}
-                onOpenPowerCreationModal={() => setIsPowerCreationModalOpen(true)}
-                isLoading={isLoading}
-                onEquipItem={() => {}}
-                onUnequipItem={() => {}}
-                onShowAchievement={(item) => { setAchievementData(item); setIsAchievementModalOpen(true); }}
-            />
+                    <CharacterPanel 
+                        isOpen={isCharPanelOpen}
+                        onClose={() => setIsCharPanelOpen(false)}
+                        gameState={gameState}
+                        finalCoreStats={gameState.coreStats}
+                        onStatClick={handleStatClick}
+                        recentlyUpdatedPlayerStats={new Set()}
+                        onOpenCreateStatModal={() => setIsCreateStatModalOpen(true)}
+                        onUseSkill={() => {}} 
+                        onRequestDeleteSkill={() => {}}
+                        onRequestEditAbility={(skillName, ability) => { setAbilityEditData({ skillName, ability }); setIsAbilityEditModalOpen(true); }}
+                        onOpenPowerCreationModal={() => setIsPowerCreationModalOpen(true)}
+                        isLoading={isLoading}
+                        onEquipItem={() => {}}
+                        onUnequipItem={() => {}}
+                        onShowAchievement={(item) => { setAchievementData(item); setIsAchievementModalOpen(true); }}
+                    />
+                    
+                    <StatDetailModal
+                        isOpen={isStatDetailModalOpen}
+                        onClose={() => setIsStatDetailModalOpen(false)}
+                        stat={statDetailData?.stat || null}
+                        ownerName={statDetailData?.ownerName || ''}
+                        onSave={() => {}} // Placeholder
+                        onDelete={() => {}} // Placeholder
+                    />
+                    
+                    <StatCreationModal 
+                        isOpen={isCreateStatModalOpen}
+                        onClose={() => setIsCreateStatModalOpen(false)}
+                        onSubmit={() => {}} // Placeholder
+                    />
+
+                    <PowerCreationModal
+                        isOpen={isPowerCreationModalOpen}
+                        onClose={() => setIsPowerCreationModalOpen(false)}
+                        onSubmit={handleCreatePower}
+                        isLoading={isSubmitting}
+                    />
+
+                    <AbilityEditModal
+                        isOpen={isAbilityEditModalOpen}
+                        onClose={() => setIsAbilityEditModalOpen(false)}
+                        abilityData={abilityEditData}
+                        onSave={() => {}} // Placeholder
+                        isLoading={isSubmitting}
+                    />
+                    
+                    <IllustrationBookModal 
+                        isOpen={isAchievementModalOpen}
+                        onClose={() => setIsAchievementModalOpen(false)}
+                        item={achievementData}
+                    />
+                </>
+            )}
             
             <AiControlModal
                 isOpen={isAiModalOpen}
@@ -327,6 +370,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 isLoading={isLoading}
                 npcs={gameState.npcs}
                 onExecuteEntityAction={executeEntityAction}
+                isNovelMode={settings.isNovelMode}
             />
 
             <InGameMenuModal
@@ -348,42 +392,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 onUpdateRule={()=>{}}
                 onAddRule={()=>{}}
                 onDeleteRule={()=>{}}
-            />
-
-            <StatDetailModal
-                isOpen={isStatDetailModalOpen}
-                onClose={() => setIsStatDetailModalOpen(false)}
-                stat={statDetailData?.stat || null}
-                ownerName={statDetailData?.ownerName || ''}
-                onSave={() => {}} // Placeholder
-                onDelete={() => {}} // Placeholder
-            />
-            
-            <StatCreationModal 
-                isOpen={isCreateStatModalOpen}
-                onClose={() => setIsCreateStatModalOpen(false)}
-                onSubmit={() => {}} // Placeholder
-            />
-
-            <PowerCreationModal
-                isOpen={isPowerCreationModalOpen}
-                onClose={() => setIsPowerCreationModalOpen(false)}
-                onSubmit={handleCreatePower}
-                isLoading={isSubmitting}
-            />
-
-            <AbilityEditModal
-                isOpen={isAbilityEditModalOpen}
-                onClose={() => setIsAbilityEditModalOpen(false)}
-                abilityData={abilityEditData}
-                onSave={() => {}} // Placeholder
-                isLoading={isSubmitting}
-            />
-            
-            <IllustrationBookModal 
-                isOpen={isAchievementModalOpen}
-                onClose={() => setIsAchievementModalOpen(false)}
-                item={achievementData}
             />
         </>
     );

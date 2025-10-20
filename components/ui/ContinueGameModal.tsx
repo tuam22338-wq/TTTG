@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GameState } from '../../types';
 import * as GameSaveService from '../../services/GameSaveService';
@@ -48,9 +49,13 @@ const ContinueGameModal: React.FC<ContinueGameModalProps> = ({ isOpen, onClose, 
 
   useEffect(() => {
     if (isOpen) {
-      // Load data only when modal opens to get fresh info
-      setManualSaveData(GameSaveService.loadManualSave());
-      setAutoSaveData(GameSaveService.loadAutoSave());
+      const loadSaves = async () => {
+        const manual = await GameSaveService.loadManualSave();
+        const auto = await GameSaveService.loadAutoSave();
+        setManualSaveData(manual);
+        setAutoSaveData(auto);
+      };
+      loadSaves();
     }
   }, [isOpen]);
   

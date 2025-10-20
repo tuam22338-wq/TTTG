@@ -76,7 +76,8 @@ export function useGameEngine(
     initialData: WorldCreationState | GameState,
     apiClient: ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    safetySettings: SafetySettings,
+    isNovelMode: boolean
 ) {
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -334,7 +335,7 @@ export function useGameEngine(
                 gameState.aiSettings.isStrictInterpretationOn, gameState.aiSettings.destinyCompassMode,
                 isRewrite, false, isCorrection, gameState.coreStats,
                 gameState.aiSettings.authorsMandate, gameState.aiSettings.isTurnBasedCombat,
-                aiModelSettings, safetySettings, onChunk
+                aiModelSettings, safetySettings, onChunk, isNovelMode
             );
             
             setGameState(prevState => {

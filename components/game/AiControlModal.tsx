@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -19,6 +16,7 @@ interface AiControlModalProps {
   isLoading: boolean;
   npcs: NPC[];
   onExecuteEntityAction: (target: EntityTarget, action: StatAction, scopes: StatScopes, directive?: string, newPersonality?: string) => void;
+  isNovelMode: boolean;
 }
 
 type Tab = 'behavior' | 'advanced';
@@ -96,7 +94,7 @@ const OffIcon = () => (
 );
 
 
-const AiControlModal: React.FC<AiControlModalProps> = ({ isOpen, onClose, aiSettings, onSettingsChange, isLoading, npcs, onExecuteEntityAction }) => {
+const AiControlModal: React.FC<AiControlModalProps> = ({ isOpen, onClose, aiSettings, onSettingsChange, isLoading, npcs, onExecuteEntityAction, isNovelMode }) => {
     const [activeTab, setActiveTab] = useState<Tab>('behavior');
     
     // State for Entity Control Panel
@@ -109,6 +107,11 @@ const AiControlModal: React.FC<AiControlModalProps> = ({ isOpen, onClose, aiSett
 
     const isTargetingSpecificNpc = target !== 'PLAYER' && target !== 'ALL_NPCS' && target !== 'PLAYER_AND_ALL_NPCS';
 
+    useEffect(() => {
+        if (isNovelMode) {
+            setActiveTab('behavior');
+        }
+    }, [isNovelMode]);
 
     useEffect(() => {
         if (action !== 'RECONSTRUCT') {
@@ -215,10 +218,12 @@ const AiControlModal: React.FC<AiControlModalProps> = ({ isOpen, onClose, aiSett
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Bảng Điều Khiển AI">
-            <div className="flex-shrink-0 flex overflow-hidden rounded-t-lg border-b-2 border-[#e02585]">
-                <TabButton tabId="behavior" currentTab={activeTab} onClick={setActiveTab}>Hành Vi</TabButton>
-                <TabButton tabId="advanced" currentTab={activeTab} onClick={setActiveTab}>Bảng Điều Khiển Thực Thể</TabButton>
-            </div>
+            {!isNovelMode && (
+                <div className="flex-shrink-0 flex overflow-hidden rounded-t-lg border-b-2 border-[#e02585]">
+                    <TabButton tabId="behavior" currentTab={activeTab} onClick={setActiveTab}>Hành Vi</TabButton>
+                    <TabButton tabId="advanced" currentTab={activeTab} onClick={setActiveTab}>Bảng Điều Khiển Thực Thể</TabButton>
+                </div>
+            )}
             <div className="py-4 max-h-[65vh] overflow-y-auto custom-scrollbar">
                 {activeTab === 'behavior' && (
                     <div className="space-y-4 sm:space-y-6">
@@ -253,27 +258,30 @@ const AiControlModal: React.FC<AiControlModalProps> = ({ isOpen, onClose, aiSett
                         </ControlSection>
 
                         <ControlSection title="La Bàn Định Mệnh">
-                            <p className="text-xs text-[#a08cb6] -mt-2 mb-2">Điều chỉnh độ khó và các sự kiện ngẫu nhiên của thế giới.</p>
-                            <div className="grid grid-cols-3 gap-2 bg-black/20 p-1 rounded-lg">
-                                {Object.keys(DESTINY_COMPASS_CONFIG).map((mode) => {
-                                    const config = DESTINY_COMPASS_CONFIG[mode as DestinyCompassMode];
-                                    const isActive = aiSettings.destinyCompassMode === mode;
-                                    return (
-                                        <button
-                                            key={mode}
-                                            onClick={() => onSettingsChange({ destinyCompassMode: mode as DestinyCompassMode })}
-                                            disabled={isLoading}
-                                            title={config.description}
-                                            className={`px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-300 transform disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                isActive ? `${config.colors} scale-105 shadow-lg` : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
-                                            }`}
-                                        >
-                                            {config.displayName}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <p className="text-center text-sm font-semibold text-white">{DESTINY_COMPASS_CONFIG[aiSettings.destinyCompassMode].description}</p>
+                             <div className={isNovelMode ? 'opacity-50' : ''}>
+                                <p className="text-xs text-[#a08cb6] -mt-2 mb-2">Điều chỉnh độ khó và các sự kiện ngẫu nhiên của thế giới.</p>
+                                <div className="grid grid-cols-3 gap-2 bg-black/20 p-1 rounded-lg">
+                                    {Object.keys(DESTINY_COMPASS_CONFIG).map((mode) => {
+                                        const config = DESTINY_COMPASS_CONFIG[mode as DestinyCompassMode];
+                                        const isActive = aiSettings.destinyCompassMode === mode;
+                                        return (
+                                            <button
+                                                key={mode}
+                                                onClick={() => !isNovelMode && onSettingsChange({ destinyCompassMode: mode as DestinyCompassMode })}
+                                                disabled={isLoading || isNovelMode}
+                                                title={config.description}
+                                                className={`px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-300 transform disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                    isActive ? `${config.colors} scale-105 shadow-lg` : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
+                                                }`}
+                                            >
+                                                {config.displayName}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p className="text-center text-sm font-semibold text-white">{DESTINY_COMPASS_CONFIG[aiSettings.destinyCompassMode].description}</p>
+                             </div>
+                            {isNovelMode && <p className="text-center text-xs text-neutral-500 italic mt-2">Bị vô hiệu hóa trong Chế độ Tiểu Thuyết.</p>}
                         </ControlSection>
 
                         <ControlSection title="Dòng Chảy Vận Mệnh">
@@ -313,13 +321,15 @@ const AiControlModal: React.FC<AiControlModalProps> = ({ isOpen, onClose, aiSett
                                 enabled={aiSettings.isLogicModeOn}
                                 setEnabled={(val) => onSettingsChange({ isLogicModeOn: val })}
                             />
-                            <ToggleSwitch
-                                id="turn-based-combat-toggle"
-                                label="Chiến đấu Turn-based"
-                                description="BẬT: Giao diện chiến đấu RPG. TẮT: Chiến đấu dạng văn bản do AI tường thuật."
-                                enabled={aiSettings.isTurnBasedCombat}
-                                setEnabled={(val) => onSettingsChange({ isTurnBasedCombat: val })}
-                            />
+                            <div className={isNovelMode ? 'opacity-50 cursor-not-allowed' : ''}>
+                                <ToggleSwitch
+                                    id="turn-based-combat-toggle"
+                                    label="Chiến đấu Turn-based"
+                                    description="BẬT: Giao diện chiến đấu RPG. TẮT: Chiến đấu dạng văn bản do AI tường thuật."
+                                    enabled={aiSettings.isTurnBasedCombat}
+                                    setEnabled={(val) => !isNovelMode && onSettingsChange({ isTurnBasedCombat: val })}
+                                />
+                            </div>
                             <ToggleSwitch
                                 id="strict-interpretation-toggle"
                                 label="Diễn Giải Nghiêm Túc"
@@ -383,7 +393,7 @@ const AiControlModal: React.FC<AiControlModalProps> = ({ isOpen, onClose, aiSett
 
                     </div>
                 )}
-                {activeTab === 'advanced' && (
+                {activeTab === 'advanced' && !isNovelMode && (
                      <div className="space-y-4">
                         <p className="text-sm text-center text-[#a08cb6]">Công cụ mạnh mẽ để dọn dẹp và tối ưu hóa trạng thái của các thực thể trong game. Sử dụng cẩn thận!</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

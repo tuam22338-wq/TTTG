@@ -14,6 +14,7 @@ import { GameLogoIcon } from './icons/GameLogoIcon';
 import { HeartIcon } from './icons/HeartIcon';
 import { DiscordIcon } from './icons/DiscordIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
+import { useStorageEstimate } from '../hooks/useStorageEstimate';
 
 
 interface MainMenuProps {
@@ -43,6 +44,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isReady, setIsReady] = useState(false);
+  const storageEstimate = useStorageEstimate();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsReady(true), 100);
@@ -83,11 +85,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
     { id: 'discord', label: 'Discord', description: 'Tham gia cộng đồng Discord của dự án.', action: handleDiscordClick, disabled: false, Icon: DiscordIcon },
     { id: 'settings', label: 'Thiết lập', description: 'Tùy chỉnh khóa API, model AI và các cài đặt khác.', action: onSettings, disabled: false, Icon: CogIcon },
   ];
-
-  const storageStatusText = useMemo(() => {
-    const hasSave = !continueDisabled;
-    return hasSave ? 'Có Dữ liệu' : 'Trống';
-  }, [continueDisabled]);
 
 
   return (
@@ -142,9 +139,29 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     </div>
                 </div>
                 <div className="flex items-center gap-3 text-right">
-                     <div>
-                        <p className="font-bold uppercase">LƯU TRỮ (LOCALSTORAGE)</p>
-                        <p className="font-semibold text-white">{storageStatusText}</p>
+                    <div className="w-48">
+                        <div className="flex justify-between items-baseline">
+                            <p className="font-bold uppercase">LƯU TRỮ (INDEXEDDB)</p>
+                            <p className="font-semibold text-white">{storageEstimate.usageFormatted}</p>
+                        </div>
+                        {storageEstimate.isSupported ? (
+                            <>
+                                <div 
+                                    className="w-full bg-neutral-700 rounded-full h-1.5 mt-1" 
+                                    title={`Đã dùng ${storageEstimate.percentage.toFixed(2)}% / ${storageEstimate.quotaFormatted}`}
+                                >
+                                    <div 
+                                        className="bg-purple-500 h-1.5 rounded-full" 
+                                        style={{ width: `${storageEstimate.percentage}%` }}
+                                    ></div>
+                                </div>
+                                <p className="text-neutral-500 text-right mt-0.5">
+                                    Còn lại: {storageEstimate.remainingFormatted}
+                                </p>
+                            </>
+                        ) : (
+                            <p className="font-semibold text-white mt-1">{continueDisabled ? 'Trống' : 'Có Dữ liệu'}</p>
+                        )}
                     </div>
                     <DatabaseIcon className="h-6 w-6 text-neutral-600"/>
                 </div>
