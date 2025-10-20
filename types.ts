@@ -61,7 +61,11 @@ export interface Settings {
   autoHideActionPanel: boolean;
   narrativePerspective: NarrativePerspective;
   zoomLevel: number;
-  isNovelMode: boolean;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
 }
 
 export interface CharacterSkillInput {

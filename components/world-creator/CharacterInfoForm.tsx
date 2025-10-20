@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { WorldCreationState, CharacterSkillInput } from '../../types';
+import { WorldCreationState, CharacterSkillInput, Settings } from '../../types';
 import FormSection from './FormSection';
 import InputField from '../ui/InputField';
 import TextareaField from '../ui/TextareaField';
-import { useSettings } from '../../hooks/useSettings';
 import { SparklesIcon } from '../icons/SparklesIcon';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import Button from '../ui/Button';
 import * as client from '../../services/gemini/client';
 import ChevronIcon from '../icons/ChevronIcon';
+import { ApiClient } from '../../services/gemini/client';
 
 interface CharacterInfoFormProps {
     state: WorldCreationState;
     setState: React.Dispatch<React.SetStateAction<WorldCreationState>>;
-    settingsHook: ReturnType<typeof useSettings>;
+    apiClient: ApiClient;
+    settings: Settings;
 }
 
 const TrashIcon: React.FC = () => (
@@ -22,11 +23,10 @@ const TrashIcon: React.FC = () => (
     </svg>
 );
 
-const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, settingsHook }) => {
+const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, apiClient, settings }) => {
     const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
     const [expandedSkills, setExpandedSkills] = useState<Set<string>>(new Set());
-    const { settings, getApiClient, cycleToNextApiKey, apiStats } = settingsHook;
-    const apiClient = { getApiClient, cycleToNextApiKey, apiStats };
+    const { getApiClient } = apiClient;
     
     const handleCharacterChange = (field: keyof WorldCreationState['character'], value: any) => {
         setState(s => ({ ...s, character: { ...s.character, [field]: value } }));
@@ -35,6 +35,7 @@ const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, 
     const handleGenerateBiography = async () => {
          if (!getApiClient()) {
             alert("Dịch vụ AI chưa sẵn sàng.");
+            apiClient.onApiKeyInvalid();
             return;
         }
         if (!state.description) {
@@ -152,6 +153,7 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
     const handleGenerateSkillComponent = async (id: string, type: 'description' | 'effect') => {
         if (!getApiClient()) {
             alert("Dịch vụ AI chưa sẵn sàng.");
+            apiClient.onApiKeyInvalid();
             return;
         }
         const skill = state.character.skills.find(s => s.id === id);

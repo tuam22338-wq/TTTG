@@ -15,31 +15,34 @@ import { HeartIcon } from './icons/HeartIcon';
 import { DiscordIcon } from './icons/DiscordIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { useStorageEstimate } from '../hooks/useStorageEstimate';
+import { BookIcon } from './icons/BookIcon';
 
 
 interface MainMenuProps {
   onStart: () => void;
   onContinue: () => void;
+  onStartNovelWriter: () => void;
   onLoadFromFile: (state: GameState) => void;
   onSettings: () => void;
   onShowInfo: () => void;
   onShowSupport: () => void;
   onExportSave: () => void;
   continueDisabled: boolean;
-  isKeyConfigured: boolean;
+  apiKeyStatus: 'checking' | 'selected' | 'not_selected';
   versionName: string;
 }
 
 const MainMenu: React.FC<MainMenuProps> = ({ 
     onStart, 
     onContinue,
+    onStartNovelWriter,
     onLoadFromFile, 
     onSettings, 
     onShowInfo,
     onShowSupport,
     onExportSave,
     continueDisabled, 
-    isKeyConfigured,
+    apiKeyStatus,
     versionName
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -78,6 +81,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
   const menuItems = [
     { id: 'start', label: 'Bắt đầu Game Mới', description: 'Tạo một thế giới và nhân vật mới từ đầu.', action: onStart, disabled: false, Icon: PlusCircleIcon },
     { id: 'continue', label: 'Tiếp tục', description: 'Tải lại từ điểm lưu thủ công hoặc tự động.', action: onContinue, disabled: continueDisabled, Icon: ContinueIcon },
+    { id: 'novel-writer', label: 'AI Tiểu Thuyết Gia', description: 'Cùng AI sáng tác một cuốn tiểu thuyết theo ý tưởng của bạn.', action: onStartNovelWriter, disabled: false, Icon: BookIcon },
     { id: 'export', label: 'Xuất file save', description: 'Lưu game đã lưu ra file .json.', action: onExportSave, disabled: continueDisabled, Icon: DownloadIcon },
     { id: 'load', label: 'Tải game từ file', description: 'Tải một file save (.json) từ máy tính của bạn.', action: triggerFileLoad, disabled: false, Icon: UploadIcon },
     { id: 'info', label: 'Thông tin', description: 'Hiển thị thông tin về nhà phát triển dự án.', action: onShowInfo, disabled: false, Icon: InfoIcon },
@@ -85,6 +89,18 @@ const MainMenu: React.FC<MainMenuProps> = ({
     { id: 'discord', label: 'Discord', description: 'Tham gia cộng đồng Discord của dự án.', action: handleDiscordClick, disabled: false, Icon: DiscordIcon },
     { id: 'settings', label: 'Thiết lập', description: 'Tùy chỉnh khóa API, model AI và các cài đặt khác.', action: onSettings, disabled: false, Icon: CogIcon },
   ];
+
+  const apiKeyInfo = useMemo(() => {
+    switch (apiKeyStatus) {
+        case 'selected':
+            return { text: 'Đã định cấu hình', className: 'text-green-400' };
+        case 'not_selected':
+            return { text: 'Chưa định cấu hình', className: 'text-yellow-400' };
+        case 'checking':
+        default:
+            return { text: 'Đang kiểm tra...', className: 'text-neutral-400' };
+    }
+  }, [apiKeyStatus]);
 
 
   return (
@@ -133,8 +149,8 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     <KeyIcon className="h-6 w-6 text-neutral-600"/>
                     <div>
                         <p className="font-bold uppercase">API KEY</p>
-                        <p className={`font-semibold ${isKeyConfigured ? 'text-green-400' : 'text-yellow-400'}`}>
-                            {isKeyConfigured ? 'Đã định cấu hình' : 'Chưa định cấu hình'}
+                        <p className={`font-semibold ${apiKeyInfo.className}`}>
+                            {apiKeyInfo.text}
                         </p>
                     </div>
                 </div>

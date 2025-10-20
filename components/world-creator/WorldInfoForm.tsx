@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { WorldCreationState, NarrativePerspective } from '../../types';
+import { WorldCreationState, NarrativePerspective, Settings } from '../../types';
 import FormSection from './FormSection';
 import InputField from '../ui/InputField';
 import TextareaField from '../ui/TextareaField';
 import ToggleSwitch from '../ui/ToggleSwitch';
-import { useSettings } from '../../hooks/useSettings';
 import { SparklesIcon } from '../icons/SparklesIcon';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import Button from '../ui/Button';
 import * as client from '../../services/gemini/client';
+import { ApiClient } from '../../services/gemini/client';
 
 interface WorldInfoFormProps {
     state: WorldCreationState;
     setState: React.Dispatch<React.SetStateAction<WorldCreationState>>;
-    settingsHook: ReturnType<typeof useSettings>;
+    apiClient: ApiClient;
+    settings: Settings;
 }
 
 const perspectiveDescriptions: Record<NarrativePerspective, { title: string; text: string; special?: string }> = {
@@ -36,15 +37,14 @@ const perspectiveDescriptions: Record<NarrativePerspective, { title: string; tex
   },
 };
 
-const WorldInfoForm: React.FC<WorldInfoFormProps> = ({ state, setState, settingsHook }) => {
+const WorldInfoForm: React.FC<WorldInfoFormProps> = ({ state, setState, apiClient, settings }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const { settings, getApiClient, cycleToNextApiKey, apiStats } = settingsHook;
-    const apiClient = { getApiClient, cycleToNextApiKey, apiStats };
-
+    const { getApiClient } = apiClient;
 
     const handleGenerateDescription = async () => {
         if (!getApiClient()) {
             alert("Dịch vụ AI chưa sẵn sàng hoặc chưa cấu hình API Key.");
+            apiClient.onApiKeyInvalid();
             return;
         }
         if (!state.genre && !state.description.trim()) {

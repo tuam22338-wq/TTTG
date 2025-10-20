@@ -23,12 +23,14 @@ import { TrashIcon } from '../icons/TrashIcon';
 import { LawIcon } from '../icons/LawIcon';
 import QuickAssistModal from '../world-creator/QuickAssistModal';
 import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
+import { ApiClient } from '../../services/gemini/client';
 
 
 interface WorldCreatorScreenProps {
   onBackToMenu: () => void;
   onWorldCreated: (state: WorldCreationState) => void;
   settingsHook: ReturnType<typeof useSettings>;
+  onApiKeyInvalid: () => void;
 }
 
 const defaultCultivationSystem = {
@@ -64,7 +66,7 @@ const defaultWorldCreationState: WorldCreationState = {
 type CreatorView = 'WORLD' | 'CHARACTER' | 'CULTIVATION' | 'ATTRIBUTES' | 'RULES' | 'ENTITIES';
 
 
-const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, onWorldCreated, settingsHook }) => {
+const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, onWorldCreated, settingsHook, onApiKeyInvalid }) => {
   const [expandedView, setExpandedView] = useState<CreatorView | null>(null);
   const [state, setState] = useState<WorldCreationState>(defaultWorldCreationState);
   const [isQuickAssistModalOpen, setIsQuickAssistModalOpen] = useState(false);
@@ -74,7 +76,8 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
   const contentRef = useRef<HTMLDivElement>(null);
 
   const { getApiClient, cycleToNextApiKey, apiStats, settings } = settingsHook;
-  const apiClient = { getApiClient, cycleToNextApiKey, apiStats };
+  
+  const apiClient: ApiClient = { getApiClient, cycleToNextApiKey, apiStats, onApiKeyInvalid };
 
 
   const handleToggleView = (viewId: CreatorView) => {
@@ -114,6 +117,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
   const handleQuickAssist = () => {
     if (!getApiClient()) {
         alert("Dịch vụ AI chưa sẵn sàng hoặc chưa cấu hình API Key.");
+        onApiKeyInvalid();
         return;
     }
     setIsQuickAssistModalOpen(true);
@@ -210,8 +214,8 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
 
   const getFormComponent = (viewId: CreatorView) => {
     switch(viewId) {
-        case 'WORLD': return <WorldInfoForm state={state} setState={setState} settingsHook={settingsHook} />;
-        case 'CHARACTER': return <CharacterInfoForm state={state} setState={setState} settingsHook={settingsHook} />;
+        case 'WORLD': return <WorldInfoForm state={state} setState={setState} apiClient={apiClient} settings={settings} />;
+        case 'CHARACTER': return <CharacterInfoForm state={state} setState={setState} apiClient={apiClient} settings={settings} />;
         case 'CULTIVATION': return <CultivationSystemForm state={state} setState={setState} />;
         case 'ATTRIBUTES': return <AttributeSystemForm state={state} setState={setState} />;
         case 'RULES': return <WorldRulesForm state={state} setState={setState} />;

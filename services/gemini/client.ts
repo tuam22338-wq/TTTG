@@ -8,6 +8,7 @@ export interface ApiClient {
     getApiClient: () => GoogleGenAI | null;
     cycleToNextApiKey: () => void;
     apiStats: ApiStatsManager;
+    onApiKeyInvalid: () => void;
 }
 
 async function callGeminiWithRetry<T>(
@@ -51,8 +52,12 @@ async function performApiCall<T>(
         const response = await callGeminiWithRetry(apiClient, callLogic);
         success = true;
         return response;
-    } catch (e) {
+    } catch (e: any) {
         console.error("Lỗi gọi API:", e);
+        const errorMessage = e.message || '';
+        if (errorMessage.includes('API key expired') || errorMessage.includes('Requested entity was not found') || errorMessage.includes('API_KEY_INVALID')) {
+            apiClient.onApiKeyInvalid();
+        }
         throw e;
     } finally {
         apiClient.apiStats.recordRequestEnd(startTime, success);

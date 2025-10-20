@@ -1,9 +1,10 @@
-import { GameState, Settings, AiSettings, GameTime, CultivationState } from '../types';
+import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage } from '../types';
 
 const DB_NAME = 'BMS_TamThienTheGioi';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const GAME_SAVES_STORE = 'gameSaves';
 const SETTINGS_STORE = 'appSettings';
+const NOVEL_WRITER_STORE = 'novelWriter';
 
 let db: IDBDatabase | null = null;
 
@@ -52,6 +53,9 @@ function getDb(): Promise<IDBDatabase> {
             }
             if (!tempDb.objectStoreNames.contains(SETTINGS_STORE)) {
                 tempDb.createObjectStore(SETTINGS_STORE);
+            }
+            if (!tempDb.objectStoreNames.contains(NOVEL_WRITER_STORE)) {
+                tempDb.createObjectStore(NOVEL_WRITER_STORE);
             }
         };
     });
@@ -129,6 +133,14 @@ export async function saveSettings(settings: Settings): Promise<void> {
 
 export async function loadSettings(): Promise<Partial<Settings> | null> {
     return await get<Partial<Settings>>(SETTINGS_STORE, 'settings');
+}
+
+export async function saveNovelHistory(history: ChatMessage[]): Promise<void> {
+    await set(NOVEL_WRITER_STORE, 'history', history);
+}
+
+export async function loadNovelHistory(): Promise<ChatMessage[] | null> {
+    return await get<ChatMessage[]>(NOVEL_WRITER_STORE, 'history');
 }
 
 

@@ -285,8 +285,7 @@ export async function continueStory(
     isTurnBasedCombat: boolean,
     aiModelSettings: AiModelSettings,
     safetySettings: SafetySettings,
-    onChunk: (chunk: string) => void,
-    isNovelMode: boolean
+    onChunk: (chunk: string) => void
 ): Promise<{
     newTurn: GameTurn;
     playerStatChanges: StatChanges;
@@ -307,73 +306,6 @@ export async function continueStory(
 }> {
     const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history, presentNpcIds } = gameState;
 
-    if (isNovelMode) {
-        const novelHistory = isRewrite ? history.slice(0, -1) : history;
-        const lastTurnText = novelHistory.length > 0 ? novelHistory[novelHistory.length - 1].storyText : "Đây là chương đầu tiên.";
-
-        const userPrompt = `
-### Bối Cảnh & Tóm Tắt ###
-**Bối cảnh thế giới:** ${worldContext.description}
-**Tóm tắt câu chuyện đến nay:** ${plotChronicle || "Chưa có sự kiện nào."}
-**Đoạn truyện cuối:** ${lastTurnText}
-
-### Chỉ Dẫn Của Tác Giả ###
-${choice}
-`;
-
-        const fullPrompt = prompts.NOVEL_MODE_SYSTEM_PROMPT + '\n\n' + userPrompt;
-        
-        let fullResponseText = '';
-        let totalTokens = 0;
-        
-        try {
-            const stream = await client.callJsonAIStream(fullPrompt, schemas.novelModeSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
-            for await (const chunk of stream) {
-                const chunkText = chunk.text;
-                if (chunkText) {
-                    fullResponseText += chunkText;
-                    onChunk(chunkText);
-                }
-                if (chunk.candidates?.[0]?.tokenCount) {
-                   totalTokens = chunk.candidates[0].tokenCount;
-                }
-            }
-            
-            const novelResponse = client.parseAndValidateJsonResponse(fullResponseText);
-            
-            const newPlotChronicle = isRewrite ? plotChronicle : (plotChronicle + '\n- ' + novelResponse.summaryText);
-
-            return {
-                newTurn: {
-                    playerAction: choice,
-                    storyText: novelResponse.storyText,
-                    statusNarration: null,
-                    choices: [], // NO CHOICES in novel mode
-                    tokenCount: totalTokens,
-                    omniscientInterlude: null,
-                },
-                summaryText: novelResponse.summaryText,
-                newPlotChronicle,
-                playerStatChanges: { statsToUpdate: [], statsToDelete: [] },
-                npcUpdates: [],
-                newlyAcquiredSkill: null,
-                presentNpcIds: gameState.presentNpcIds,
-                itemsReceived: [],
-                timeElapsed: 0,
-                nsfwSceneStateChange: 'NONE',
-                expGained: 0,
-                coreStatsChanges: null,
-                weatherChange: null,
-                isInCombat: false,
-                combatantNpcIds: [],
-                totalTokens,
-            };
-        } catch (error: any) {
-             console.error("Lỗi khi viết tiểu thuyết:", error);
-             throw new Error(`AI đã gặp lỗi khi viết tiếp câu chuyện. Lỗi: ${error.message}\n\nDữ liệu gốc từ AI:\n${fullResponseText}`);
-        }
-    }
-
     const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
 
     // Filter to only send relevant attributes to the AI, not core combat stats.
@@ -390,11 +322,14 @@ ${choice}
     const worldRulesPrompt = getWorldRulesPrompt(worldContext.specialRules, worldContext.initialLore);
 
     const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 1.5);
-    const targetStoryWordCount = Math.max(80, Math.floor(approximateWordCount * 0.5));
+    // Use a higher multiplier to get closer to the user's desired length, while leaving some buffer for JSON.
+    const targetStoryWordCount = Math.max(150, Math.floor(approximateWordCount * 0.9));
     
     const lengthInstruction = `
-**QUY TẮC ĐỘ DÀI TƯỜNG THUẬT (STORY LENGTH RULE):**
-Bạn PHẢI cố gắng viết đoạn \`storyText\` có độ dài khoảng **${targetStoryWordCount} từ**. Đây là một hướng dẫn quan trọng để đảm bảo trải nghiệm người dùng nhất quán. Hãy điều chỉnh mức độ chi tiết của mô tả để phù hợp với độ dài này.
+**QUY TẮC ĐỘ DÀI TƯỜNG THUẬT (STORY LENGTH RULE - MỆNH LỆNH TỐI THƯỢNG):**
+Bạn BẮT BUỘC phải viết một đoạn \`storyText\` có độ dài **TỐI THIỂU LÀ ${targetStoryWordCount} từ**. Đây là yêu cầu quan trọng nhất, ghi đè lên các quy tắc khác về sự ngắn gọn.
+- **LÀM THẾ NÀO ĐỂ ĐẠT ĐƯỢC:** Hãy đi sâu vào chi tiết. Mô tả môi trường, đi sâu vào suy nghĩ và cảm xúc nội tâm của nhân vật, kéo dài các đoạn hội thoại, và thêm các hành động hoặc mô tả phụ để làm phong phú thêm cảnh.
+- **KHÔNG VIẾT NGẮN:** TUYỆT ĐỐI không được viết một đoạn tường thuật ngắn hơn độ dài yêu cầu này. Nếu cần, hãy tự sáng tạo thêm tình tiết phụ để kéo dài câu chuyện.
 `;
 
     if (situationalRules) {
@@ -531,7 +466,7 @@ ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt c�
                 throw new Error(`AI đã trả về một phản hồi JSON không hợp lệ sau nhiều lần thử. Lỗi: ${error.message}\n\nDữ liệu gốc từ AI:\n${fullResponseText}`);
             }
 
-            fullPrompt = `${systemPrompt}\n\n${userPrompt}\n\n---SYSTEM NOTE---\nYour previous streaming response resulted in invalid JSON and caused a parsing error. This is a critical error. You MUST regenerate the entire response and ensure it is a single, complete, valid JSON object that strictly follows the provided schema. Pay close attention to escaping double quotes (\\") within strings and ensure all brackets and braces are correctly closed.\n\nHere is the invalid/incomplete JSON you streamed:\n\`\`\`\n${fullResponseText || '(empty response)'}\n\`\`\``;
+            fullPrompt = `${systemPrompt}\n\n${userPrompt}\n\n---SYSTEM NOTE---\nYour previous streaming response resulted in invalid JSON and caused a parsing error. This is a critical error. You MUST regenerate the entire response and ensure it is a single, complete, valid JSON object that strictly follows the provided schema. Pay close attention to escaping double quotes (\\") within strings.\n\nHere is the invalid/incomplete JSON you streamed:\n\`\`\`\n${fullResponseText || '(empty response)'}\n\`\`\``;
             console.log("Retrying continueStory with corrective prompt...");
         }
     }
