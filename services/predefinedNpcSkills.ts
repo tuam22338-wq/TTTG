@@ -1,6 +1,5 @@
 
 
-// FIX: Import SkillTarget to use enum values instead of string literals.
 import { Skill, SkillTarget, SkillEffectType, StatType } from '../types';
 
 export const predefinedNpcSkills: Skill[] = [
@@ -11,7 +10,6 @@ export const predefinedNpcSkills: Skill[] = [
         description: 'Một đòn tấn công được cường hóa bằng năng lượng, gây sát thương vật lý.',
         cost: 10,
         cooldown: 2,
-        // FIX: Replaced string literal with enum member.
         target: SkillTarget.SINGLE_ENEMY,
         effects: [
             { type: SkillEffectType.DAMAGE, value: 1.2 } // 120% ATK
@@ -24,7 +22,6 @@ export const predefinedNpcSkills: Skill[] = [
         description: 'Hồi phục một lượng nhỏ HP cho bản thân.',
         cost: 15,
         cooldown: 3,
-        // FIX: Replaced string literal with enum member.
         target: SkillTarget.SELF,
         effects: [
             { type: SkillEffectType.HEAL, value: 0.2 } // Heals for 20% of max HP
@@ -39,7 +36,6 @@ export const predefinedNpcSkills: Skill[] = [
         description: 'Tung ra một quả cầu lửa gây sát thương phép.',
         cost: 25,
         cooldown: 2,
-        // FIX: Replaced string literal with enum member.
         target: SkillTarget.SINGLE_ENEMY,
         effects: [
             { type: SkillEffectType.DAMAGE, value: 1.8 } // 180% ATK (as magic damage)
@@ -52,7 +48,6 @@ export const predefinedNpcSkills: Skill[] = [
         description: 'Một đòn đánh vào chân đối thủ, làm giảm tốc độ của chúng.',
         cost: 20,
         cooldown: 3,
-        // FIX: Replaced string literal with enum member.
         target: SkillTarget.SINGLE_ENEMY,
         effects: [
             { type: SkillEffectType.DAMAGE, value: 1.0 }, // 100% ATK
@@ -77,7 +72,6 @@ export const predefinedNpcSkills: Skill[] = [
         description: 'Hồi phục một lượng lớn HP cho bản thân.',
         cost: 40,
         cooldown: 5,
-        // FIX: Replaced string literal with enum member.
         target: SkillTarget.SELF,
         effects: [
             { type: SkillEffectType.HEAL, value: 0.5 } // Heals for 50% of max HP
@@ -90,7 +84,6 @@ export const predefinedNpcSkills: Skill[] = [
         description: 'Gây chấn động mặt đất, gây sát thương cho tất cả kẻ địch.',
         cost: 60,
         cooldown: 5,
-        // FIX: Replaced string literal with enum member.
         target: SkillTarget.ALL_ENEMIES,
         effects: [
             { type: SkillEffectType.DAMAGE, value: 1.5 } // 150% ATK to all
@@ -103,7 +96,6 @@ export const predefinedNpcSkills: Skill[] = [
         description: 'Một đòn đánh mạnh mẽ làm suy yếu phòng thủ của đối phương.',
         cost: 35,
         cooldown: 4,
-        // FIX: Replaced string literal with enum member.
         target: SkillTarget.SINGLE_ENEMY,
         effects: [
             { type: SkillEffectType.DAMAGE, value: 1.2 }, // 120% ATK

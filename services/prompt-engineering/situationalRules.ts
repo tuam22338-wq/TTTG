@@ -1,5 +1,4 @@
 import { LustModeFlavor, NpcMindset } from '../../types';
-// FIX: Import NSFW_CORE_RULES from corePrompts which is now a valid module.
 import { NSFW_CORE_RULES } from './corePrompts';
 import { getNpcMindsetInstructions } from './npcMindsetRules';
 

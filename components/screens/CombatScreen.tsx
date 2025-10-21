@@ -435,8 +435,7 @@ const CombatScreen: React.FC<CombatScreenProps> = ({ gameState, endCombat, isLoa
             const updatedCombatants = currentCombatants.map(c => {
                 if (c.id === player.id) {
                     const newStatuses = c.statuses.filter(s => s.name !== "Phòng thủ");
-                    // FIX: Removed 'description' property to match the type 'Omit<CharacterStat, "source" | "cure" | "description"> & { name: string; duration: number; }'.
-                    const defendStatus: Combatant['statuses'][0] = { name: "Phòng thủ", effect: "x2 Phòng Ngự", duration: 2, type: StatType.GOOD };
+                    const defendStatus: Combatant['statuses'][0] = { name: "Phòng thủ", description: "Tăng cường phòng ngự, giảm sát thương nhận vào.", effect: "x2 Phòng Ngự", duration: 2, type: StatType.GOOD };
                     newStatuses.push(defendStatus);
                     return { ...c, statuses: newStatuses };
                 }
@@ -529,7 +528,6 @@ const CombatScreen: React.FC<CombatScreenProps> = ({ gameState, endCombat, isLoa
         const currentCombatantId = turnOrder[currentTurnIndex];
         const currentCombatant = combatants.find(c => c.id === currentCombatantId);
 
-        // FIX: Skip turn if the current combatant is already defeated.
         if (currentCombatant && currentCombatant.hp <= 0) {
             const timeout = setTimeout(() => {
                 addToLog(`${currentCombatant.name} đã bị đánh bại và bỏ qua lượt.`);

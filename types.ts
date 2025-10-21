@@ -448,7 +448,7 @@ export interface Combatant {
     agi: number;
     critRate: number;
     critDmg: number;
-    statuses: Array<Omit<CharacterStat, 'description' | 'source' | 'cure'> & { name: string; duration: number }>;
+    statuses: Array<Omit<CharacterStat, 'source' | 'cure'> & { name: string; duration: number }>;
     skills: Skill[];
     effects?: SpecialEffect[];
     cooldowns?: Record<string, number>;

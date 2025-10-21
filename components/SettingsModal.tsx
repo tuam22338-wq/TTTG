@@ -225,7 +225,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                             <InputField id="topk-input" type="number" value={settings.aiModelSettings.topK} onChange={e => updateAiModelSetting('topK', parseInt(e.target.value) || 0)} />
                                         </div>
                                         <RangeSlider
-                                            label="Độ dài Phản hồi Tối đa"
+                                            label="Độ dài Phản hồi Tối thiểu"
                                             id="words-slider"
                                             min={100}
                                             max={4000}
@@ -256,7 +256,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                         <RangeSlider label="Temperature (Sáng tạo)" id="deepseek-temp-slider" min={0} max={2} step={0.05} value={settings.deepSeekModelSettings.temperature} onChange={e => updateDeepSeekModelSetting('temperature', parseFloat(e.target.value))} />
                                         <RangeSlider label="Top-P" id="deepseek-topp-slider" min={0} max={1} step={0.05} value={settings.deepSeekModelSettings.topP} onChange={e => updateDeepSeekModelSetting('topP', parseFloat(e.target.value))} />
                                         <RangeSlider
-                                            label="Độ dài Phản hồi Tối đa"
+                                            label="Độ dài Phản hồi Tối thiểu"
                                             id="deepseek-words-slider"
                                             min={100}
                                             max={8000}

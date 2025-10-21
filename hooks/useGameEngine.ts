@@ -18,7 +18,6 @@ import {
     Equipment,
     EquipmentSlot,
     SpecialItem,
-    // FIX: Import NPC type to resolve 'Cannot find name 'NPC'' error.
     NPC,
     Weather,
 } from '../types';
@@ -125,7 +124,6 @@ export function useGameEngine(
                 time: { day: 1, hour: 8, minute: 0, season: 'Xuân', weather: 'Quang đãng' },
                 isInCombat: false,
                 combatants: [],
-                // FIX: Added missing 'codex' property to satisfy the GameState type.
                 codex: [],
             };
 

@@ -5,7 +5,6 @@ import * as GameSaveService from '../../services/GameSaveService';
 import { PlusCircleIcon } from '../icons/PlusCircleIcon';
 import { ContinueIcon } from '../icons/ContinueIcon';
 import { TrashIcon } from '../icons/TrashIcon';
-// FIX: Import the missing ChevronRightIcon component.
 import { ChevronRightIcon } from '../icons/ChevronRightIcon';
 
 interface NovelLibraryModalProps {

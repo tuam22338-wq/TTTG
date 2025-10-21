@@ -225,7 +225,6 @@ export async function callCreativeTextAI(
 
     const response = await performApiCall(apiClient, callLogic);
 
-    // FIX: Add type assertion to 'response' to resolve 'property does not exist on type unknown' error.
      if (!(response as GenerateContentResponse).text) {
          const errorDetails = (response as GenerateContentResponse).candidates?.[0]?.finishReason || JSON.stringify(response);
          console.error("API Error: No text in response. Details:", errorDetails);
@@ -271,35 +270,42 @@ function sanitizeObjectRecursively(obj: any): any {
 
 export function parseAndValidateJsonResponse(text: string): any {
     try {
-        let cleanedText = text.trim();
-        // More robust cleaning to find the outermost JSON object/array
-        const firstBracket = cleanedText.indexOf('{');
-        const firstSquare = cleanedText.indexOf('[');
+        let jsonString = text.trim();
+
+        // 1. Check for markdown code block and extract it
+        const markdownMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (markdownMatch && markdownMatch[1]) {
+            jsonString = markdownMatch[1];
+        }
+
+        // 2. More robust cleaning to find the outermost JSON object/array
+        const firstBracket = jsonString.indexOf('{');
+        const firstSquare = jsonString.indexOf('[');
         let start = -1;
 
         if (firstBracket === -1) start = firstSquare;
         else if (firstSquare === -1) start = firstBracket;
         else start = Math.min(firstBracket, firstSquare);
 
-        const lastBracket = cleanedText.lastIndexOf('}');
-        const lastSquare = cleanedText.lastIndexOf(']');
+        const lastBracket = jsonString.lastIndexOf('}');
+        const lastSquare = jsonString.lastIndexOf(']');
         const end = Math.max(lastBracket, lastSquare);
         
         if (start === -1 || end === -1) {
              throw new Error("Không tìm thấy đối tượng JSON hợp lệ trong phản hồi.");
         }
 
-        cleanedText = cleanedText.substring(start, end + 1);
+        jsonString = jsonString.substring(start, end + 1);
         
         try {
             // First attempt to parse the original cleaned text
-            const parsedJson = JSON.parse(cleanedText);
+            const parsedJson = JSON.parse(jsonString);
             return sanitizeObjectRecursively(parsedJson);
         } catch (e: any) {
              // If it fails, attempt to fix unescaped newlines which cause "Bad control character" errors.
             if (e.message.includes('Bad control character') || e.message.includes('Unterminated string')) {
                 console.warn("Initial JSON parsing failed, attempting to fix unescaped newlines...", e.message);
-                const fixedText = fixJsonWithUnescapedNewlines(cleanedText);
+                const fixedText = fixJsonWithUnescapedNewlines(jsonString);
                 const parsedJson = JSON.parse(fixedText); // This will throw if it still fails
                 return sanitizeObjectRecursively(parsedJson);
             }

@@ -1,9 +1,7 @@
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
-// FIX: Changed CharacterStatUpdate to CharacterStat, which is the correct exported type.
 import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather } from '../types';
 import * as schemas from './gemini/schemas';
 import * as client from './gemini/client';
-// FIX: Changed from a direct file reference to importing named exports from the module.
 import * as prompts from './prompt-engineering/corePrompts';
 import { getPerspectiveRules } from './prompt-engineering/perspectiveRules';
 import { getDestinyCompassRules } from './prompt-engineering/destinyCompassRules';
@@ -326,8 +324,8 @@ export async function continueStory(
     const worldRulesPrompt = getWorldRulesPrompt(worldContext.specialRules, worldContext.initialLore);
 
     const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 1.5);
-    // Use a higher multiplier to get closer to the user's desired length, while leaving some buffer for JSON.
-    const targetStoryWordCount = Math.max(150, Math.floor(approximateWordCount * 0.9));
+    // Use a multiplier to get closer to the user's desired length, while leaving a safe buffer for JSON.
+    const targetStoryWordCount = Math.max(150, Math.floor(approximateWordCount * 0.8));
     
     const lengthInstruction = `
 **QUY TẮC ĐỘ DÀI TƯỜNG THUẬT (STORY LENGTH RULE - MỆNH LỆNH TỐI THƯỢNG):**

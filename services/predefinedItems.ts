@@ -107,7 +107,6 @@ export const predefinedConsumables: ConsumableItem[] = [
 export interface SetBonus {
   name: string;
   pieces: number;
-  // FIX: Changed Omit properties to match CharacterCoreStats type (e.g., 'hp' -> 'sinhLuc').
   stats?: Partial<Omit<CharacterCoreStats, 'sinhLuc' | 'linhLuc' | 'theLuc'>>;
   percentStats?: Partial<Omit<CharacterCoreStats, 'sinhLuc' | 'linhLuc' | 'theLuc'>>;
   effects?: SpecialEffect[];
@@ -118,21 +117,18 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_01_dragon_soul': {
     name: 'Uy Long',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     percentStats: { congKich: 0.15, phongNgu: 0.15, khangPhep: 0.15, thanPhap: 0.15 },
     description: 'Tăng 15% ATK, 15% DEF, 15% MDEF, 15% AGI.',
   },
   'epic_set_02_fallen_angel': {
     name: 'Đôi Cánh Sa Ngã',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { thanPhap: 30, giamHoiChieu: 0.05 },
     description: 'Tăng 30 AGI, 5% CDR.',
   },
   'epic_set_03_stormcaller': {
     name: 'Kẻ Hiệu Triệu Bão Tố',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { thanPhap: 25, khangPhep: 25 },
     effects: [{
         type: SpecialEffectType.APPLY_STATUS_ON_HIT,
@@ -144,7 +140,6 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_04_abyssal_terror': {
     name: 'Nỗi Kinh Hoàng Vực Thẳm',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 30 },
     effects: [{
         type: SpecialEffectType.APPLY_STATUS_ON_HIT,
@@ -156,7 +151,6 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_05_sunfire_crusader': {
     name: 'Thập Tự Chinh Thái Dương',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     percentStats: { phongNgu: 0.25, khangPhep: 0.25 },
     effects: [{ type: SpecialEffectType.HEAL_OVER_TIME, value: 0.01 }],
     description: 'Tăng 25% DEF, 25% MDEF, hồi 1% HP mỗi lượt.',
@@ -164,7 +158,6 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_06_frost_lich': {
     name: 'Băng Giá Vu Yêu',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { giamHoiChieu: 0.1 },
     percentStats: { linhLucToiDa: 0.25 },
     effects: [{
@@ -177,7 +170,6 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_07_phoenix_rebirth': {
     name: 'Phượng Hoàng Tái Sinh',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     percentStats: { sinhLucToiDa: 0.20 },
     effects: [{ type: SpecialEffectType.OVERHEAL_SHIELD, value: 2, sourceId: 'epic_set_07_phoenix_rebirth' }],
     description: 'Tăng 20% maxHp. Khi bắt đầu trận chiến lần đầu tiên, nhận một lớp khiên máu ảo bằng 200% HP tối đa.',
@@ -185,14 +177,12 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_08_shadow_dancer': {
     name: 'Vũ Công Bóng Đêm',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { thanPhap: 20, chiMang: 0.08, satThuongChiMang: 0.15 },
     description: 'Tăng 20 AGI, 8% critRate, 15% critDmg.',
   },
   'epic_set_09_berserker_rage': {
     name: 'Cơn Thịnh Nộ Cuồng Chiến',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     percentStats: { congKich: 0.25, sinhLucToiDa: 0.15 },
     effects: [{ type: SpecialEffectType.BERSERKER_RAGE, value: 0.005 }], // 0.5% per 1% missing HP
     description: 'Tăng 25% ATK, 15% maxHp. Mỗi 1% HP đã mất tăng 0.5% ATK.',
@@ -200,7 +190,6 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_10_archmage_wisdom': {
     name: 'Trí Tuệ Đại Pháp Sư',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { giamHoiChieu: 0.15 },
     percentStats: { linhLucToiDa: 0.25 },
     description: 'Tăng 25% maxMp, 15% CDR. Tăng 15% sát thương kỹ năng.', // Skill damage bonus needs logic
@@ -208,7 +197,6 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_11_venomous_serpent': {
     name: 'Độc Xà',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { thanPhap: 20, congKich: 20 },
     effects: [{
         type: SpecialEffectType.APPLY_STATUS_ON_HIT,
@@ -220,21 +208,18 @@ export const setBonuses: Record<string, SetBonus> = {
   'epic_set_12_ancient_guardian': {
     name: 'Thân Thể Bất Hoại',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     percentStats: { sinhLucToiDa: 0.20, phongNgu: 0.25, khangPhep: 0.25 },
     description: 'Tăng 20% maxHp, 25% DEF, 25% MDEF.',
   },
   'legendary_set_01_godslayer': {
     name: 'Ý Chí Thí Thần',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 50, chiMang: 0.1, satThuongChiMang: 0.2 },
     description: 'Tăng 50 ATK, 10% critRate, 20% critDmg.',
   },
   'legendary_set_02_creator': {
     name: 'Quyền Năng Sáng Thế',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { giamHoiChieu: 0.1 },
     percentStats: { sinhLucToiDa: 0.20, linhLucToiDa: 0.20 },
     description: 'Tăng 20% maxHp, 20% maxMp, 10% CDR.',
@@ -242,14 +227,12 @@ export const setBonuses: Record<string, SetBonus> = {
   'legendary_set_03_demon_king': {
     name: 'Bá Khí Ác Quỷ',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 60, phongNgu: 60 },
     description: 'Tăng 60 ATK, 60 DEF.',
   },
   'legendary_set_04_celestial_emperor': {
     name: 'Thiên Đế',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     percentStats: { phongNgu: 0.40, khangPhep: 0.40, sinhLucToiDa: 0.25 },
     effects: [{ type: SpecialEffectType.STATUS_IMMUNITY }],
     description: 'Tăng 40% DEF, 40% MDEF, 25% maxHp. Miễn nhiễm với mọi hiệu ứng khống chế.',
@@ -257,14 +240,12 @@ export const setBonuses: Record<string, SetBonus> = {
   'legendary_set_05_void_walker': {
     name: 'Kẻ Du Hành Hư Không',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { thanPhap: 80, giamHoiChieu: 0.2 },
     description: 'Tăng 80 AGI, 20% CDR. Kỹ năng né tránh có thể được sử dụng thêm 1 lần và xóa bỏ mọi hiệu ứng bất lợi.',
   },
   'legendary_set_06_world_serpent': {
     name: 'Mãng Xà Thế Giới',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     percentStats: { sinhLucToiDa: 0.35, congKich: 0.35 },
     effects: [{ type: SpecialEffectType.LIFESTEAL, value: 0.1 }],
     description: 'Tăng 35% maxHp, 35% ATK. 10% hút máu toàn phần.',
@@ -272,14 +253,12 @@ export const setBonuses: Record<string, SetBonus> = {
   'legendary_set_07_chaos_incarnate': {
     name: 'Hỗn Độn Hóa Thân',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 80, satThuongChiMang: 0.3 },
     description: 'Tăng 80 ATK, 30% critDmg. Đòn tấn công có 10% cơ hội gây ra một hiệu ứng ngẫu nhiên (choáng, thiêu đốt, đóng băng, câm lặng).',
   },
   'legendary_set_08_time_lord': {
     name: 'Ngưng Đọng Thời Gian',
     pieces: 5,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { thanPhap: 60, giamHoiChieu: 0.15 },
     description: 'Tăng 60 AGI, 15% CDR.',
   },
@@ -297,7 +276,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.COMMON,
     slot: EquipmentSlot.WEAPON,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 8 },
     size: 2,
     weight: 5,
@@ -309,7 +287,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.RARE,
     slot: EquipmentSlot.WEAPON,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 18, thanPhap: 5 },
     size: 2,
     weight: 3,
@@ -321,7 +298,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.EPIC,
     slot: EquipmentSlot.WEAPON,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 45, chiMang: 0.05 },
     effects: [{ type: SpecialEffectType.LIFESTEAL, value: 0.05 }],
     size: 2,
@@ -340,7 +316,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.COMMON,
     slot: EquipmentSlot.HEAD,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { phongNgu: 5 },
     size: 1,
     weight: 2,
@@ -353,7 +328,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.COMMON,
     slot: EquipmentSlot.CHEST,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { sinhLucToiDa: 15, phongNgu: 3 },
     size: 2,
     weight: 6,
@@ -365,7 +339,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.COMMON,
     slot: EquipmentSlot.LEGS,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { sinhLucToiDa: 10, phongNgu: 2 },
     size: 1,
     weight: 3,
@@ -377,7 +350,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.COMMON,
     slot: EquipmentSlot.HANDS,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 3 },
     size: 1,
     weight: 1,
@@ -389,7 +361,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.COMMON,
     slot: EquipmentSlot.FEET,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { thanPhap: 3 },
     size: 1,
     weight: 2,
@@ -410,7 +381,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.LEGENDARY,
     slot: EquipmentSlot.FEET,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { thanPhap: 40, theLucToiDa: 50 },
     setId: 'legendary_set_02_creator',
     size: 1,
@@ -424,7 +394,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.LEGENDARY,
     slot: EquipmentSlot.HEAD,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 60 },
     setId: 'legendary_set_03_demon_king',
     size: 1,
@@ -437,7 +406,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.LEGENDARY,
     slot: EquipmentSlot.CHEST,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { sinhLucToiDa: 300, phongNgu: 50 },
     effects: [{ type: SpecialEffectType.THORNS_DAMAGE, value: 0.1 }],
     setId: 'legendary_set_03_demon_king',
@@ -451,7 +419,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.LEGENDARY,
     slot: EquipmentSlot.LEGS,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { sinhLucToiDa: 100, congKich: 20 },
     setId: 'legendary_set_03_demon_king',
     size: 1,
@@ -464,7 +431,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.LEGENDARY,
     slot: EquipmentSlot.HANDS,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { congKich: 40, satThuongChiMang: 0.25 },
     setId: 'legendary_set_03_demon_king',
     size: 1,
@@ -477,7 +443,6 @@ export const predefinedEquipment: (Equipment | SpecialItem | ConsumableItem)[] =
     type: ItemType.EQUIPMENT,
     rarity: ItemRarity.LEGENDARY,
     slot: EquipmentSlot.FEET,
-    // FIX: Replaced incorrect English stat names with correct Vietnamese names.
     stats: { phongNgu: 30, thanPhap: 10 },
     setId: 'legendary_set_03_demon_king',
     size: 1,
