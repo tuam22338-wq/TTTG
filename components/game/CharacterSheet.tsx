@@ -1,9 +1,6 @@
-
-
 import React, { useMemo } from 'react';
-import { GameState, CharacterStat, StatType, AttributeType } from '../../types';
+import { GameState, CharacterStat, StatType, AttributeType, CharacterCoreStats } from '../../types';
 import { GetIconComponent } from '../icons/AttributeIcons';
-import { getRealmString } from '../../services/CultivationService';
 
 interface CharacterSheetProps {
     gameState: GameState;
@@ -28,14 +25,13 @@ const StatBar: React.FC<{
     label: string;
     barColor: string;
     borderColor: string;
-    showValue?: boolean;
-}> = ({ current, max, label, barColor, borderColor, showValue = true }) => {
+}> = ({ current, max, label, barColor, borderColor }) => {
     const percentage = max > 0 ? (current / max) * 100 : 0;
     return (
         <div>
             <div className="flex justify-between items-baseline text-xs mb-1">
                 <span className="font-semibold text-neutral-400">{label}</span>
-                {showValue && <span className="font-bold text-white font-mono">{`${Math.floor(current)} / ${max}`}</span>}
+                <span className="font-bold text-white font-mono">{`${Math.floor(current)} / ${max}`}</span>
             </div>
             <div className={`h-2.5 w-full bg-black/30 rounded-full overflow-hidden border ${borderColor}`}>
                 <div className={`${barColor} h-full rounded-full transition-all duration-300`} style={{ width: `${percentage}%` }}></div>
@@ -44,7 +40,7 @@ const StatBar: React.FC<{
     );
 };
 
-const CombatStat: React.FC<{ icon: React.ReactNode; label: string; value: string | number; }> = ({ icon, label, value }) => (
+const StatGridItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; }> = ({ icon, label, value }) => (
     <div className="flex items-center gap-2 p-1.5 bg-black/20 rounded">
         <div className="w-5 h-5 text-neutral-400">{icon}</div>
         <span className="text-sm font-semibold text-neutral-300">{label}:</span>
@@ -52,54 +48,113 @@ const CombatStat: React.FC<{ icon: React.ReactNode; label: string; value: string
     </div>
 );
 
+
 const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick, recentlyUpdatedStats }) => {
-    const realmString = getRealmString(gameState.cultivation.level, gameState.worldContext);
-    const { finalCoreStats, finalCustomStats } = gameState.coreStats; // Simplified for this component
+    
+    const { coreStats, worldContext: { customAttributes }, playerStats, playerStatOrder } = gameState;
+
+    const vitalAttributes = useMemo(() => 
+        customAttributes.filter(attr => attr.type === AttributeType.VITAL), 
+        [customAttributes]
+    );
+    const primaryAttributes = useMemo(() => 
+        customAttributes.filter(attr => attr.type === AttributeType.PRIMARY), 
+        [customAttributes]
+    );
+    const informationalAttributes = useMemo(() => 
+        customAttributes.filter(attr => attr.type === AttributeType.INFORMATIONAL), 
+        [customAttributes]
+    );
 
     const orderedStats = useMemo(() => {
         const stats: { name: string, stat: CharacterStat }[] = [];
-        for (const statName of gameState.playerStatOrder) {
-            const stat = gameState.playerStats[statName];
+        for (const statName of playerStatOrder) {
+            const stat = playerStats[statName];
             if (stat && typeof stat === 'object' && 'description' in stat && 'type' in stat) {
                 stats.push({ name: statName, stat });
             }
         }
         return stats;
-    }, [gameState.playerStats, gameState.playerStatOrder]);
+    }, [playerStats, playerStatOrder]);
 
-
-    const informationalAttributes = useMemo(() => {
-        return gameState.worldContext.customAttributes.filter(attr => attr.type === AttributeType.INFORMATIONAL);
-    }, [gameState.worldContext.customAttributes]);
+    const VITAL_COLORS: Record<string, { bar: string, border: string }> = {
+        sinhLucToiDa: { bar: 'bg-red-500', border: 'border-red-500/50' },
+        linhLucToiDa: { bar: 'bg-blue-500', border: 'border-blue-500/50' },
+        theLucToiDa: { bar: 'bg-yellow-500', border: 'border-yellow-500/50' },
+        doNoToiDa: { bar: 'bg-orange-500', border: 'border-orange-500/50' },
+        doNuocToiDa: { bar: 'bg-sky-500', border: 'border-sky-500/50' },
+    };
 
     return (
-        <div className="h-full flex flex-col p-4">
+        <div className="h-full flex flex-col p-4 space-y-4">
+            
+            {/* Vital Stats */}
+            <div className="flex-shrink-0 space-y-2">
+                 {vitalAttributes.map(attr => {
+                    const maxStatKey = attr.id as keyof CharacterCoreStats;
+                    const currentStatKey = attr.id.replace('ToiDa', '') as keyof CharacterCoreStats;
+                    
+                    const currentValue = coreStats[currentStatKey] ?? 0;
+                    const maxValue = coreStats[maxStatKey] ?? 0;
+
+                    // Do not render if the stat was not defined (max value is 0)
+                    if (maxValue === 0 && currentValue === 0) return null;
+
+                    const colors = VITAL_COLORS[attr.id] || { bar: 'bg-gray-500', border: 'border-gray-500/50' };
+
+                    return (
+                        <StatBar 
+                            key={attr.id} 
+                            current={currentValue} 
+                            max={maxValue} 
+                            label={attr.name} 
+                            barColor={colors.bar}
+                            borderColor={colors.border}
+                        />
+                    );
+                 })}
+            </div>
+            
+             {/* Primary and Informational Stats */}
             <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <StatBar current={gameState.coreStats.sinhLuc} max={gameState.coreStats.sinhLucToiDa} label="Sinh Lực" barColor="bg-red-500" borderColor="border-red-500/50"/>
-                    <StatBar current={gameState.coreStats.linhLuc} max={gameState.coreStats.linhLucToiDa} label="Linh Lực" barColor="bg-blue-500" borderColor="border-blue-500/50"/>
-                    <StatBar current={gameState.coreStats.theLuc} max={gameState.coreStats.theLucToiDa} label="Thể Lực" barColor="bg-yellow-500" borderColor="border-yellow-500/50"/>
+                <div>
+                     <h3 className="text-sm font-bold text-neutral-400 mb-2 uppercase tracking-wider">Chỉ số Chính</h3>
+                     <div className="grid grid-cols-1 gap-1">
+                        {primaryAttributes.map(attr => {
+                            const value = coreStats[attr.id as keyof typeof coreStats] ?? attr.baseValue;
+                            const Icon = GetIconComponent({ name: attr.icon, className: "h-5 w-5 text-neutral-400"});
+                            const displayValue = ['chiMang', 'satThuongChiMang', 'giamHoiChieu'].includes(attr.id) ? `${(Number(value) * 100).toFixed(0)}%` : value;
+
+                            return (
+                                <StatGridItem key={attr.id} icon={Icon} label={attr.name} value={displayValue} />
+                            );
+                        })}
+                     </div>
                 </div>
-                <div className="space-y-1">
-                    {informationalAttributes.map(attr => {
-                        const Icon = GetIconComponent({ name: attr.icon, className: "h-4 w-4 text-neutral-400"});
-                        const value = finalCustomStats?.[attr.id as keyof typeof finalCustomStats] ?? attr.baseValue;
-                        return (
-                             <div key={attr.id} className="flex justify-between items-center text-sm px-2 py-1 bg-black/20 rounded">
-                                <div className="flex items-center gap-2">
-                                    {Icon}
-                                    <span className="font-semibold text-neutral-300">{attr.name}</span>
+                 <div>
+                    <h3 className="text-sm font-bold text-neutral-400 mb-2 uppercase tracking-wider">Thông tin & Tài nguyên</h3>
+                    <div className="space-y-1">
+                        {informationalAttributes.map(attr => {
+                            const Icon = GetIconComponent({ name: attr.icon, className: "h-4 w-4 text-neutral-400"});
+                            const value = coreStats[attr.id as keyof typeof coreStats] ?? attr.baseValue;
+                            return (
+                                <div key={attr.id} className="flex justify-between items-center text-sm px-2 py-1 bg-black/20 rounded">
+                                    <div className="flex items-center gap-2">
+                                        {Icon}
+                                        <span className="font-semibold text-neutral-300">{attr.name}</span>
+                                    </div>
+                                    <span className="font-bold text-white font-mono">{value}</span>
                                 </div>
-                                <span className="font-bold text-white font-mono">{value}</span>
-                            </div>
-                        )
-                    })}
+                            )
+                        })}
+                    </div>
                 </div>
             </div>
             
-            <div className="flex-shrink-0 mt-4">
-                 <h3 className="text-xl font-bold text-white mb-2 text-center" style={{textShadow: '0 0 5px rgba(255,255,255,0.4)'}}>Trạng Thái Hiện Tại</h3>
-                 <div className="h-48 overflow-y-auto custom-scrollbar bg-black/20 p-2 rounded-lg border border-neutral-700">
+            {/* Character Statuses */}
+            <div className="flex-shrink-0">
+                 <h3 className="text-sm font-bold text-neutral-400 mb-2 uppercase tracking-wider">Trạng Thái Hiện Tại</h3>
+                 <div className="h-40 overflow-y-auto custom-scrollbar bg-black/20 p-2 rounded-lg border border-neutral-700">
                     {orderedStats.length === 0 ? (
                         <p className="text-center text-sm text-neutral-500 pt-16">Nhân vật không có trạng thái đặc biệt nào.</p>
                     ) : (
