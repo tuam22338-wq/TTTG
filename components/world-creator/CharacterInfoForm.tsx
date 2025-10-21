@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
-import { WorldCreationState, CharacterSkillInput, Settings } from '../../types';
+import { WorldCreationState, Skill, Settings, SkillTarget, SkillEffect, SkillEffectType, StatType, CharacterStat } from '../../types';
 import FormSection from './FormSection';
 import InputField from '../ui/InputField';
 import TextareaField from '../ui/TextareaField';
 import { SparklesIcon } from '../icons/SparklesIcon';
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
-import Button from '../ui/Button';
 import * as client from '../../services/gemini/client';
 import ChevronIcon from '../icons/ChevronIcon';
 import { ApiClient } from '../../services/gemini/client';
+import * as schemas from '../../services/gemini/schemas';
 
 interface CharacterInfoFormProps {
     state: WorldCreationState;
@@ -49,7 +48,6 @@ const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, 
         let basePrompt: string;
 
         if (userProvidedBiography) {
-            // "Tiểu Sử Hợp Nhất" - User provided input, AI creates backstory leading to it.
             basePrompt = `Bạn là một AI biên kịch bậc thầy. Nhiệm vụ của bạn là kết hợp hài hòa giữa việc sáng tạo tiểu sử và việc tôn trọng bối cảnh khởi đầu của người dùng.
 
 **YÊU CẦU NGHIÊM NGẶT:**
@@ -69,7 +67,6 @@ ${userProvidedBiography}
 
 Hãy bắt đầu viết tiểu sử dẫn đến kịch bản trên.`;
         } else {
-            // "Biên Kịch Sáng Tạo" - User did not provide input, AI acts as a Creative Writer.
             basePrompt = `Dựa trên các đặc điểm của nhân vật và bối cảnh thế giới đã được tạo ra, hãy viết một tiểu sử chi tiết và có chiều sâu. Tiểu sử này cần thể hiện:
 - Quá khứ: Nhân vật sinh ra và lớn lên ở đâu trong thế giới này? Cuộc sống thời thơ ấu của họ bị ảnh hưởng bởi bối cảnh thế giới như thế nào?
 - Động lực: Điều gì đã thúc đẩy nhân vật phát triển kỹ năng hay tính cách hiện tại? Mục tiêu hay khát vọng lớn nhất của họ là gì?
@@ -92,13 +89,7 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
         }
         
         try {
-            const safetySettingsConfig = state.isNsfw ? [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            ] : [];
-
+            const safetySettingsConfig = state.isNsfw ? settings.safety : undefined;
             const response = await client.callCreativeTextAI(prompt, apiClient, settings.aiModelSettings, safetySettingsConfig);
             
             const text = response.text;
@@ -112,11 +103,15 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
     }
 
     const handleAddSkill = () => {
-        const newSkill: CharacterSkillInput = {
+        const newSkill: Skill = {
             id: Date.now().toString(),
             name: '',
             description: '',
-            effect: '',
+            cost: 10,
+            cooldown: 2,
+            target: SkillTarget.SINGLE_ENEMY,
+            effects: [],
+            abilities: []
         };
         handleCharacterChange('skills', [...state.character.skills, newSkill]);
         setExpandedSkills(prev => new Set(prev).add(newSkill.id));
@@ -131,7 +126,7 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
         });
     };
 
-    const handleSkillChange = (id: string, field: keyof Omit<CharacterSkillInput, 'id'>, value: string) => {
+    const handleSkillChange = (id: string, field: keyof Skill, value: any) => {
         const newSkills = state.character.skills.map(s => 
             s.id === id ? { ...s, [field]: value } : s
         );
@@ -149,8 +144,8 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
             return newSet;
         });
     };
-
-    const handleGenerateSkillComponent = async (id: string, type: 'description' | 'effect') => {
+    
+    const handleGenerateSkill = async (id: string) => {
         if (!getApiClient()) {
             alert("Dịch vụ AI chưa sẵn sàng.");
             apiClient.onApiKeyInvalid();
@@ -162,42 +157,51 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
             return;
         }
 
-        const loadingKey = `${type}-${id}`;
+        const loadingKey = `skill-${id}`;
         setIsLoading(prev => ({ ...prev, [loadingKey]: true }));
 
-        let prompt = '';
-        if (type === 'description') {
-            prompt = `Bạn là một AI sáng tạo. Dựa vào tên kỹ năng "${skill.name}" và bối cảnh thế giới sau đây, hãy viết một mô tả ngắn gọn (khoảng 2-3 câu) về bản chất và nguồn gốc của kỹ năng này.\n\nBỐI CẢNH:\n${state.description || "Không có."}`;
-        } else {
-            if (!skill.description) {
-                alert("Vui lòng nhập hoặc tạo Mô tả Kỹ năng trước khi tạo Hiệu quả.");
-                setIsLoading(prev => ({ ...prev, [loadingKey]: false }));
-                return;
-            }
-            prompt = `Bạn là một AI thiết kế game. Dựa vào tên kỹ năng "${skill.name}" và mô tả "${skill.description}", hãy viết một mô tả về hiệu quả cụ thể của kỹ năng này, tập trung vào cơ chế game (ví dụ: gây sát thương, tạo hiệu ứng, buff/debuff...).`;
-        }
+        const prompt = `Bạn là một AI thiết kế game bậc thầy. Dựa trên tên và mô tả sơ bộ của một kỹ năng, cùng với bối cảnh thế giới, hãy tạo ra một đối tượng JSON 'Skill' hoàn chỉnh.
+
+**Bối cảnh thế giới:**
+${state.description || "Một thế giới chưa được mô tả."}
+
+**Thông tin kỹ năng:**
+- Tên: "${skill.name}"
+- Mô tả ý tưởng: "${skill.description || 'Chưa có'}"
+
+**Nhiệm vụ:**
+1.  **Hoàn thiện Mô tả:** Viết lại \`description\` cho kỹ năng một cách hấp dẫn, phù hợp với văn phong game.
+2.  **Thiết kế Cơ chế:**
+    *   Xác định \`cost\` (năng lượng tiêu hao, số nguyên dương).
+    *   Xác định \`cooldown\` (lượt hồi chiêu, số nguyên dương).
+    *   Chọn \`target\` (mục tiêu) phù hợp nhất từ danh sách: SELF, SINGLE_ENEMY, ALL_ENEMIES.
+3.  **Tạo Hiệu ứng (\`effects\`):** Tạo 1-2 hiệu ứng có cấu trúc.
+    *   **DAMAGE:** Gây sát thương. \`value\` là một số thập phân (VD: 1.5 nghĩa là 150% Công Kích).
+    *   **HEAL:** Hồi máu. \`value\` là một số thập phân (VD: 0.2 nghĩa là hồi 20% HP tối đa).
+    *   **APPLY_STATUS:** Gây hiệu ứng. Tự tạo một trạng thái hợp lý.
+4.  **Trả về kết quả dưới dạng một đối tượng JSON duy nhất tuân thủ schema đã cho.**
+`;
         
         try {
-            const result = await client.callCreativeTextAI(
+            const { parsed: generatedSkill } = await client.callJsonAI(
                 prompt, 
+                schemas.skillSchema, 
                 apiClient, 
                 settings.aiModelSettings,
-                state.isNsfw ? [
-                    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                ] : undefined
+                state.isNsfw ? settings.safety : undefined
             );
-            handleSkillChange(id, type, result.text);
+
+            const finalSkill = { ...skill, ...generatedSkill };
+            const newSkills = state.character.skills.map(s => s.id === id ? finalSkill : s);
+            handleCharacterChange('skills', newSkills);
+
         } catch (error) {
-            console.error(`Error generating skill ${type}:`, error);
-            alert(`Đã xảy ra lỗi khi tạo ${type === 'description' ? 'mô tả' : 'hiệu quả'}. Vui lòng thử lại.`);
+            console.error(`Error generating full skill:`, error);
+            alert(`Đã xảy ra lỗi khi tạo chi tiết kỹ năng. Vui lòng thử lại.`);
         } finally {
             setIsLoading(prev => ({ ...prev, [loadingKey]: false }));
         }
     };
-
 
     return (
         <FormSection title="Thông Tin Nhân Vật" description="Kiến tạo linh hồn sẽ khuấy đảo vị diện này.">
@@ -285,52 +289,27 @@ ${state.description || 'Thế giới chưa được mô tả chi tiết.'}
                                         />
                                     </div>
                                     <div className="flex items-center gap-1 ml-2">
+                                        <button onClick={() => handleGenerateSkill(skill.id)} className="p-1.5 text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 rounded-full transition-colors" title="AI Hỗ trợ tạo chi tiết kỹ năng"><SparklesIcon isLoading={!!isLoading[`skill-${skill.id}`]} /></button>
                                         <button onClick={() => handleRemoveSkill(skill.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon /></button>
                                         <button onClick={() => toggleExpandSkill(skill.id)} className="p-1.5 text-gray-400 hover:text-white rounded-full transition-colors"><ChevronIcon isExpanded={isExpanded} /></button>
                                     </div>
                                 </div>
                                 {isExpanded && (
                                     <div className="px-3 pb-3 border-t border-white/10 space-y-4 animate-fade-in-fast">
-                                        <div>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <label htmlFor={`skill-desc-${skill.id}`} className="block text-sm font-medium text-neutral-400">Mô tả kỹ năng</label>
-                                                <button
-                                                    onClick={() => handleGenerateSkillComponent(skill.id, 'description')}
-                                                    disabled={isLoading[`description-${skill.id}`]}
-                                                    className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full bg-black/20 border border-white/10 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    title="AI Hỗ trợ Mô tả"
-                                                >
-                                                    <SparklesIcon isLoading={isLoading[`description-${skill.id}`]} />
-                                                </button>
+                                        <TextareaField id={`skill-desc-${skill.id}`} label="Mô tả" placeholder="Mô tả ngắn gọn về bản chất kỹ năng." value={skill.description} onChange={e => handleSkillChange(skill.id, 'description', e.target.value)} rows={3} />
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            <InputField id={`skill-cost-${skill.id}`} label="Năng lượng" type="number" value={skill.cost} onChange={e => handleSkillChange(skill.id, 'cost', parseInt(e.target.value) || 0)} />
+                                            <InputField id={`skill-cd-${skill.id}`} label="Hồi chiêu (lượt)" type="number" value={skill.cooldown} onChange={e => handleSkillChange(skill.id, 'cooldown', parseInt(e.target.value) || 0)} />
+                                            <div>
+                                                <label htmlFor={`skill-target-${skill.id}`} className="block text-sm font-medium text-neutral-400 mb-2">Mục tiêu</label>
+                                                <select id={`skill-target-${skill.id}`} value={skill.target} onChange={e => handleSkillChange(skill.id, 'target', e.target.value)} className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white">
+                                                    <option value={SkillTarget.SELF}>Bản thân</option>
+                                                    <option value={SkillTarget.SINGLE_ENEMY}>1 Kẻ địch</option>
+                                                    <option value={SkillTarget.ALL_ENEMIES}>Toàn bộ Kẻ địch</option>
+                                                </select>
                                             </div>
-                                            <TextareaField
-                                                id={`skill-desc-${skill.id}`}
-                                                placeholder="Mô tả ngắn gọn về bản chất kỹ năng. Có thể để AI hỗ trợ."
-                                                value={skill.description}
-                                                onChange={e => handleSkillChange(skill.id, 'description', e.target.value)}
-                                                rows={3}
-                                            />
                                         </div>
-                                         <div>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <label htmlFor={`skill-effect-${skill.id}`} className="block text-sm font-medium text-neutral-400">Hiệu quả kỹ năng</label>
-                                                <button
-                                                    onClick={() => handleGenerateSkillComponent(skill.id, 'effect')}
-                                                    disabled={isLoading[`effect-${skill.id}`]}
-                                                    className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full bg-black/20 border border-white/10 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    title="AI Hỗ trợ Hiệu quả"
-                                                >
-                                                    <SparklesIcon isLoading={isLoading[`effect-${skill.id}`]} />
-                                                </button>
-                                            </div>
-                                            <TextareaField
-                                                id={`skill-effect-${skill.id}`}
-                                                placeholder="Mô tả hiệu quả cụ thể, cơ chế game. Có thể để AI hỗ trợ."
-                                                value={skill.effect}
-                                                onChange={e => handleSkillChange(skill.id, 'effect', e.target.value)}
-                                                rows={3}
-                                            />
-                                        </div>
+                                        {/* TODO: Add effects editor UI here */}
                                     </div>
                                 )}
                             </div>

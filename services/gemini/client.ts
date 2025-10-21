@@ -11,6 +11,41 @@ export interface ApiClient {
     onApiKeyInvalid: () => void;
 }
 
+/**
+ * A helper function to fix JSON strings that contain unescaped newline characters.
+ * It iterates through the string, identifies string literals, and replaces literal newlines
+ * inside them with their escaped counterparts ('\\n' and '\\r').
+ * @param jsonString The potentially broken JSON string.
+ * @returns A corrected JSON string.
+ */
+function fixJsonWithUnescapedNewlines(jsonString: string): string {
+    let inString = false;
+    let result = '';
+    for (let i = 0; i < jsonString.length; i++) {
+        const char = jsonString[i];
+
+        if (char === '"') {
+            let backslashCount = 0;
+            for (let j = i - 1; j >= 0 && jsonString[j] === '\\'; j--) {
+                backslashCount++;
+            }
+            if (backslashCount % 2 === 0) {
+                inString = !inString;
+            }
+        }
+
+        if (inString && char === '\n') {
+            result += '\\n';
+        } else if (inString && char === '\r') {
+            result += '\\r';
+        } else {
+            result += char;
+        }
+    }
+    return result;
+}
+
+
 async function callGeminiWithRetry<T>(
     apiClient: ApiClient,
     callFunction: (geminiService: GoogleGenAI) => Promise<T>
@@ -256,13 +291,26 @@ export function parseAndValidateJsonResponse(text: string): any {
 
         cleanedText = cleanedText.substring(start, end + 1);
         
-        const parsedJson = JSON.parse(cleanedText);
-        return sanitizeObjectRecursively(parsedJson);
+        try {
+            // First attempt to parse the original cleaned text
+            const parsedJson = JSON.parse(cleanedText);
+            return sanitizeObjectRecursively(parsedJson);
+        } catch (e: any) {
+             // If it fails, attempt to fix unescaped newlines which cause "Bad control character" errors.
+            if (e.message.includes('Bad control character') || e.message.includes('Unterminated string')) {
+                console.warn("Initial JSON parsing failed, attempting to fix unescaped newlines...", e.message);
+                const fixedText = fixJsonWithUnescapedNewlines(cleanedText);
+                const parsedJson = JSON.parse(fixedText); // This will throw if it still fails
+                return sanitizeObjectRecursively(parsedJson);
+            }
+            // Re-throw other parsing errors
+            throw e;
+        }
 
     } catch (e: any) {
-        console.error("Failed to parse response text as JSON:", text, e);
+        console.error("Failed to parse response text as JSON even after attempting fixes:", text, e);
         const errorMessage = `Lỗi phân tích cú pháp JSON: ${e.message}`;
-        // Throw a more specific error for the retry logic to catch. The final user-facing error will be constructed there.
+        // Throw error for the retry logic to catch.
         throw new Error(errorMessage);
     }
 }

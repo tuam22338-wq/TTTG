@@ -68,13 +68,6 @@ export interface ChatMessage {
   text: string;
 }
 
-export interface CharacterSkillInput {
-  id: string;
-  name: string;
-  description: string;
-  effect: string;
-}
-
 export interface InitialFaction {
     id: string;
     name: string;
@@ -178,7 +171,7 @@ export interface WorldCreationState {
     customGender: string;
     personality: string;
     biography: string;
-    skills: CharacterSkillInput[];
+    skills: Skill[];
   };
   isCultivationEnabled: boolean;
   cultivationSystem: CultivationSystemSettings;

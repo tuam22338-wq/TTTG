@@ -44,17 +44,47 @@ const abilitySchema = {
     required: ['name', 'description']
 };
 
+const statusEffectSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        description: { type: Type.STRING },
+        type: { type: Type.STRING, enum: ['GOOD', 'BAD', 'INJURY', 'NSFW', 'KNOWLEDGE', 'NEUTRAL'] },
+        duration: { type: Type.INTEGER },
+        effect: { type: Type.STRING, nullable: true },
+    },
+    required: ['name', 'description', 'type', 'duration']
+};
+
+const skillEffectSchema = {
+    type: Type.OBJECT,
+    properties: {
+        type: { type: Type.STRING, enum: ['DAMAGE', 'HEAL', 'APPLY_STATUS'] },
+        value: { type: Type.NUMBER, nullable: true, description: "For DAMAGE: multiplier (1.5 = 150%). For HEAL: percentage (0.2 = 20%)." },
+        status: { ...statusEffectSchema, nullable: true },
+    },
+    required: ['type']
+};
+
 export const skillSchema = {
     type: Type.OBJECT,
     properties: {
+        id: { type: Type.STRING, nullable: true },
         name: { type: Type.STRING },
         description: { type: Type.STRING },
         abilities: {
             type: Type.ARRAY,
             items: abilitySchema
+        },
+        cost: { type: Type.INTEGER },
+        cooldown: { type: Type.INTEGER },
+        target: { type: Type.STRING, enum: ['SELF', 'SINGLE_ENEMY', 'ALL_ENEMIES', 'SINGLE_ALLY', 'ALL_ALLIES'] },
+        effects: {
+            type: Type.ARRAY,
+            items: skillEffectSchema
         }
     },
-    required: ['name', 'description', 'abilities']
+    required: ['name', 'description', 'abilities', 'cost', 'cooldown', 'target', 'effects']
 };
 
 const coreStatsProperties = {
@@ -224,9 +254,8 @@ const quickAssistCharacterSkillSchema = {
     properties: {
         name: { type: Type.STRING },
         description: { type: Type.STRING },
-        effect: { type: Type.STRING },
     },
-    required: ['name', 'description', 'effect']
+    required: ['name', 'description']
 };
 
 const quickAssistCharacterSchema = {
@@ -238,7 +267,7 @@ const quickAssistCharacterSchema = {
         biography: { type: Type.STRING },
         skills: {
             type: Type.ARRAY,
-            items: quickAssistCharacterSkillSchema,
+            items: skillSchema, // Use the full skill schema
         }
     },
     required: ['name', 'gender', 'personality', 'biography', 'skills']
