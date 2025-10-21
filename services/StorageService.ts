@@ -1,10 +1,13 @@
-import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage, NovelSession } from '../types';
+import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage, NovelSession, TrainingDataSet } from '../types';
 
 const DB_NAME = 'BMS_TamThienTheGioi';
-const DB_VERSION = 2;
+// FIX: Incremented DB_VERSION to 3 to trigger onupgradeneeded for adding a new object store.
+const DB_VERSION = 3;
 const GAME_SAVES_STORE = 'gameSaves';
 const SETTINGS_STORE = 'appSettings';
 const NOVEL_WRITER_STORE = 'novelWriter';
+// FIX: Added a constant for the new training data store.
+const TRAINING_DATA_STORE = 'trainingData';
 
 let db: IDBDatabase | null = null;
 
@@ -56,6 +59,10 @@ function getDb(): Promise<IDBDatabase> {
             }
             if (!tempDb.objectStoreNames.contains(NOVEL_WRITER_STORE)) {
                 tempDb.createObjectStore(NOVEL_WRITER_STORE);
+            }
+            // FIX: Create the new object store for training data if it doesn't exist.
+            if (!tempDb.objectStoreNames.contains(TRAINING_DATA_STORE)) {
+                tempDb.createObjectStore(TRAINING_DATA_STORE);
             }
         };
     });
@@ -171,6 +178,17 @@ export async function deleteNovelSession(id: string): Promise<void> {
     await del(NOVEL_WRITER_STORE, id);
 }
 
+export async function saveTrainingSet(dataSet: TrainingDataSet): Promise<void> {
+    await set(TRAINING_DATA_STORE, dataSet.id, dataSet);
+}
+
+export async function getAllTrainingSets(): Promise<TrainingDataSet[]> {
+    return await getAll<TrainingDataSet>(TRAINING_DATA_STORE);
+}
+
+export async function getTrainingSetById(id: string): Promise<TrainingDataSet | null> {
+    return await get<TrainingDataSet>(TRAINING_DATA_STORE, id);
+}
 
 
 // --- Migration Logic ---

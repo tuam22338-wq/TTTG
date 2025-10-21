@@ -1,5 +1,5 @@
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
-import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather } from '../types';
+import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather, TrainingDataSet, TrainingDataChunk } from '../types';
 import * as schemas from './gemini/schemas';
 import * as client from './gemini/client';
 import * as prompts from './prompt-engineering/corePrompts';
@@ -9,6 +9,7 @@ import { getSituationalRules, getCombatSystemRules } from './prompt-engineering/
 import { getFlowOfDestinyRules } from './prompt-engineering/flowOfDestinyRules';
 import { getWorldRulesPrompt } from './prompt-engineering/worldRules';
 import { predefinedEquipment } from './predefinedItems';
+import * as StorageService from './StorageService';
 
 const itemListString = predefinedEquipment.map(item => `- ${item.id}: ${item.name}`).join('\n');
 
@@ -48,7 +49,120 @@ const getSafetySettings = (safety: SafetySettings) => {
 };
 
 
+// --- HELPERS ---
+
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+    if (vecA.length !== vecB.length || vecA.length === 0) {
+        return 0;
+    }
+
+    let dotProduct = 0;
+    let magnitudeA = 0;
+    let magnitudeB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        magnitudeA += vecA[i] * vecA[i];
+        magnitudeB += vecB[i] * vecB[i];
+    }
+
+    magnitudeA = Math.sqrt(magnitudeA);
+    magnitudeB = Math.sqrt(magnitudeB);
+
+    if (magnitudeA === 0 || magnitudeB === 0) {
+        return 0;
+    }
+
+    return dotProduct / (magnitudeA * magnitudeB);
+}
+
+function findTopKChunks(promptEmbedding: number[], chunks: TrainingDataChunk[], k: number = 3): TrainingDataChunk[] {
+    if (chunks.length === 0) return [];
+
+    const similarities = chunks.map(chunk => ({
+        chunk,
+        similarity: cosineSimilarity(promptEmbedding, chunk.embedding),
+    }));
+
+    similarities.sort((a, b) => b.similarity - a.similarity);
+
+    return similarities.slice(0, k).map(item => item.chunk);
+}
+
+
 // --- CORE LOGIC ---
+
+export async function generateWorldFromPromptWithKnowledge(
+    userIdea: string,
+    knowledgeBaseId: string,
+    isNsfw: boolean,
+    apiClient: client.ApiClient,
+    aiModelSettings: AiModelSettings,
+    safetySettings: SafetySettings
+): Promise<Partial<WorldCreationState>> {
+
+    const knowledgeBase = await StorageService.getTrainingSetById(knowledgeBaseId);
+    if (!knowledgeBase || knowledgeBase.chunks.length === 0) {
+        throw new Error("Không tìm thấy hoặc bộ kiến thức nền bị rỗng.");
+    }
+    
+    const promptEmbedding = await client.callEmbeddingModel(userIdea, apiClient);
+    
+    const topChunks = findTopKChunks(promptEmbedding, knowledgeBase.chunks, 5);
+    const knowledgeContext = topChunks.map((chunk, index) => `**Kiến thức tham khảo ${index + 1}:**\n${chunk.content}`).join('\n\n');
+
+    const nsfwInstruction = isNsfw
+        ? "Quan trọng: Bối cảnh này có yếu tố 18+ (NSFW). Hãy sáng tạo các yếu tố nhân vật, phe phái, và bối cảnh phản ánh sự trưởng thành, phức tạp, và có thể bao gồm các chủ đề nhạy cảm một cách tinh tế."
+        : "Giữ cho bối cảnh phù hợp với mọi lứa tuổi.";
+
+    const prompt = `
+Bạn là một AI Sáng tạo Thế giới chuyên nghiệp cho game nhập vai. Dựa trên ý tưởng cốt lõi của người dùng VÀ các kiến thức nền được cung cấp, hãy xây dựng một thế giới hoàn chỉnh và trả về dưới dạng một đối tượng JSON.
+
+**Kiến thức nền (Thông tin tham khảo có độ ưu tiên cao):**
+---
+${knowledgeContext}
+---
+
+**Ý tưởng cốt lõi từ người dùng:**
+---
+${userIdea}
+---
+
+**Nhiệm vụ của bạn:**
+1.  **Tích hợp Kiến thức:** BẮT BUỘC phải sử dụng các thông tin trong phần "Kiến thức nền" làm cơ sở để phát triển ý tưởng của người dùng. Hãy đảm bảo các thực thể bạn tạo ra (nhân vật, phe phái) phải nhất quán và có liên quan đến kiến thức này.
+2.  **Phát triển Ý tưởng:** Mở rộng ý tưởng của người dùng, lấp đầy các khoảng trống bằng cách suy luận từ "Kiến thức nền".
+3.  **Tạo các thực thể:**
+    *   **Genre:** Xác định thể loại chính của thế giới.
+    *   **Description:** Viết một mô tả chi tiết về thế giới, bối cảnh hiện tại.
+    *   **Character:** Tạo một nhân vật chính phù hợp với thế giới, bao gồm tên, giới tính (chỉ 'Nam' hoặc 'Nữ'), tính cách, tiểu sử, và 2-3 kỹ năng khởi đầu. Tiểu sử nhân vật nên có liên quan đến kiến thức nền.
+    *   **Initial Factions:** Tạo 2-3 phe phái/thế lực ban đầu.
+    *   **Initial NPCs:** Tạo 2-3 NPC ban đầu thú vị.
+4.  **${nsfwInstruction}**
+5.  **Định dạng JSON:** Trả về một đối tượng JSON duy nhất tuân thủ schema đã cung cấp.
+
+Hãy bắt đầu sáng tạo.`;
+
+    const worldGenModelSettings: AiModelSettings = { ...aiModelSettings, maxOutputTokens: 8192 };
+    const { parsed: aiResponse } = await client.callJsonAI(prompt, schemas.quickAssistSchema, apiClient, worldGenModelSettings, getSafetySettings(safetySettings));
+    
+    const generatedFactions = (aiResponse.initialFactions || []).map((faction: any, index: number) => ({ ...faction, id: `faction_${index + 1}_${Date.now()}` }));
+    const factionIdMap = new Map(generatedFactions.map((f: any, i: number) => [ `faction_${i+1}`, f.id ]));
+    const generatedNpcs = (aiResponse.initialNpcs || []).map((npc: any, index: number) => ({ ...npc, id: `npc_${index + 1}_${Date.now()}`, factionId: factionIdMap.get(npc.factionId) || 'independent' }));
+    const generatedSkills = (aiResponse.character.skills || []).map((skill: any, index: number) => ({ ...skill, id: `skill_${index + 1}_${Date.now()}` }));
+    const generatedCharacter = { ...aiResponse.character, customGender: '', skills: generatedSkills };
+
+    if (generatedCharacter.gender !== 'Nam' && generatedCharacter.gender !== 'Nữ') {
+        generatedCharacter.gender = 'Nam';
+    }
+
+    return {
+        genre: aiResponse.genre,
+        description: aiResponse.description,
+        character: generatedCharacter,
+        initialFactions: generatedFactions,
+        initialNpcs: generatedNpcs,
+    };
+}
+
 
 export async function generateWorldFromPrompt(
     userIdea: string,
@@ -323,9 +437,9 @@ export async function continueStory(
     const flowOfDestinyRules = getFlowOfDestinyRules(shouldTriggerWorldTurn, choice);
     const worldRulesPrompt = getWorldRulesPrompt(worldContext.specialRules, worldContext.initialLore);
 
-    const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 1.5);
-    // Use a multiplier to get closer to the user's desired length, while leaving a safe buffer for JSON.
-    const targetStoryWordCount = Math.max(150, Math.floor(approximateWordCount * 0.8));
+    const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 3.5); // Use a more conservative token-per-word ratio for Vietnamese
+    // Use a multiplier to leave a larger buffer for the JSON structure itself.
+    const targetStoryWordCount = Math.max(150, Math.floor(approximateWordCount * 0.7));
     
     const lengthInstruction = `
 **QUY TẮC ĐỘ DÀI TƯỜNG THUẬT (STORY LENGTH RULE - MỆNH LỆNH TỐI THƯỢNG):**

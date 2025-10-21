@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WorldCreationState, NarrativePerspective, Settings } from '../../types';
+import { WorldCreationState, NarrativePerspective, Settings, TrainingDataSet } from '../../types';
 import FormSection from './FormSection';
 import InputField from '../ui/InputField';
 import TextareaField from '../ui/TextareaField';
@@ -15,6 +15,7 @@ interface WorldInfoFormProps {
     setState: React.Dispatch<React.SetStateAction<WorldCreationState>>;
     apiClient: ApiClient;
     settings: Settings;
+    trainingSets: TrainingDataSet[];
 }
 
 const perspectiveDescriptions: Record<NarrativePerspective, { title: string; text: string; special?: string }> = {
@@ -37,7 +38,7 @@ const perspectiveDescriptions: Record<NarrativePerspective, { title: string; tex
   },
 };
 
-const WorldInfoForm: React.FC<WorldInfoFormProps> = ({ state, setState, apiClient, settings }) => {
+const WorldInfoForm: React.FC<WorldInfoFormProps> = ({ state, setState, apiClient, settings, trainingSets }) => {
     const [isLoading, setIsLoading] = useState(false);
     const { getApiClient } = apiClient;
 
@@ -144,6 +145,22 @@ Hãy viết một đoạn văn mạch lạc, kết hợp các yếu-tố trên �
                         )}
                     </div>
                 )}
+            </div>
+             <div>
+                <label htmlFor="knowledge-base" className="block text-sm font-medium text-neutral-400 mb-2">Kiến thức nền AI (Tùy chọn)</label>
+                <select
+                    id="knowledge-base"
+                    value={state.knowledgeBaseId || ''}
+                    onChange={e => setState(s => ({ ...s, knowledgeBaseId: e.target.value || undefined }))}
+                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                    disabled={trainingSets.length === 0}
+                >
+                    <option value="">-- Không sử dụng --</option>
+                    {trainingSets.map(set => (
+                        <option key={set.id} value={set.id}>{set.name}</option>
+                    ))}
+                </select>
+                <p className="text-xs text-neutral-500 mt-2">Chọn một bộ dữ liệu đã huấn luyện để AI sử dụng làm tri thức nền khi tạo thế giới hoặc trong game.</p>
             </div>
             <div>
                  <div className="flex justify-between items-center mb-2">

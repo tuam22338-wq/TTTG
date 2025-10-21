@@ -6,10 +6,12 @@ import * as StorageService from '../services/StorageService';
 
 const defaultAiModelSettings: AiModelSettings = {
   model: 'gemini-2.5-flash',
+  embeddingModel: 'text-embedding-004',
   temperature: 0.8,
   topK: 40,
   topP: 0.95,
   maxOutputTokens: 2250,
+  jsonBuffer: 500,
   thinkingBudget: 1000,
   autoRotateModels: true,
   rotationDelay: 0,

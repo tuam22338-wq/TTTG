@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings';
 import Button from '../ui/Button';
 import WorldInfoForm from '../world-creator/WorldInfoForm';
 import CharacterInfoForm from '../world-creator/CharacterInfoForm';
-import { WorldCreationState } from '../../types';
+import { WorldCreationState, TrainingDataSet } from '../../types';
 import * as WorldPresetService from '../../services/WorldPresetService';
 import InitialEntitiesForm from '../world-creator/InitialEntitiesForm';
 import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
@@ -14,6 +14,7 @@ import { WorldIcon } from '../icons/WorldIcon';
 import { UserIcon } from '../icons/UserIcon';
 import { CultivationIcon } from '../icons/CultivationIcon';
 import { SparklesIcon } from '../icons/SparklesIcon';
+import { BrainIcon } from '../icons/BrainIcon';
 import { UsersIcon } from '../icons/UsersIcon';
 import ChevronIcon from '../icons/ChevronIcon';
 import { genericDefaultTemplate } from '../../services/attributeTemplates';
@@ -24,6 +25,7 @@ import { LawIcon } from '../icons/LawIcon';
 import QuickAssistModal from '../world-creator/QuickAssistModal';
 import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
 import { ApiClient } from '../../services/gemini/client';
+import * as StorageService from '../../services/StorageService';
 
 
 interface WorldCreatorScreenProps {
@@ -61,6 +63,7 @@ const defaultWorldCreationState: WorldCreationState = {
     initialNpcs: [],
     specialRules: [],
     initialLore: [],
+    knowledgeBaseId: undefined,
 };
 
 type CreatorView = 'WORLD' | 'CHARACTER' | 'CULTIVATION' | 'ATTRIBUTES' | 'RULES' | 'ENTITIES';
@@ -70,7 +73,9 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
   const [expandedView, setExpandedView] = useState<CreatorView | null>(null);
   const [state, setState] = useState<WorldCreationState>(defaultWorldCreationState);
   const [isQuickAssistModalOpen, setIsQuickAssistModalOpen] = useState(false);
+  const [isKnowledgeAssistModalOpen, setIsKnowledgeAssistModalOpen] = useState(false);
   const [isQuickAssistLoading, setIsQuickAssistLoading] = useState(false);
+  const [trainingSets, setTrainingSets] = useState<TrainingDataSet[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -78,6 +83,18 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
   const { getApiClient, cycleToNextApiKey, apiStats, settings } = settingsHook;
   
   const apiClient: ApiClient = { getApiClient, cycleToNextApiKey, apiStats, onApiKeyInvalid };
+
+  useEffect(() => {
+    async function fetchTrainingData() {
+        try {
+            const sets = await StorageService.getAllTrainingSets();
+            setTrainingSets(sets);
+        } catch (error) {
+            console.error("Failed to fetch training data sets:", error);
+        }
+    }
+    fetchTrainingData();
+  }, []);
 
 
   const handleToggleView = (viewId: CreatorView) => {
@@ -122,6 +139,52 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
     }
     setIsQuickAssistModalOpen(true);
   };
+
+    const handleQuickAssistWithKnowledge = () => {
+        if (!getApiClient()) {
+            alert("Dịch vụ AI chưa sẵn sàng hoặc chưa cấu hình API Key.");
+            onApiKeyInvalid();
+            return;
+        }
+        if (!state.knowledgeBaseId) {
+            alert("Vui lòng chọn một bộ kiến thức nền trước khi sử dụng chức năng này.");
+            return;
+        }
+        setIsKnowledgeAssistModalOpen(true);
+    };
+
+    const handleQuickAssistWithKnowledgeSubmit = async (idea: string) => {
+        setIsQuickAssistLoading(true);
+        try {
+            if (!state.knowledgeBaseId) throw new Error("Knowledge Base ID is missing.");
+
+            const generatedWorld = await GeminiStorytellerService.generateWorldFromPromptWithKnowledge(
+                idea,
+                state.knowledgeBaseId,
+                state.isNsfw,
+                apiClient,
+                settings.aiModelSettings,
+                settings.safety
+            );
+
+            setState(prevState => ({
+                ...defaultWorldCreationState,
+                narrativePerspective: prevState.narrativePerspective,
+                isNsfw: prevState.isNsfw,
+                knowledgeBaseId: prevState.knowledgeBaseId, // Preserve the selected knowledge base
+                ...generatedWorld,
+            }));
+            
+            setExpandedView(null);
+            setIsKnowledgeAssistModalOpen(false);
+
+        } catch (error: any) {
+            console.error("Error during Knowledge Quick Assist:", error);
+            alert("Đã xảy ra lỗi khi tạo thế giới nhanh bằng tri thức nền. Vui lòng thử lại.\n\nChi tiết: " + error.message);
+        } finally {
+            setIsQuickAssistLoading(false);
+        }
+    };
   
   const handleQuickAssistSubmit = async (idea: string) => {
     setIsQuickAssistLoading(true);
@@ -214,7 +277,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
 
   const getFormComponent = (viewId: CreatorView) => {
     switch(viewId) {
-        case 'WORLD': return <WorldInfoForm state={state} setState={setState} apiClient={apiClient} settings={settings} />;
+        case 'WORLD': return <WorldInfoForm state={state} setState={setState} apiClient={apiClient} settings={settings} trainingSets={trainingSets} />;
         case 'CHARACTER': return <CharacterInfoForm state={state} setState={setState} apiClient={apiClient} settings={settings} />;
         case 'CULTIVATION': return <CultivationSystemForm state={state} setState={setState} />;
         case 'ATTRIBUTES': return <AttributeSystemForm state={state} setState={setState} />;
@@ -224,11 +287,12 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
     }
   }
   
-  const CreatorActionButton: React.FC<{onClick: () => void; label: string; Icon: React.FC<{className?: string}>; title: string;}> = ({onClick, label, Icon, title}) => (
+  const CreatorActionButton: React.FC<{onClick: () => void; label: string; Icon: React.FC<{className?: string}>; title: string; disabled?: boolean;}> = ({onClick, label, Icon, title, disabled = false}) => (
         <button 
             onClick={onClick} 
             title={title}
-            className="flex flex-col items-center justify-center gap-2 w-24 h-24 bg-black/20 rounded-2xl border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+            disabled={disabled}
+            className="flex flex-col items-center justify-center gap-2 w-24 h-24 bg-black/20 rounded-2xl border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0"
         >
             <Icon className="h-7 w-7" />
             <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
@@ -258,11 +322,12 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
               <div className="w-10 h-10"></div> {/* Spacer to balance layout */}
           </header>
 
-          <div className="flex-shrink-0 flex items-center justify-center gap-3 sm:gap-4 mb-6">
+          <div className="flex-shrink-0 flex items-center justify-center gap-2 sm:gap-3 mb-6">
             <CreatorActionButton onClick={handleSavePreset} label="Lưu" Icon={DownloadIcon} title="Lưu thiết lập hiện tại ra file" />
             <CreatorActionButton onClick={triggerFileLoad} label="Tải" Icon={UploadIcon} title="Tải thiết lập từ file" />
             <CreatorActionButton onClick={handleResetPreset} label="Xóa" Icon={TrashIcon} title="Xóa và đặt lại toàn bộ thiết lập"/>
             <CreatorActionButton onClick={handleQuickAssist} label="AI Hỗ Trợ" Icon={SparklesIcon} title="Sử dụng AI để tạo nhanh thế giới"/>
+            <CreatorActionButton onClick={handleQuickAssistWithKnowledge} label="AI Hỗ trợ (Tri thức)" Icon={BrainIcon} title="Sử dụng AI và kiến thức nền để tạo thế giới" disabled={!state.knowledgeBaseId} />
           </div>
         
           <main ref={contentRef} className="flex-grow min-h-0 overflow-y-auto custom-scrollbar pr-4 -mr-4">
@@ -312,6 +377,13 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
             onClose={() => setIsQuickAssistModalOpen(false)}
             onSubmit={handleQuickAssistSubmit}
             isLoading={isQuickAssistLoading}
+        />
+        <QuickAssistModal 
+            isOpen={isKnowledgeAssistModalOpen}
+            onClose={() => setIsKnowledgeAssistModalOpen(false)}
+            onSubmit={handleQuickAssistWithKnowledgeSubmit}
+            isLoading={isQuickAssistLoading}
+            title="AI Hỗ Trợ (Tri Thức)"
         />
     </div>
   );

@@ -15,6 +15,7 @@ import ContinueGameModal from './components/ui/ContinueGameModal';
 import { migrateFromLocalStorage } from './services/StorageService';
 import NovelWriterScreen from './components/screens/NovelWriterScreen';
 import NovelLibraryModal from './components/ui/NovelLibraryModal';
+import DataTrainerModal from './components/DataTrainerModal';
 
 type Screen = 'menu' | 'game' | 'world-creator' | 'novel-writer';
 type ApiKeyStatus = 'checking' | 'selected' | 'not_selected';
@@ -33,6 +34,7 @@ const App: React.FC = () => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [isNovelLibraryModalOpen, setIsNovelLibraryModalOpen] = useState(false);
+  const [isDataTrainerOpen, setIsDataTrainerOpen] = useState(false);
   const [activeNovelSessionId, setActiveNovelSessionId] = useState<string | null>(null);
 
   
@@ -191,6 +193,7 @@ const App: React.FC = () => {
             onShowInfo={() => setIsInfoModalOpen(true)}
             onShowSupport={() => setIsSupportModalOpen(true)}
             onExportSave={handleExportSave}
+            onTrainData={() => setIsDataTrainerOpen(true)}
             continueDisabled={continueDisabled}
             apiKeyStatus={apiKeyStatus}
             versionName={LATEST_VERSION_NAME}
@@ -215,6 +218,7 @@ const App: React.FC = () => {
             onShowInfo={() => setIsInfoModalOpen(true)}
             onShowSupport={() => setIsSupportModalOpen(true)}
             onExportSave={handleExportSave}
+            onTrainData={() => setIsDataTrainerOpen(true)}
             continueDisabled={continueDisabled}
             apiKeyStatus={apiKeyStatus}
             versionName={LATEST_VERSION_NAME}
@@ -233,6 +237,11 @@ const App: React.FC = () => {
           <SettingsModal
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
+            settingsHook={settingsHook}
+          />
+          <DataTrainerModal
+            isOpen={isDataTrainerOpen}
+            onClose={() => setIsDataTrainerOpen(false)}
             settingsHook={settingsHook}
           />
           <ContinueGameModal

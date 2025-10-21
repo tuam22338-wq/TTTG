@@ -8,9 +8,10 @@ interface QuickAssistModalProps {
   onClose: () => void;
   onSubmit: (idea: string) => void;
   isLoading: boolean;
+  title?: string;
 }
 
-const QuickAssistModal: React.FC<QuickAssistModalProps> = ({ isOpen, onClose, onSubmit, isLoading }) => {
+const QuickAssistModal: React.FC<QuickAssistModalProps> = ({ isOpen, onClose, onSubmit, isLoading, title = "AI Hỗ Trợ Nhanh" }) => {
   const [idea, setIdea] = useState('');
 
   useEffect(() => {
@@ -28,7 +29,7 @@ const QuickAssistModal: React.FC<QuickAssistModalProps> = ({ isOpen, onClose, on
   const placeholder = "Nhập ý tưởng chính của bạn về thế giới (VD: một thế giới tiên hiệp nơi con người và yêu ma cùng tồn tại, một thành phố cyberpunk bị thống trị bởi các tập đoàn công nghệ, một vương quốc fantasy đen tối đang trên bờ vực sụp đổ...)";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="AI Hỗ Trợ Nhanh">
+    <Modal isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-6">
         <p className="text-gray-300">Hãy đưa ra một ý tưởng cốt lõi. AI sẽ dựa vào đó để xây dựng một thế giới hoàn chỉnh cho bạn, bao gồm bối cảnh, nhân vật chính, các phe phái và NPC ban đầu.</p>
         <TextareaField

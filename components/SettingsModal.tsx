@@ -47,6 +47,10 @@ const GEMINI_MODEL_OPTIONS: { id: GeminiModel; name: string }[] = [
     { id: 'gemini-flash-latest', name: 'Gemini Flash Latest' },
 ];
 
+const GEMINI_EMBEDDING_MODELS: { id: string; name: string }[] = [
+    { id: 'text-embedding-004', name: 'Text Embedding 004 (Mặc định)' },
+];
+
 const DEEPSEEK_MODEL_OPTIONS: { id: DeepSeekModelSettings['model']; name: string }[] = [
     { id: 'deepseek-chat', name: 'DeepSeek Chat (Mặc định)' },
     { id: 'deepseek-coder', name: 'DeepSeek Coder' },
@@ -202,12 +206,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                         ))}
                                         <Button onClick={handleAddKey} variant="secondary">+ Thêm khóa</Button>
                                     </div>
-                                    <div>
+                                    <div className="space-y-3">
                                         <h3 className="text-lg font-bold text-white mb-2">Cấu hình Model</h3>
-                                        <label htmlFor="model-select" className="text-sm font-medium text-neutral-300">Model Tường thuật</label>
-                                        <select id="model-select" value={settings.aiModelSettings.model} onChange={e => updateAiModelSetting('model', e.target.value as GeminiModel)} className="w-full mt-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
-                                            {GEMINI_MODEL_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
-                                        </select>
+                                        <div>
+                                            <label htmlFor="model-select" className="text-sm font-medium text-neutral-300">Model Tường thuật</label>
+                                            <select id="model-select" value={settings.aiModelSettings.model} onChange={e => updateAiModelSetting('model', e.target.value as GeminiModel)} className="w-full mt-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
+                                                {GEMINI_MODEL_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="embedding-model-select" className="text-sm font-medium text-neutral-300">Model Embedding (Huấn luyện)</label>
+                                            <select id="embedding-model-select" value={settings.aiModelSettings.embeddingModel} onChange={e => updateAiModelSetting('embeddingModel', e.target.value)} className="w-full mt-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500">
+                                                {GEMINI_EMBEDDING_MODELS.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                                            </select>
+                                        </div>
                                     </div>
                                     <div className="space-y-4">
                                         <h3 className="text-lg font-bold text-white">Tinh chỉnh Tham số</h3>
@@ -227,6 +239,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                             onChange={e => updateAiModelSetting('maxOutputTokens', Math.round(parseInt(e.target.value, 10) * 1.5))}
                                             unit=" từ"
                                         />
+                                        <div>
+                                            <RangeSlider
+                                                label="Độ dài Bổ sung cho JSON"
+                                                id="json-buffer-slider"
+                                                min={0}
+                                                max={4000}
+                                                step={50}
+                                                value={settings.aiModelSettings.jsonBuffer}
+                                                onChange={e => updateAiModelSetting('jsonBuffer', parseInt(e.target.value, 10))}
+                                                unit=" tokens"
+                                            />
+                                            <p className="text-xs text-neutral-400 -mt-2 px-1">Thêm token dự phòng để AI có đủ không gian tạo cấu trúc JSON, tránh lỗi parse. Giá trị này sẽ được cộng vào Độ dài Phản hồi Tối thiểu.</p>
+                                        </div>
                                         <RangeSlider label="Thinking Budget" id="thinking-slider" min={0} max={16000} step={100} value={settings.aiModelSettings.thinkingBudget} onChange={e => updateAiModelSetting('thinkingBudget', parseInt(e.target.value))} unit=" tokens" />
                                     </div>
                                 </>

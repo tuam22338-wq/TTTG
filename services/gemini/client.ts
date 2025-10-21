@@ -12,37 +12,31 @@ export interface ApiClient {
 }
 
 /**
- * A helper function to fix JSON strings that contain unescaped newline characters.
- * It iterates through the string, identifies string literals, and replaces literal newlines
- * inside them with their escaped counterparts ('\\n' and '\\r').
+ * A helper function to fix JSON strings that contain unescaped control characters
+ * using a regular expression to operate only within string literals.
  * @param jsonString The potentially broken JSON string.
  * @returns A corrected JSON string.
  */
-function fixJsonWithUnescapedNewlines(jsonString: string): string {
-    let inString = false;
-    let result = '';
-    for (let i = 0; i < jsonString.length; i++) {
-        const char = jsonString[i];
-
-        if (char === '"') {
-            let backslashCount = 0;
-            for (let j = i - 1; j >= 0 && jsonString[j] === '\\'; j--) {
-                backslashCount++;
+function fixJsonControlCharacters(jsonString: string): string {
+    // This regex finds string literals, capturing their content. It handles escaped quotes.
+    return jsonString.replace(/"((?:\\.|[^"\\])*)"/g, (match, content) => {
+        // This inner replace operates only on the captured content of the string.
+        const fixedContent = content.replace(/[\u0000-\u001F]/g, (char: string) => {
+            switch (char) {
+                case '\b': return '\\b';
+                case '\f': return '\\f';
+                case '\n': return '\\n';
+                case '\r': return '\\r';
+                case '\t': return '\\t';
+                default:
+                    // For other control characters, use unicode escape.
+                    const hex = ('0000' + char.charCodeAt(0).toString(16)).slice(-4);
+                    return '\\u' + hex;
             }
-            if (backslashCount % 2 === 0) {
-                inString = !inString;
-            }
-        }
-
-        if (inString && char === '\n') {
-            result += '\\n';
-        } else if (inString && char === '\r') {
-            result += '\\r';
-        } else {
-            result += char;
-        }
-    }
-    return result;
+        });
+        // Reconstruct the string literal with the fixed content.
+        return `"${fixedContent}"`;
+    });
 }
 
 
@@ -118,7 +112,7 @@ export async function callJsonAI(
                 temperature: modelSettings.temperature,
                 topP: modelSettings.topP,
                 topK: modelSettings.topK,
-                maxOutputTokens: modelSettings.maxOutputTokens,
+                maxOutputTokens: modelSettings.maxOutputTokens + (modelSettings.jsonBuffer || 0),
             };
             if (modelSettings.model === 'gemini-2.5-flash') {
                 config.thinkingConfig = { thinkingBudget: modelSettings.thinkingBudget };
@@ -182,7 +176,7 @@ export async function callJsonAIStream(
             temperature: modelSettings.temperature,
             topP: modelSettings.topP,
             topK: modelSettings.topK,
-            maxOutputTokens: modelSettings.maxOutputTokens,
+            maxOutputTokens: modelSettings.maxOutputTokens + (modelSettings.jsonBuffer || 0),
         };
         if (modelSettings.model === 'gemini-2.5-flash') {
             config.thinkingConfig = { thinkingBudget: modelSettings.thinkingBudget };
@@ -302,10 +296,10 @@ export function parseAndValidateJsonResponse(text: string): any {
             const parsedJson = JSON.parse(jsonString);
             return sanitizeObjectRecursively(parsedJson);
         } catch (e: any) {
-             // If it fails, attempt to fix unescaped newlines which cause "Bad control character" errors.
+             // If it fails, attempt to fix unescaped control characters which cause errors.
             if (e.message.includes('Bad control character') || e.message.includes('Unterminated string')) {
-                console.warn("Initial JSON parsing failed, attempting to fix unescaped newlines...", e.message);
-                const fixedText = fixJsonWithUnescapedNewlines(jsonString);
+                console.warn("Initial JSON parsing failed, attempting to fix unescaped control characters...", e.message);
+                const fixedText = fixJsonControlCharacters(jsonString);
                 const parsedJson = JSON.parse(fixedText); // This will throw if it still fails
                 return sanitizeObjectRecursively(parsedJson);
             }

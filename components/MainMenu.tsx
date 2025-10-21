@@ -16,6 +16,7 @@ import { DiscordIcon } from './icons/DiscordIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { useStorageEstimate } from '../hooks/useStorageEstimate';
 import { BookIcon } from './icons/BookIcon';
+import { BrainIcon } from './icons/BrainIcon';
 
 
 interface MainMenuProps {
@@ -27,6 +28,7 @@ interface MainMenuProps {
   onShowInfo: () => void;
   onShowSupport: () => void;
   onExportSave: () => void;
+  onTrainData: () => void;
   continueDisabled: boolean;
   apiKeyStatus: 'checking' | 'selected' | 'not_selected';
   versionName: string;
@@ -41,6 +43,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
     onShowInfo,
     onShowSupport,
     onExportSave,
+    onTrainData,
     continueDisabled, 
     apiKeyStatus,
     versionName
@@ -82,6 +85,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
     { id: 'start', label: 'Bắt đầu Game Mới', description: 'Tạo một thế giới và nhân vật mới từ đầu.', action: onStart, disabled: false, Icon: PlusCircleIcon },
     { id: 'continue', label: 'Tiếp tục', description: 'Tải lại từ điểm lưu thủ công hoặc tự động.', action: onContinue, disabled: continueDisabled, Icon: ContinueIcon },
     { id: 'novel-writer', label: 'AI Tiểu Thuyết Gia', description: 'Cùng AI sáng tác một cuốn tiểu thuyết theo ý tưởng của bạn.', action: onStartNovelWriter, disabled: false, Icon: BookIcon },
+    { id: 'train-data', label: 'Huấn Luyện Dữ Liệu', description: 'Vector hóa tệp .txt để làm kiến thức nền cho AI.', action: onTrainData, disabled: false, Icon: BrainIcon },
     { id: 'export', label: 'Xuất file save', description: 'Lưu game đã lưu ra file .json.', action: onExportSave, disabled: continueDisabled, Icon: DownloadIcon },
     { id: 'load', label: 'Tải game từ file', description: 'Tải một file save (.json) từ máy tính của bạn.', action: triggerFileLoad, disabled: false, Icon: UploadIcon },
     { id: 'info', label: 'Thông tin', description: 'Hiển thị thông tin về nhà phát triển dự án.', action: onShowInfo, disabled: false, Icon: InfoIcon },

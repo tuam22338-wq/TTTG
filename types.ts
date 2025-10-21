@@ -19,10 +19,12 @@ export enum ApiKeySource {
 
 export interface AiModelSettings {
   model: GeminiModel;
+  embeddingModel: string;
   temperature: number;
   topK: number;
   topP: number;
   maxOutputTokens: number;
+  jsonBuffer: number;
   thinkingBudget: number;
   autoRotateModels: boolean;
   rotationDelay: number;
@@ -74,6 +76,23 @@ export interface NovelSession {
   lastModified: number;
   history: ChatMessage[];
 }
+
+export interface TrainingDataChunk {
+    content: string;
+    embedding: number[];
+}
+
+export interface TrainingDataSet {
+    id: string;
+    name: string;
+    createdAt: number;
+    chunkSettings: {
+        size: number;
+        overlap: number;
+    };
+    chunks: TrainingDataChunk[];
+}
+
 
 export interface InitialFaction {
     id: string;
@@ -187,6 +206,7 @@ export interface WorldCreationState {
   initialNpcs: InitialNpc[];
   specialRules: WorldRule[];
   initialLore: WorldRule[];
+  knowledgeBaseId?: string;
 }
 
 export enum StatType {
