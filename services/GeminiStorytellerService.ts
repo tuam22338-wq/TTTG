@@ -306,8 +306,9 @@ export async function continueStory(
     isInCombat: boolean;
     combatantNpcIds: string[];
     totalTokens: number;
+    playerSkills: Skill[] | null;
 }> {
-    const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history, presentNpcIds } = gameState;
+    const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history, presentNpcIds, inventory, equipment } = gameState;
 
     const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
 
@@ -371,6 +372,8 @@ Bạn BẮT BUỘC phải viết một đoạn \`storyText\` có độ dài **T�
 - **Kỹ năng Người chơi:** ${playerSkills.length > 0 ? JSON.stringify(playerSkills, null, 2) : "Chưa có kỹ năng nào."}
 
 **4.3. TRẠNG THÁI HIỆN TẠI (SỰ THẬT TUYỆT ĐỐI):**
+- **Trang bị đang mặc:** ${JSON.stringify(equipment, null, 2)}
+- **Vật phẩm trong túi đồ:** ${JSON.stringify(inventory.items.map(i => i.name), null, 2)}
 - **Trạng thái Người chơi (Chiến đấu & Cảnh giới):** ${JSON.stringify({ ...finalCoreStats, cultivation: gameState.cultivation }, null, 2)}
 - **Trạng thái Người chơi (Hiệu ứng & Thuộc tính):** ${JSON.stringify(playerStats, null, 2)}
 - **Danh sách Vật phẩm Tham khảo:** ${itemListString}
@@ -460,6 +463,7 @@ ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt c�
                 isInCombat: logicAiResponse.isInCombat || false,
                 combatantNpcIds: logicAiResponse.combatantNpcIds || [],
                 totalTokens: totalTokens,
+                playerSkills: logicAiResponse.playerSkills || null,
             };
 
         } catch (error: any) {

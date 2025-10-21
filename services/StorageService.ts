@@ -1,4 +1,4 @@
-import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage } from '../types';
+import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage, NovelSession } from '../types';
 
 const DB_NAME = 'BMS_TamThienTheGioi';
 const DB_VERSION = 2;
@@ -107,6 +107,24 @@ async function del(storeName: string, key: string): Promise<void> {
     });
 }
 
+async function getAll<T>(storeName: string): Promise<T[]> {
+    const db = await getDb();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+            resolve(request.result || []);
+        };
+
+        request.onerror = () => {
+            reject(request.error);
+        };
+    });
+}
+
+
 // --- Public API ---
 
 export async function saveGameState(type: 'manual' | 'auto', gameState: GameState): Promise<void> {
@@ -135,13 +153,24 @@ export async function loadSettings(): Promise<Partial<Settings> | null> {
     return await get<Partial<Settings>>(SETTINGS_STORE, 'settings');
 }
 
-export async function saveNovelHistory(history: ChatMessage[]): Promise<void> {
-    await set(NOVEL_WRITER_STORE, 'history', history);
+export async function getAllNovelSessions(): Promise<NovelSession[]> {
+    const sessions = await getAll<NovelSession>(NOVEL_WRITER_STORE);
+    // Sort by last modified date, newest first
+    return sessions.sort((a, b) => b.lastModified - a.lastModified);
 }
 
-export async function loadNovelHistory(): Promise<ChatMessage[] | null> {
-    return await get<ChatMessage[]>(NOVEL_WRITER_STORE, 'history');
+export async function loadNovelSession(id: string): Promise<NovelSession | null> {
+    return await get<NovelSession>(NOVEL_WRITER_STORE, id);
 }
+
+export async function saveNovelSession(session: NovelSession): Promise<void> {
+    await set(NOVEL_WRITER_STORE, session.id, session);
+}
+
+export async function deleteNovelSession(id: string): Promise<void> {
+    await del(NOVEL_WRITER_STORE, id);
+}
+
 
 
 // --- Migration Logic ---

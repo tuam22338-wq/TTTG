@@ -326,7 +326,8 @@ export function useGameEngine(
                 weatherChange,
                 isInCombat,
                 combatantNpcIds,
-                totalTokens
+                totalTokens,
+                playerSkills,
             } = await GeminiStorytellerService.continueStory(
                 gameState, choice, apiClient,
                 gameState.aiSettings.isLogicModeOn, gameState.aiSettings.lustModeFlavor,
@@ -407,6 +408,22 @@ export function useGameEngine(
                     newState.time.season = 'Thu';
                 } else {
                     newState.time.season = 'Đông';
+                }
+
+                 // 6. Apply core stat changes from AI
+                if (coreStatsChanges) {
+                    newState.coreStats = { ...newState.coreStats, ...coreStatsChanges };
+                    // Ensure current resource values do not exceed their new maximums
+                    if (coreStatsChanges.sinhLucToiDa !== undefined) newState.coreStats.sinhLuc = Math.min(newState.coreStats.sinhLuc, newState.coreStats.sinhLucToiDa);
+                    if (coreStatsChanges.linhLucToiDa !== undefined) newState.coreStats.linhLuc = Math.min(newState.coreStats.linhLuc, newState.coreStats.linhLucToiDa);
+                    if (coreStatsChanges.theLucToiDa !== undefined) newState.coreStats.theLuc = Math.min(newState.coreStats.theLuc, newState.coreStats.theLucToiDa);
+                    if (coreStatsChanges.doNoToiDa !== undefined) newState.coreStats.doNo = Math.min(newState.coreStats.doNo, newState.coreStats.doNoToiDa);
+                    if (coreStatsChanges.doNuocToiDa !== undefined) newState.coreStats.doNuoc = Math.min(newState.coreStats.doNuoc, newState.coreStats.doNuocToiDa);
+                }
+
+                // 7. Apply full skill list update from AI
+                if (playerSkills) {
+                    newState.playerSkills = playerSkills;
                 }
 
 

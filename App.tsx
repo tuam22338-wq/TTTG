@@ -5,7 +5,7 @@ import GameScreen from './components/screens/GameScreen';
 import SettingsModal from './components/SettingsModal';
 import WorldCreatorScreen from './components/screens/WorldCreatorScreen';
 import * as GameSaveService from './services/GameSaveService';
-import { GameState, WorldCreationState } from './types';
+import { GameState, WorldCreationState, NovelSession } from './types';
 import ConfirmationModal from './components/ui/ConfirmationModal';
 import Modal from './components/ui/Modal';
 import Button from './components/ui/Button';
@@ -14,6 +14,7 @@ import LoadingScreen from './components/LoadingScreen';
 import ContinueGameModal from './components/ui/ContinueGameModal';
 import { migrateFromLocalStorage } from './services/StorageService';
 import NovelWriterScreen from './components/screens/NovelWriterScreen';
+import NovelLibraryModal from './components/ui/NovelLibraryModal';
 
 type Screen = 'menu' | 'game' | 'world-creator' | 'novel-writer';
 type ApiKeyStatus = 'checking' | 'selected' | 'not_selected';
@@ -66,6 +67,9 @@ const App: React.FC = () => {
   const [isContinueModalOpen, setIsContinueModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [isNovelLibraryModalOpen, setIsNovelLibraryModalOpen] = useState(false);
+  const [activeNovelSessionId, setActiveNovelSessionId] = useState<string | null>(null);
+
   
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('checking');
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
@@ -137,8 +141,22 @@ const App: React.FC = () => {
   
   const handleStartNovelWriter = () => {
     if (!ensureApiKey()) return;
+    setIsNovelLibraryModalOpen(true);
+  };
+  
+  const handleStartNewNovelSession = () => {
+    const newSessionId = `novel_${Date.now()}`;
+    setActiveNovelSessionId(newSessionId);
+    setIsNovelLibraryModalOpen(false);
     setCurrentScreen('novel-writer');
   };
+
+  const handleContinueNovelSession = (sessionId: string) => {
+      setActiveNovelSessionId(sessionId);
+      setIsNovelLibraryModalOpen(false);
+      setCurrentScreen('novel-writer');
+  };
+
 
   const handleContinueManualSave = async () => {
     if (!ensureApiKey()) return;
@@ -207,10 +225,16 @@ const App: React.FC = () => {
                   onApiKeyInvalid={handleApiKeyInvalid}
                 />;
       case 'novel-writer':
+        if (!activeNovelSessionId) {
+          // Fallback if somehow screen is reached without data
+          setCurrentScreen('menu');
+          return null;
+        }
         return <NovelWriterScreen 
                   onBackToMenu={() => setCurrentScreen('menu')} 
                   settingsHook={settingsHook}
                   onApiKeyInvalid={handleApiKeyInvalid}
+                  sessionId={activeNovelSessionId}
                 />;
       case 'game':
         if (!gameStartData) {
@@ -279,6 +303,12 @@ const App: React.FC = () => {
             onLoadManual={handleContinueManualSave}
             onLoadAuto={handleContinueAutoSave}
            />
+          <NovelLibraryModal
+            isOpen={isNovelLibraryModalOpen}
+            onClose={() => setIsNovelLibraryModalOpen(false)}
+            onStartNew={handleStartNewNovelSession}
+            onContinue={handleContinueNovelSession}
+          />
           <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title="Thông tin">
             <div className="text-center p-4">
               <p className="text-lg font-semibold text-white">Developer: NGUYEN HOANG TRUONG</p>

@@ -68,6 +68,13 @@ export interface ChatMessage {
   text: string;
 }
 
+export interface NovelSession {
+  id: string;
+  title: string;
+  lastModified: number;
+  history: ChatMessage[];
+}
+
 export interface InitialFaction {
     id: string;
     name: string;

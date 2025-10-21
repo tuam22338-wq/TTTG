@@ -1,4 +1,4 @@
-import { GameState } from '../types';
+import { GameState, NovelSession } from '../types';
 import * as StorageService from './StorageService';
 
 // --- Manual Save ---
@@ -35,6 +35,24 @@ export async function deleteAllLocalSaves(): Promise<void> {
   await StorageService.deleteSave('manual');
   await StorageService.deleteSave('auto');
 }
+
+// --- Novel Writer ---
+export async function getAllNovelSessions(): Promise<NovelSession[]> {
+  return await StorageService.getAllNovelSessions();
+}
+
+export async function loadNovelSession(id: string): Promise<NovelSession | null> {
+  return await StorageService.loadNovelSession(id);
+}
+
+export async function saveNovelSession(session: NovelSession): Promise<void> {
+  return await StorageService.saveNovelSession(session);
+}
+
+export async function deleteNovelSession(id: string): Promise<void> {
+  return await StorageService.deleteNovelSession(id);
+}
+
 
 // --- File System (remains synchronous) ---
 

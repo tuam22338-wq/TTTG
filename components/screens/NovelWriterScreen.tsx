@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Chat } from '@google/genai';
+import { GoogleGenAI, Chat, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import { useSettings } from '../../hooks/useSettings';
-import { ChatMessage } from '../../types';
+import { ChatMessage, NovelSession } from '../../types';
 import * as StorageService from '../../services/StorageService';
 import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
 import { NOVEL_WRITER_SYSTEM_PROMPT } from '../../services/prompt-engineering/corePrompts';
@@ -28,7 +27,8 @@ const NovelWriterScreen: React.FC<{
     onBackToMenu: () => void; 
     settingsHook: ReturnType<typeof useSettings>;
     onApiKeyInvalid: () => void;
-}> = ({ onBackToMenu, settingsHook, onApiKeyInvalid }) => {
+    sessionId: string;
+}> = ({ onBackToMenu, settingsHook, onApiKeyInvalid, sessionId }) => {
     const { settings, getApiClient, isKeyConfigured } = settingsHook;
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
@@ -38,6 +38,8 @@ const NovelWriterScreen: React.FC<{
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const isSavingRef = useRef(false);
     const [initKey, setInitKey] = useState(0); // Add a key to force re-initialization
+    const [currentSession, setCurrentSession] = useState<NovelSession | null>(null);
+
 
     // Initialization
     useEffect(() => {
@@ -45,8 +47,20 @@ const NovelWriterScreen: React.FC<{
             setIsLoading(true);
             setError(null);
             try {
-                const loadedHistory = await StorageService.loadNovelHistory() || [];
-                setChatHistory(loadedHistory);
+                let loadedSession = await StorageService.loadNovelSession(sessionId);
+                
+                // If session doesn't exist, create a new one
+                if (!loadedSession) {
+                    loadedSession = {
+                        id: sessionId,
+                        title: '',
+                        lastModified: Date.now(),
+                        history: [],
+                    };
+                }
+                
+                setCurrentSession(loadedSession);
+                setChatHistory(loadedSession.history);
 
                 const geminiService = getApiClient();
                 if (geminiService) {
@@ -60,8 +74,14 @@ const NovelWriterScreen: React.FC<{
                         config: {
                             ...novelModelSettings,
                             systemInstruction: NOVEL_WRITER_SYSTEM_PROMPT,
+                            safetySettings: [
+                                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                            ]
                         },
-                        history: loadedHistory.map(msg => ({
+                        history: loadedSession.history.map(msg => ({
                             role: msg.role,
                             parts: [{ text: msg.text }]
                         }))
@@ -80,7 +100,7 @@ const NovelWriterScreen: React.FC<{
             }
         };
         initialize();
-    }, [getApiClient, settings.aiModelSettings, initKey]); // Re-run when initKey changes
+    }, [getApiClient, settings.aiModelSettings, sessionId, onApiKeyInvalid]);
     
     // Auto-scrolling
     useEffect(() => {
@@ -91,14 +111,26 @@ const NovelWriterScreen: React.FC<{
 
     // Save history
     useEffect(() => {
-        // Save only when not loading and there's history to save
-        if (!isLoading && chatHistory.length > 0 && !isSavingRef.current) {
+        if (!isLoading && currentSession && !isSavingRef.current) {
             isSavingRef.current = true;
-            StorageService.saveNovelHistory(chatHistory).finally(() => {
+            // Create a title if one doesn't exist from the first user message
+            const title = currentSession.title || chatHistory.find(m => m.role === 'user')?.text.substring(0, 50) || 'Câu chuyện mới';
+
+            const sessionToSave: NovelSession = {
+                ...currentSession,
+                history: chatHistory,
+                lastModified: Date.now(),
+                title: title,
+            };
+            
+            StorageService.saveNovelSession(sessionToSave).then(() => {
+                // Update local session state to prevent re-creating title every time
+                setCurrentSession(sessionToSave);
+            }).finally(() => {
                 isSavingRef.current = false;
             });
         }
-    }, [chatHistory, isLoading]);
+    }, [chatHistory, isLoading, currentSession]);
 
 
     const handleSend = async () => {
@@ -196,7 +228,7 @@ const NovelWriterScreen: React.FC<{
             </main>
 
             <footer className="flex-shrink-0 p-4 bg-neutral-800/50 border-t border-neutral-700">
-                <div className="max-w-4xl mx-auto flex items-end gap-2">
+                <div className="max-w-3xl mx-auto p-1 bg-neutral-900/50 border border-neutral-600 rounded-full flex items-end gap-1">
                     <TextareaField
                         id="novel-input"
                         value={userInput}
@@ -209,13 +241,13 @@ const NovelWriterScreen: React.FC<{
                         }}
                         placeholder={isLoading ? "AI đang viết..." : "Nhập chỉ dẫn cho chương tiếp theo..."}
                         disabled={isLoading}
-                        className="flex-grow !py-3 resize-none"
+                        className="flex-grow bg-transparent border-0 focus:ring-0 resize-none py-3 px-4"
                         rows={1}
                     />
                      <Button
                         onClick={handleSend}
                         disabled={isLoading || !userInput.trim()}
-                        className="!w-auto flex-shrink-0 !p-3.5"
+                        className="!w-auto flex-shrink-0 !rounded-full !p-3.5"
                     >
                         <SendIcon className="w-6 h-6" />
                     </Button>
