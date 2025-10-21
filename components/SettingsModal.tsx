@@ -97,7 +97,7 @@ const RangeSlider: React.FC<{
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settingsHook }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('interface');
-    const { settings, setSettings, setApiKeySource, setCustomApiKeys, updateAiModelSetting, updateDeepSeekModelSetting, updateAudioSetting, updateSafetySetting, isKeyConfigured, resetSettings, apiStats } = settingsHook;
+    const { settings, setSettings, setCustomApiKeys, updateAiModelSetting, updateDeepSeekModelSetting, updateAudioSetting, updateSafetySetting, isKeyConfigured, resetSettings, apiStats } = settingsHook;
     
     const handleAddKey = () => setCustomApiKeys([...settings.customApiKeys, '']);
     const handleKeyChange = (index: number, value: string) => {
@@ -192,22 +192,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                             <Button onClick={apiStats.resetStats} variant="secondary" className="w-full !text-xs !py-1 mt-2">Reset Thống Kê</Button>
                                         </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white mb-2">Nguồn Khóa API</h3>
-                                        <div className="flex gap-2 rounded-lg bg-black/30 p-1">
-                                            <button onClick={() => setApiKeySource(ApiKeySource.DEFAULT)} className={`flex-1 py-2 text-sm rounded ${settings.apiKeySource === ApiKeySource.DEFAULT ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>Mặc định</button>
-                                            <button onClick={() => setApiKeySource(ApiKeySource.CUSTOM)} className={`flex-1 py-2 text-sm rounded ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'bg-white/10 font-semibold' : 'hover:bg-white/5'}`}>Tùy chỉnh</button>
-                                        </div>
-                                    </div>
-                                    <div className={`space-y-3 transition-opacity ${settings.apiKeySource === ApiKeySource.CUSTOM ? 'opacity-100' : 'opacity-50'}`}>
+                                    <div className="space-y-3">
                                         <h3 className="text-lg font-bold text-white">Danh sách khóa API tùy chỉnh</h3>
                                         {settings.customApiKeys.map((key, index) => (
                                             <div key={index} className="flex items-center gap-2">
-                                                <input type="password" placeholder="Nhập khóa API..." value={key} onChange={(e) => handleKeyChange(index, e.target.value)} disabled={settings.apiKeySource !== ApiKeySource.CUSTOM} className="flex-grow px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"/>
-                                                <button onClick={() => handleRemoveKey(index)} disabled={settings.apiKeySource !== ApiKeySource.CUSTOM} className="p-2 text-neutral-400 hover:text-red-500 rounded-full"><TrashIcon /></button>
+                                                <input type="password" placeholder="Nhập khóa API..." value={key} onChange={(e) => handleKeyChange(index, e.target.value)} className="flex-grow px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"/>
+                                                <button onClick={() => handleRemoveKey(index)} className="p-2 text-neutral-400 hover:text-red-500 rounded-full"><TrashIcon /></button>
                                             </div>
                                         ))}
-                                        <Button onClick={handleAddKey} variant="secondary" disabled={settings.apiKeySource !== ApiKeySource.CUSTOM}>+ Thêm khóa</Button>
+                                        <Button onClick={handleAddKey} variant="secondary">+ Thêm khóa</Button>
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold text-white mb-2">Cấu hình Model</h3>

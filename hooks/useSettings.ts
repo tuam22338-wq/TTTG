@@ -33,7 +33,7 @@ const defaultSafetySettings: SafetySettings = {
 
 const defaultSettings: Settings = {
   aiProvider: AiProvider.GEMINI,
-  apiKeySource: ApiKeySource.DEFAULT,
+  apiKeySource: ApiKeySource.CUSTOM,
   customApiKeys: [],
   deepSeekApiKey: '',
   currentApiKeyIndex: 0,
@@ -85,7 +85,7 @@ function hydrateSettings(parsed: Partial<Settings>): Settings {
     hydrated.narrativePerspective = defaultSettings.narrativePerspective;
   }
 
-  hydrated.apiKeySource = parsed.apiKeySource || defaultSettings.apiKeySource;
+  hydrated.apiKeySource = ApiKeySource.CUSTOM; // Force API Key source to CUSTOM.
   hydrated.customApiKeys = Array.isArray(parsed.customApiKeys) ? parsed.customApiKeys : [];
   hydrated.currentApiKeyIndex = typeof parsed.currentApiKeyIndex === 'number' ? parsed.currentApiKeyIndex : 0;
 
@@ -167,10 +167,6 @@ export function useSettings() {
     }));
   };
 
-  const setApiKeySource = (source: ApiKeySource) => {
-    updateSettings({ apiKeySource: source });
-  };
-
   const setCustomApiKeys = (keys: string[]) => {
     setSettings(prev => {
         const newIndex = Math.max(0, Math.min(prev.currentApiKeyIndex, keys.length - 1));
@@ -181,7 +177,7 @@ export function useSettings() {
   const cycleToNextApiKey = useCallback(() => {
     setSettings(prev => {
       const validKeys = prev.customApiKeys.filter(k => k.trim() !== '');
-      if (prev.apiKeySource !== ApiKeySource.CUSTOM || validKeys.length === 0) {
+      if (validKeys.length === 0) {
         return prev;
       }
       const nextIndex = (prev.currentApiKeyIndex + 1) % validKeys.length;
@@ -198,13 +194,9 @@ export function useSettings() {
   
   const getApiClient = useCallback(() => {
     let apiKey: string | undefined;
-    if (settings.apiKeySource === ApiKeySource.CUSTOM) {
-        const validKeys = settings.customApiKeys.filter(k => k.trim() !== '');
-        if (validKeys.length > 0) {
-            apiKey = validKeys[settings.currentApiKeyIndex];
-        }
-    } else {
-        apiKey = process.env.API_KEY;
+    const validKeys = settings.customApiKeys.filter(k => k.trim() !== '');
+    if (validKeys.length > 0) {
+        apiKey = validKeys[settings.currentApiKeyIndex];
     }
     
     if (!apiKey) {
@@ -218,7 +210,7 @@ export function useSettings() {
         console.error("Failed to initialize Gemini AI Client:", error);
         return null;
     }
-  }, [settings.apiKeySource, settings.customApiKeys, settings.currentApiKeyIndex]);
+  }, [settings.customApiKeys, settings.currentApiKeyIndex]);
 
   const isKeyConfigured = useMemo(() => {
       if (settings.aiProvider === AiProvider.DEEPSEEK) {
@@ -226,16 +218,12 @@ export function useSettings() {
       }
       
       // Gemini Logic
-      if (settings.apiKeySource === ApiKeySource.DEFAULT) {
-          return !!process.env.API_KEY;
-      }
       return settings.customApiKeys.some(key => !!key.trim());
   }, [settings]);
 
   return {
     settings,
     setSettings,
-    setApiKeySource,
     setCustomApiKeys,
     cycleToNextApiKey,
     updateAiModelSetting,

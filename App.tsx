@@ -19,44 +19,9 @@ import NovelLibraryModal from './components/ui/NovelLibraryModal';
 type Screen = 'menu' | 'game' | 'world-creator' | 'novel-writer';
 type ApiKeyStatus = 'checking' | 'selected' | 'not_selected';
 
-// Define the modal component directly inside App.tsx
-const ApiKeySelectionModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onSelectKey: () => void;
-}> = ({ isOpen, onClose, onSelectKey }) => {
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Yêu cầu API Key">
-      <div className="text-center p-4 space-y-4">
-        <p className="text-neutral-300">
-          Để sử dụng các tính năng AI của ứng dụng, bạn cần cung cấp API key của riêng mình.
-          Việc này đảm bảo bạn có toàn quyền kiểm soát việc sử dụng và chi phí.
-        </p>
-        <p className="text-neutral-400 text-sm">
-          Bạn có thể lấy API Key từ Google AI Studio. Vui lòng đảm bảo bạn đã bật thanh toán cho dự án của mình.
-          <a 
-            href="https://ai.google.dev/gemini-api/docs/billing" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-pink-400 hover:text-pink-300 underline ml-1"
-          >
-            Tìm hiểu thêm về thanh toán.
-          </a>
-        </p>
-        <div className="pt-4">
-          <Button onClick={onSelectKey} variant="primary">
-            Chọn hoặc Cung cấp API Key
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-};
-
-
 const App: React.FC = () => {
   const settingsHook = useSettings();
-  const { isKeyConfigured } = settingsHook; // Keep this for non-aistudio environments
+  const { isKeyConfigured } = settingsHook;
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -72,21 +37,10 @@ const App: React.FC = () => {
 
   
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('checking');
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-
 
   useEffect(() => {
-    const checkApiKey = async () => {
-      // The `window.aistudio` object might not exist in all environments.
-      if ((window as any).aistudio && typeof (window as any).aistudio.hasSelectedApiKey === 'function') {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        setApiKeyStatus(hasKey ? 'selected' : 'not_selected');
-      } else {
-        // Fallback for environments without the aistudio object, rely on old logic.
-        setApiKeyStatus(isKeyConfigured ? 'selected' : 'not_selected');
-      }
-    };
-    checkApiKey();
+    // Simplified API key status check based on settings
+    setApiKeyStatus(isKeyConfigured ? 'selected' : 'not_selected');
 
     migrateFromLocalStorage().then(() => {
       const checkSaves = async () => {
@@ -99,27 +53,16 @@ const App: React.FC = () => {
   }, [isKeyConfigured]);
 
   const handleApiKeyInvalid = useCallback(() => {
-    console.warn("API key is invalid or expired. Prompting user to select a new one.");
+    console.warn("API key is invalid or expired. Prompting user to open settings.");
     setApiKeyStatus('not_selected');
-    setIsApiKeyModalOpen(true);
+    alert("Khóa API của bạn không hợp lệ, đã hết hạn hoặc không có quyền truy cập. Vui lòng kiểm tra và cấu hình lại trong phần Cài đặt.");
+    setIsSettingsOpen(true);
   }, []);
-
-  const handleSelectKey = async () => {
-    if ((window as any).aistudio && typeof (window as any).aistudio.openSelectKey === 'function') {
-      await (window as any).aistudio.openSelectKey();
-      // Optimistically set status to selected as per guidelines
-      setApiKeyStatus('selected');
-      setIsApiKeyModalOpen(false);
-    } else {
-      // Fallback for other environments
-      setIsSettingsOpen(true);
-      setIsApiKeyModalOpen(false);
-    }
-  };
   
   const ensureApiKey = () => {
     if (apiKeyStatus !== 'selected') {
-      setIsApiKeyModalOpen(true);
+      alert("Vui lòng định cấu hình API Key trong phần 'Thiết lập' trước khi bắt đầu.");
+      setIsSettingsOpen(true);
       return false;
     }
     return true;
@@ -291,11 +234,6 @@ const App: React.FC = () => {
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
             settingsHook={settingsHook}
-          />
-          <ApiKeySelectionModal
-            isOpen={isApiKeyModalOpen}
-            onClose={() => setIsApiKeyModalOpen(false)}
-            onSelectKey={handleSelectKey}
           />
           <ContinueGameModal
             isOpen={isContinueModalOpen}
