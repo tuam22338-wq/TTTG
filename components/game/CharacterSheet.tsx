@@ -158,15 +158,14 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick,
                     {orderedStats.length === 0 ? (
                         <p className="text-center text-sm text-neutral-500 pt-16">Nhân vật không có trạng thái đặc biệt nào.</p>
                     ) : (
-                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                         <div className="flex flex-wrap gap-2">
                             {orderedStats.map(({ name, stat }) => (
                                 <button
                                     key={name}
                                     onClick={() => onStatClick({ ...stat, name }, gameState.worldContext.character.name, 'player')}
-                                    className={`p-2 rounded-md border text-left transition-all duration-200 ${getStatColorClasses(stat.type)} ${recentlyUpdatedStats.has(name) ? 'animate-pulse-fast' : ''}`}
+                                    className={`px-2 py-1 rounded-md border text-left transition-all duration-200 ${getStatColorClasses(stat.type)} ${recentlyUpdatedStats.has(name) ? 'animate-pulse-fast' : ''}`}
                                 >
-                                    <p className="font-bold text-sm truncate">{name}</p>
-                                    <p className="text-xs opacity-80 truncate">{stat.description}</p>
+                                    <p className="font-semibold text-xs truncate">{name}</p>
                                 </button>
                             ))}
                         </div>

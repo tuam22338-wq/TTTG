@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, Chat, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import { useSettings } from '../../hooks/useSettings';
-import { ChatMessage, NovelSession } from '../../types';
+import { ChatMessage, NovelSession, NovelWriterSettings } from '../../types';
 import * as StorageService from '../../services/StorageService';
 import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
 import { NOVEL_WRITER_SYSTEM_PROMPT } from '../../services/prompt-engineering/corePrompts';
 import { marked } from 'https://esm.sh/marked@13.0.2';
 import Button from '../ui/Button';
 import TextareaField from '../ui/TextareaField';
+import { TuneIcon } from '../icons/TuneIcon';
+import NovelControlPanelModal from '../novel-writer/NovelControlPanelModal';
 
 // Simple loading spinner
 const Spinner: React.FC = () => (
@@ -38,6 +40,14 @@ const NovelWriterScreen: React.FC<{
     const isSavingRef = useRef(false);
     const [initKey, setInitKey] = useState(0); // Add a key to force re-initialization
     const [currentSession, setCurrentSession] = useState<NovelSession | null>(null);
+    const [isControlPanelOpen, setIsControlPanelOpen] = useState(false);
+    const [novelSettings, setNovelSettings] = useState<NovelWriterSettings>({
+        pacing: 'cân bằng',
+        timePerChapter: '1 tiếng',
+        allowAiTimeskip: false,
+        writingRules: [],
+        chapterLength: 3000,
+    });
 
 
     // Initialization
@@ -131,6 +141,23 @@ const NovelWriterScreen: React.FC<{
         }
     }, [chatHistory, isLoading, currentSession]);
 
+    const constructPromptPrefix = (settings: NovelWriterSettings): string => {
+        let prefix = "### CHỈ DẪN BỔ SUNG TỪ TÁC GIẢ ###\n";
+        prefix += `**Yêu cầu về nhịp độ:** ${settings.pacing}.\n`;
+        prefix += `**Yêu cầu về độ dài chương:** Khoảng ${settings.chapterLength} từ.\n`;
+        prefix += `**Yêu cầu về bước nhảy thời gian (Timeskip):** ${settings.allowAiTimeskip ? 'AI được phép tự tạo timeskip nếu cần thiết để đẩy nhanh cốt truyện.' : 'AI không được tự tạo timeskip lớn trừ khi có chỉ dẫn cụ thể.'}\n`;
+        if (settings.timePerChapter) {
+            prefix += `**Yêu cầu về thời gian trôi qua trong chương này:** ${settings.timePerChapter}.\n`;
+        }
+        if (settings.writingRules.length > 0) {
+            prefix += "**Các quy tắc hành văn bắt buộc phải tuân thủ:**\n";
+            settings.writingRules.forEach(rule => {
+                prefix += `- **${rule.name}:** ${rule.content}\n`;
+            });
+        }
+        prefix += "### CHỈ DẪN TIẾP THEO ###\n";
+        return prefix;
+    };
 
     const handleSend = async () => {
         if (!userInput.trim() || isLoading) return;
@@ -141,14 +168,17 @@ const NovelWriterScreen: React.FC<{
             return;
         }
 
-        const userMessage: ChatMessage = { role: 'user', text: userInput };
-        setChatHistory(prev => [...prev, userMessage]);
+        const userMessageForDisplay: ChatMessage = { role: 'user', text: userInput };
+        const promptPrefix = constructPromptPrefix(novelSettings);
+        const fullUserInput = promptPrefix + userInput;
+        
+        setChatHistory(prev => [...prev, userMessageForDisplay]);
         setUserInput('');
         setIsLoading(true);
         setError(null);
 
         try {
-            const stream = await chat.sendMessageStream({ message: userMessage.text });
+            const stream = await chat.sendMessageStream({ message: fullUserInput });
 
             let modelResponse = '';
             setChatHistory(prev => [...prev, { role: 'model', text: '' }]);
@@ -191,12 +221,14 @@ const NovelWriterScreen: React.FC<{
 
     return (
         <div className="flex flex-col h-full bg-neutral-900 text-white">
-            <header className="flex-shrink-0 p-4 flex items-center border-b border-neutral-700 bg-neutral-800/50 z-10">
+            <header className="flex-shrink-0 p-4 flex justify-between items-center border-b border-neutral-700 bg-neutral-800/50 z-10">
                 <button onClick={onBackToMenu} className="p-2 rounded-full text-neutral-400 hover:bg-neutral-700 hover:text-white transition-colors" aria-label="Quay lại">
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
-                <h1 className="text-xl font-bold text-white font-rajdhani mx-auto">AI Tiểu Thuyết Gia</h1>
-                <div className="w-10"></div>
+                <h1 className="text-xl font-bold text-white font-rajdhani">AI Tiểu Thuyết Gia</h1>
+                 <button onClick={() => setIsControlPanelOpen(true)} className="p-2 rounded-full text-neutral-400 hover:bg-neutral-700 hover:text-white transition-colors" aria-label="Bảng điều khiển viết tiểu thuyết">
+                    <TuneIcon className="h-6 w-6" />
+                </button>
             </header>
 
             <main ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto custom-scrollbar">
@@ -227,7 +259,7 @@ const NovelWriterScreen: React.FC<{
             </main>
 
             <footer className="flex-shrink-0 p-4 bg-neutral-800/50 border-t border-neutral-700">
-                <div className="max-w-3xl mx-auto p-1 bg-neutral-900/50 border border-neutral-600 rounded-full flex items-end gap-1">
+                <div className="max-w-3xl mx-auto relative">
                     <TextareaField
                         id="novel-input"
                         value={userInput}
@@ -240,18 +272,24 @@ const NovelWriterScreen: React.FC<{
                         }}
                         placeholder={isLoading ? "AI đang viết..." : "Nhập chỉ dẫn cho chương tiếp theo..."}
                         disabled={isLoading}
-                        className="flex-grow bg-transparent border-0 focus:ring-0 resize-none py-3 px-4"
+                        className="flex-grow bg-neutral-900/50 border border-neutral-600 rounded-2xl focus:ring-pink-500 resize-none py-3 pl-4 pr-16 w-full"
                         rows={1}
                     />
                      <Button
                         onClick={handleSend}
                         disabled={isLoading || !userInput.trim()}
-                        className="!w-auto flex-shrink-0 !rounded-full !p-3.5"
+                        className="!absolute !right-2 !bottom-2 !w-auto !rounded-full !p-3"
                     >
-                        <SendIcon className="w-6 h-6" />
+                        <SendIcon className="w-5 h-5" />
                     </Button>
                 </div>
             </footer>
+             <NovelControlPanelModal
+                isOpen={isControlPanelOpen}
+                onClose={() => setIsControlPanelOpen(false)}
+                settings={novelSettings}
+                onSettingsChange={setNovelSettings}
+            />
              <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }

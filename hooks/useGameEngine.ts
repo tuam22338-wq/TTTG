@@ -20,6 +20,8 @@ import {
     SpecialItem,
     NPC,
     Weather,
+    StatType,
+    CharacterStat,
 } from '../types';
 import * as GeminiStorytellerService from '../services/GeminiStorytellerService';
 import * as GameSaveService from '../services/GameSaveService';
@@ -467,9 +469,24 @@ export function useGameEngine(
             if (prev.playerSkills.some(s => s.name === skill.name)) {
                 return prev;
             }
+            
+            const statName = `Lĩnh ngộ: ${skill.name}`;
+            const newStat: CharacterStat = {
+                description: `Bạn đã học được một kỹ năng mới! Chi tiết đã được thêm vào sổ tay kỹ năng của bạn.`,
+                type: StatType.GOOD,
+            };
+
+            const newPlayerStats = { ...prev.playerStats, [statName]: newStat };
+            const newPlayerStatOrder = [...prev.playerStatOrder];
+            if (!newPlayerStatOrder.includes(statName)) {
+                newPlayerStatOrder.push(statName);
+            }
+
             return {
                 ...prev,
-                playerSkills: [...prev.playerSkills, skill]
+                playerSkills: [...prev.playerSkills, skill],
+                playerStats: newPlayerStats,
+                playerStatOrder: newPlayerStatOrder,
             };
         });
     };

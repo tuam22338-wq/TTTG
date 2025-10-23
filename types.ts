@@ -523,3 +523,17 @@ export interface GameState {
 }
 
 export type ViewMode = 'desktop' | 'mobile';
+
+export interface NovelWritingRule {
+  id: string;
+  name: string;
+  content: string;
+}
+
+export interface NovelWriterSettings {
+  pacing: 'rất chậm' | 'chậm' | 'cân bằng' | 'nhanh' | 'siêu nhanh';
+  timePerChapter: string;
+  allowAiTimeskip: boolean;
+  writingRules: NovelWritingRule[];
+  chapterLength: number; // in words
+}

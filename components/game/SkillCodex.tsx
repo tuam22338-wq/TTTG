@@ -7,7 +7,6 @@ interface SkillCodexProps {
     onUseSkill: (skill: Skill, abilityName: string) => void;
     onRequestDelete: (skill: Skill) => void;
     onRequestEdit: (skillName: string, ability: Ability) => void;
-    onOpenPowerCreationModal: () => void;
     viewMode: ViewMode;
 }
 
@@ -83,7 +82,7 @@ const SkillEntry: React.FC<{ skill: Skill; onUseSkill: (abilityName: string) => 
 };
 
 
-const SkillCodex: React.FC<SkillCodexProps> = ({ skills, onUseSkill, onRequestDelete, onRequestEdit, onOpenPowerCreationModal, viewMode }) => {
+const SkillCodex: React.FC<SkillCodexProps> = ({ skills, onUseSkill, onRequestDelete, onRequestEdit, viewMode }) => {
     return (
         <div className="h-full flex flex-col">
             <header className="flex justify-between items-center p-4 border-b border-white/10 flex-shrink-0">
@@ -92,15 +91,6 @@ const SkillCodex: React.FC<SkillCodexProps> = ({ skills, onUseSkill, onRequestDe
                     Sổ Tay Kỹ Năng
                 </h2>
                 <div className="flex-1 text-right">
-                    {viewMode === 'desktop' && (
-                        <button
-                            onClick={onOpenPowerCreationModal}
-                            className="arcane-creator-btn"
-                            title="Tạo bộ kỹ năng mới"
-                        >
-                            [+ Tạo Mới]
-                        </button>
-                    )}
                 </div>
             </header>
             <div className="p-2 flex-grow min-h-0 overflow-y-auto custom-scrollbar">

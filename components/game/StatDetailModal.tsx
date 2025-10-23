@@ -201,8 +201,12 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({ isOpen, onClose, stat
                     </>
                 ) : (
                     <>
-                        <Button onClick={() => setIsEditing(true)} variant="primary" className="flex-1">Chỉnh sửa</Button>
-                        <Button onClick={() => setIsDeleteConfirmOpen(true)} variant="secondary" className="flex-1">Xóa</Button>
+                        {onSave && onDelete && ownerType && (
+                            <>
+                                <Button onClick={() => setIsEditing(true)} variant="primary" className="flex-1">Chỉnh sửa</Button>
+                                <Button onClick={() => setIsDeleteConfirmOpen(true)} variant="secondary" className="flex-1">Xóa</Button>
+                            </>
+                        )}
                     </>
                 )}
              </div>

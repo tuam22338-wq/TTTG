@@ -7,6 +7,7 @@ import InputField from './ui/InputField';
 import { useSettings } from '../hooks/useSettings';
 import { CogIcon } from './icons/CogIcon';
 import { BookIcon } from './icons/BookIcon';
+import RangeSlider from './ui/RangeSlider';
 
 // --- Start: Local Icon Definitions ---
 const PaintBrushIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -75,29 +76,6 @@ const TrashIcon: React.FC = () => (
         <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
     </svg>
 );
-
-const RangeSlider: React.FC<{ 
-    label: string; 
-    id: string; 
-    min: number; 
-    max: number; 
-    step: number; 
-    value: number; 
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; 
-    unit?: string;
-    displayTransform?: (value: number) => string;
-}> = ({ label, id, min, max, step, value, onChange, unit, displayTransform }) => (
-    <div>
-        <label htmlFor={id} className="block text-sm font-medium text-neutral-300 mb-1">{label}</label>
-        <div className="flex items-center gap-4">
-            <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={onChange} className="w-full h-2 bg-black/30 rounded-lg appearance-none cursor-pointer" />
-            <span className="text-sm font-mono text-white w-16 text-center">
-                {displayTransform ? displayTransform(value) : `${value}${unit || ''}`}
-            </span>
-        </div>
-    </div>
-);
-
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settingsHook }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('interface');

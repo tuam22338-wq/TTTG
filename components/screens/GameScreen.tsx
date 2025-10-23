@@ -22,7 +22,6 @@ import { UserIcon } from '../icons/UserIcon';
 import CombatScreen from './CombatScreen';
 import StatDetailModal from '../game/StatDetailModal';
 import StatCreationModal from '../game/StatCreationModal';
-import PowerCreationModal from '../game/PowerCreationModal';
 import AbilityEditModal from '../game/AbilityEditModal';
 import IllustrationBookModal from '../game/achievements/IllustrationBookModal';
 import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
@@ -62,7 +61,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     const [isCharPanelOpen, setIsCharPanelOpen] = useState(false);
     const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
     const [isCodexOpen, setIsCodexOpen] = useState(false);
-    const [isPowerCreationModalOpen, setIsPowerCreationModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isStatDetailModalOpen, setIsStatDetailModalOpen] = useState(false);
     const [isCreateStatModalOpen, setIsCreateStatModalOpen] = useState(false);
@@ -151,28 +149,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     const handleStatClick = (stat: CharacterStat & { name: string }, ownerName: string, ownerType: 'player' | 'npc', ownerId?: string) => {
         setStatDetailData({ stat, ownerName, ownerType, ownerId });
         setIsStatDetailModalOpen(true);
-    };
-    
-    const handleCreatePower = async (data: { name: string, description: string }) => {
-        if (!gameState) return;
-        setIsSubmitting(true);
-        try {
-            const newSkill = await GeminiStorytellerService.generateSkillFromUserInput(
-                data.name,
-                data.description,
-                gameState.worldContext,
-                apiClient,
-                settings.aiModelSettings,
-                settings.safety,
-            );
-            addPlayerSkill(newSkill);
-        } catch (e: any) {
-            console.error(e);
-            alert("Lỗi tạo kỹ năng: " + e.message);
-        } finally {
-            setIsSubmitting(false);
-            setIsPowerCreationModalOpen(false);
-        }
     };
     
     const endCombat = (result: 'win' | 'loss' | 'flee', turns: number, finalCombatants: any[]) => {
@@ -314,7 +290,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 onUseSkill={() => {}} 
                 onRequestDeleteSkill={() => {}}
                 onRequestEditAbility={(skillName, ability) => { setAbilityEditData({ skillName, ability }); setIsAbilityEditModalOpen(true); }}
-                onOpenPowerCreationModal={() => setIsPowerCreationModalOpen(true)}
                 isLoading={isLoading}
                 onEquipItem={() => {}}
                 onUnequipItem={() => {}}
@@ -334,13 +309,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 isOpen={isCreateStatModalOpen}
                 onClose={() => setIsCreateStatModalOpen(false)}
                 onSubmit={() => {}} // Placeholder
-            />
-
-            <PowerCreationModal
-                isOpen={isPowerCreationModalOpen}
-                onClose={() => setIsPowerCreationModalOpen(false)}
-                onSubmit={handleCreatePower}
-                isLoading={isSubmitting}
             />
 
             <AbilityEditModal

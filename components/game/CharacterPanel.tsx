@@ -21,7 +21,6 @@ interface CharacterPanelProps {
   onUseSkill: (skill: Skill, abilityName: string) => void;
   onRequestDeleteSkill: (skill: Skill) => void;
   onRequestEditAbility: (skillName: string, ability: Ability) => void;
-  onOpenPowerCreationModal: () => void;
   isLoading: boolean;
   onEquipItem: (item: Equipment) => void;
   onUnequipItem: (slot: EquipmentSlot) => void;
