@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse, EmbedContentResponse, HarmCategory, HarmBlockThreshold, BatchEmbedContentsResponse, ContentEmbedding } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse, EmbedContentResponse, HarmCategory, HarmBlockThreshold, ContentEmbedding } from '@google/genai';
 import { AiModelSettings } from '../../types';
 import { ApiStatsManager } from '../../hooks/useApiStats';
 
@@ -278,14 +278,16 @@ export async function callEmbeddingModel(
     apiClient: ApiClient,
 ): Promise<number[]> {
      const callLogic = (geminiService: GoogleGenAI): Promise<EmbedContentResponse> => {
+        // FIX: Object literal may only specify known properties, but 'content' does not exist in type 'EmbedContentParameters'. Did you mean to write 'contents'?
         return geminiService.models.embedContent({
             model: 'text-embedding-004',
-            content: text,
+            contents: { parts: [{ text }] },
         });
     };
     
     const response = await performApiCall(apiClient, callLogic);
-    return response.embedding.values;
+    // FIX: Property 'embedding' does not exist on type 'EmbedContentResponse'. Did you mean 'embeddings'?
+    return response.embeddings[0].values;
 }
 
 export async function callBatchEmbeddingModel(
@@ -293,12 +295,11 @@ export async function callBatchEmbeddingModel(
     apiClient: ApiClient,
 ): Promise<number[][]> {
      const callLogic = async (geminiService: GoogleGenAI): Promise<number[][]> => {
-        const requests = texts.map(text => ({
+        // FIX: Property 'batchEmbedContents' does not exist on type 'Models'. Did you mean 'embedContent'?
+        const result = await geminiService.models.embedContent({
             model: 'text-embedding-004',
-            content: { parts: [{ text }] }
-        }));
-        
-        const result: BatchEmbedContentsResponse = await geminiService.models.batchEmbedContents({ requests });
+            contents: texts.map(text => ({ parts: [{ text }] }))
+        });
         return result.embeddings.map((e: ContentEmbedding) => e.values);
     };
 

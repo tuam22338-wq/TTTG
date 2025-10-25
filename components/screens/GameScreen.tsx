@@ -305,17 +305,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 isOpen={isCharPanelOpen}
                 onClose={() => setIsCharPanelOpen(false)}
                 gameState={gameState}
-                finalCoreStats={gameState.coreStats}
                 onStatClick={handleStatClick}
-                recentlyUpdatedPlayerStats={new Set()}
-                onOpenCreateStatModal={() => setIsCreateStatModalOpen(true)}
-                onUseSkill={() => {}} 
-                onRequestDeleteSkill={() => {}}
-                onRequestEditAbility={(skillName, ability) => { setAbilityEditData({ skillName, ability }); setIsAbilityEditModalOpen(true); }}
-                isLoading={isLoading}
-                onEquipItem={() => {}}
-                onUnequipItem={() => {}}
                 onShowAchievement={(item) => { setAchievementData(item); setIsAchievementModalOpen(true); }}
+                setGameState={setGameState}
             />
             
             <StatDetailModal

@@ -200,9 +200,12 @@ export interface WorldCreationState {
   narrativePerspective: NarrativePerspective;
   character: {
     name: string;
+    age: number;
     gender: 'Nam' | 'Nữ' | 'Tự định nghĩa';
     customGender: string;
     personality: string;
+    appearance: string;
+    avatarUrl: string;
     biography: string;
     skills: Skill[];
   };

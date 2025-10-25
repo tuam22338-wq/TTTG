@@ -1,140 +1,156 @@
 import React, { useState } from 'react';
-import { GameState, Skill, Ability, SpecialItem, CharacterStat, Equipment, EquipmentSlot, WorldCreationState } from '../../types';
+import { GameState, CharacterStat, SpecialItem } from '../../types';
 import CharacterSheet from './CharacterSheet';
 import SkillCodex from './SkillCodex';
 import EquipmentAndInventoryPanel from './EquipmentAndInventoryPanel';
 import { EquipmentIcon } from '../icons/EquipmentIcon';
 import { UserIcon } from '../icons/UserIcon';
 import { WandIcon } from '../icons/WandIcon';
-import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
-import { ChevronRightIcon } from '../icons/ChevronRightIcon';
 import { getRealmString } from '../../services/CultivationService';
+import * as GameSaveService from '../../services/GameSaveService';
 
 interface CharacterPanelProps {
   isOpen: boolean;
   onClose: () => void;
   gameState: GameState;
-  finalCoreStats: GameState['coreStats'] | null;
   onStatClick: (stat: CharacterStat & { name: string }, ownerName: string, ownerType: 'player' | 'npc', ownerId?: string) => void;
-  recentlyUpdatedPlayerStats: Set<string>;
-  onOpenCreateStatModal: () => void;
-  onUseSkill: (skill: Skill, abilityName: string) => void;
-  onRequestDeleteSkill: (skill: Skill) => void;
-  onRequestEditAbility: (skillName: string, ability: Ability) => void;
-  isLoading: boolean;
-  onEquipItem: (item: Equipment) => void;
-  onUnequipItem: (slot: EquipmentSlot) => void;
   onShowAchievement: (item: SpecialItem) => void;
+  setGameState: React.Dispatch<React.SetStateAction<GameState | null>>;
 }
 
-type PanelView = 'menu' | 'stats' | 'skills' | 'equipment';
+type PanelView = 'stats' | 'skills' | 'equipment';
+
+const NavButton: React.FC<{
+    viewId: PanelView,
+    label: string,
+    Icon: React.FC<{className?: string}>,
+    currentView: PanelView,
+    setView: (view: PanelView) => void
+}> = ({ viewId, label, Icon, currentView, setView }) => {
+    const isActive = viewId === currentView;
+    return (
+        <button 
+            onClick={() => setView(viewId)}
+            className={`flex items-center w-full p-3 rounded-lg text-left transition-colors duration-200 ${isActive ? 'bg-white/10 text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-neutral-200'}`}
+        >
+            <Icon className={`h-6 w-6 mr-3 ${isActive ? 'text-pink-400' : ''}`} />
+            <span className="font-semibold">{label}</span>
+        </button>
+    );
+};
 
 const CharacterPanel: React.FC<CharacterPanelProps> = (props) => {
-  const { isOpen, onClose, gameState } = props;
-  const [view, setView] = useState<PanelView>('menu');
+  const { isOpen, onClose, gameState, onShowAchievement, setGameState } = props;
+  const [view, setView] = useState<PanelView>('stats');
 
   if (!isOpen) return null;
+  
+  const handleEquipItem = (itemToEquip: any) => {
+        if (!gameState) return;
+        setGameState(prevState => {
+            if (!prevState) return null;
 
-  const menuItems: { id: PanelView; label: string; description: string; Icon: React.FC<{className?: string}> }[] = [
-    { id: 'stats', label: 'Tổng Quan & Trạng Thái', description: 'Xem các chỉ số chiến đấu, cảnh giới và trạng thái hiện tại.', Icon: UserIcon },
-    { id: 'skills', label: 'Kỹ Năng & Năng Lực', description: 'Quản lý và xem lại các bộ kỹ năng đã học.', Icon: WandIcon },
-    { id: 'equipment', label: 'Trang Bị & Túi Đồ', description: 'Trang bị vật phẩm và quản lý các vật phẩm trong túi đồ.', Icon: EquipmentIcon },
-  ];
+            const newEquipment = { ...prevState.equipment };
+            const newInventoryItems = [...prevState.inventory.items];
+            
+            // Unequip current item in that slot, if any
+            const currentItem = newEquipment[itemToEquip.slot];
+            if (currentItem) {
+                newInventoryItems.push(currentItem);
+            }
+            
+            // Equip new item and remove from inventory
+            newEquipment[itemToEquip.slot] = itemToEquip;
+            const itemIndexInInventory = newInventoryItems.findIndex(item => item.id === itemToEquip.id);
+            if (itemIndexInInventory > -1) {
+                newInventoryItems.splice(itemIndexInInventory, 1);
+            }
 
-  const currentViewItem = menuItems.find(item => item.id === view);
-  const realmString = getRealmString(gameState.cultivation.level, gameState.worldContext);
+            const newState = {
+                ...prevState,
+                equipment: newEquipment,
+                inventory: { ...prevState.inventory, items: newInventoryItems },
+            };
+            
+            GameSaveService.saveAutoSave(newState);
+            return newState;
+        });
+    };
+
+    const handleUnequipItem = (slot: any) => {
+        if (!gameState) return;
+        setGameState(prevState => {
+            if (!prevState) return null;
+
+            const itemToUnequip = prevState.equipment[slot];
+            if (!itemToUnequip) return prevState;
+
+            const newEquipment = { ...prevState.equipment, [slot]: null };
+            const newInventoryItems = [...prevState.inventory.items, itemToUnequip];
+
+             const newState = {
+                ...prevState,
+                equipment: newEquipment,
+                inventory: { ...prevState.inventory, items: newInventoryItems },
+            };
+            GameSaveService.saveAutoSave(newState);
+            return newState;
+        });
+    };
+
 
   const renderContent = () => {
     switch (view) {
       case 'stats':
-        return (
-           <CharacterSheet 
-                gameState={gameState}
-                onStatClick={props.onStatClick}
-                recentlyUpdatedStats={props.recentlyUpdatedPlayerStats}
-            />
-        );
+        return <CharacterSheet gameState={gameState} onStatClick={props.onStatClick} />;
       case 'skills':
-        return <SkillCodex {...props} viewMode={'desktop'} />;
+        return <SkillCodex skills={gameState.playerSkills} onUseSkill={() => {}} onRequestDelete={() => {}} onRequestEdit={() => {}} viewMode={'desktop'} />;
       case 'equipment':
-        return <EquipmentAndInventoryPanel {...props} />;
-      case 'menu':
+        return <EquipmentAndInventoryPanel gameState={gameState} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} onShowAchievement={onShowAchievement} />;
       default:
-        return (
-            <div className="p-4 sm:p-6">
-                <div className="w-full space-y-3">
-                    {menuItems.map((item) => (
-                        <button 
-                            key={item.id}
-                            onClick={() => setView(item.id)}
-                            className="w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed group border border-transparent hover:bg-white/5 hover:border-white/20"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-black/20 rounded-lg border border-white/10 group-hover:bg-white/10 transition-colors duration-300">
-                                    <item.Icon className="h-6 w-6 text-neutral-400 group-hover:text-white transition-colors"/>
-                                </div>
-                                <div className="flex-grow text-left">
-                                    <p className="font-bold text-lg text-neutral-100">{item.label}</p>
-                                    <p className="text-sm text-neutral-400">{item.description}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 text-neutral-500 transition-transform duration-300 group-hover:text-white group-hover:translate-x-1">
-                                <ChevronRightIcon className="h-6 w-6" />
-                            </div>
-                        </button>
-                    ))}
-                </div>
-            </div>
-        );
+        return null;
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/70 z-30 flex justify-center items-center p-4 animate-fade-in-fast" onClick={onClose}>
         <div 
-            className="relative w-full max-w-5xl max-h-[90vh] bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 flex flex-col animate-scale-in"
+            className="relative w-full max-w-7xl h-[90vh] bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 flex animate-scale-in"
             onClick={(e) => e.stopPropagation()}
         >
-            <header className="flex-shrink-0 p-4 pl-6 flex justify-between items-center border-b border-white/10">
-                <div className="flex items-center gap-4">
-                    {view !== 'menu' && (
-                         <button onClick={() => setView('menu')} className="p-2 rounded-full text-neutral-400 hover:bg-neutral-700 hover:text-white transition-colors" aria-label="Quay lại menu nhân vật">
-                            <ArrowLeftIcon className="h-6 w-6" />
-                        </button>
-                    )}
-                    <div>
-                        <h2 className="text-2xl font-bold text-white font-rajdhani">
-                           {view === 'menu' ? gameState.worldContext.character.name : currentViewItem?.label}
-                        </h2>
-                        {view === 'menu' && <p className="text-sm font-semibold text-purple-300">{realmString} - Cấp {gameState.cultivation.level}</p>}
-                    </div>
+            {/* Left Sidebar Navigation */}
+            <nav className="w-64 flex-shrink-0 bg-black/20 border-r border-white/10 p-4 flex flex-col">
+                <div className="border-b border-white/10 pb-4 mb-4">
+                    <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 font-rajdhani truncate" title={gameState.worldContext.character.name}>
+                        {gameState.worldContext.character.name}
+                    </h2>
+                    {gameState.playerTitle && <p className="text-sm text-yellow-300 font-semibold truncate" title={gameState.playerTitle}>{gameState.playerTitle}</p>}
                 </div>
-                <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </header>
+                <div className="space-y-2">
+                    <NavButton viewId="stats" label="Tổng Quan" Icon={UserIcon} currentView={view} setView={setView} />
+                    <NavButton viewId="skills" label="Kỹ Năng" Icon={WandIcon} currentView={view} setView={setView} />
+                    <NavButton viewId="equipment" label="Trang Bị" Icon={EquipmentIcon} currentView={view} setView={setView} />
+                </div>
+                <div className="mt-auto">
+                    {/* Placeholder for future elements like currency */}
+                </div>
+            </nav>
             
+            {/* Main Content Area */}
             <main className="flex-grow min-h-0">
                {renderContent()}
             </main>
+             <button onClick={onClose} className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-white transition-colors rounded-full z-10">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
         </div>
         <style>{`
-            @keyframes fade-in-fast {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            .animate-fade-in-fast {
-                animation: fade-in-fast 0.2s ease-out forwards;
-            }
-            @keyframes scale-in {
-                from { transform: scale(0.95); opacity: 0; }
-                to { transform: scale(1); opacity: 1; }
-            }
-            .animate-scale-in {
-                animation: scale-in 0.2s ease-out forwards;
-            }
+            @keyframes fade-in-fast { from { opacity: 0; } to { opacity: 1; } }
+            .animate-fade-in-fast { animation: fade-in-fast 0.2s ease-out forwards; }
+            @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+            .animate-scale-in { animation: scale-in 0.2s ease-out forwards; }
             .custom-scrollbar::-webkit-scrollbar { width: 6px; }
             .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
             .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #555; border-radius: 10px; }

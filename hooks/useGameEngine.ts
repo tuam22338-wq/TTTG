@@ -146,7 +146,6 @@ export function useGameEngine(
             const withNpcs = applyNpcUpdates(withStats, initialNpcUpdates);
             
             setGameState(withNpcs);
-            setShowIntroductoryModal(true);
 
         } catch (e: any) {
             console.error("Lỗi khởi tạo game:", e);

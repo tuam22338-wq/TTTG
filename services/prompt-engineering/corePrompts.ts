@@ -284,6 +284,21 @@ Bạn là một AI thiết kế game bậc thầy. Dựa trên bối cảnh th�
 4.  Trả về kết quả dưới dạng một đối tượng JSON duy nhất tuân thủ schema đã cho.
 `;
 
+export const CHARACTER_APPEARANCE_GENERATOR_PROMPT = `
+Bạn là một nhà văn chuyên mô tả nhân vật. Dựa trên thông tin được cung cấp và bối cảnh thế giới, hãy viết một đoạn văn ngắn gọn (khoảng 2-3 câu) mô tả ngoại hình của nhân vật. Tập trung vào các đặc điểm nổi bật, khí chất, và trang phục phù hợp.
+
+**Bối cảnh thế giới:**
+{WORLD_CONTEXT_PLACEHOLDER}
+
+**Thông tin nhân vật:**
+- Tên: {NAME_PLACEHOLDER}
+- Giới tính: {GENDER_PLACEHOLDER}
+- Tính cách: {PERSONALITY_PLACEHOLDER}
+
+Hãy viết mô tả ngoại hình.
+`;
+
+
 export const DEFEAT_SYSTEM_PROMPT = `
 ### VAI TRÒ: NGƯỜI KỂ CHUYỆN BI KỊCH ###
 Bạn là AI kể chuyện, và người chơi vừa bị đánh bại. Nhiệm vụ của bạn là mô tả hậu quả của sự thất bại một cách bi thảm, nhưng **KHÔNG được kết thúc câu chuyện**.

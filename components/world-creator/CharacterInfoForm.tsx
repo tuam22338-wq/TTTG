@@ -8,6 +8,7 @@ import * as client from '../../services/gemini/client';
 import ChevronIcon from '../icons/ChevronIcon';
 import { ApiClient } from '../../services/gemini/client';
 import * as schemas from '../../services/gemini/schemas';
+import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
 
 interface CharacterInfoFormProps {
     state: WorldCreationState;
@@ -29,6 +30,26 @@ const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, 
     
     const handleCharacterChange = (field: keyof WorldCreationState['character'], value: any) => {
         setState(s => ({ ...s, character: { ...s.character, [field]: value } }));
+    };
+
+    const handleGenerateAppearance = async () => {
+        if (!getApiClient()) {
+            alert("Dịch vụ AI chưa sẵn sàng.");
+            apiClient.onApiKeyInvalid();
+            return;
+        }
+        setIsLoading(prev => ({ ...prev, appearance: true }));
+
+        try {
+            const safetySettingsConfig = state.isNsfw ? settings.safety : undefined;
+            const generatedAppearance = await GeminiStorytellerService.generateCharacterAppearance(state, apiClient, settings.aiModelSettings, safetySettingsConfig);
+            handleCharacterChange('appearance', generatedAppearance);
+        } catch (error) {
+            console.error("Error generating character appearance:", error);
+            alert("Đã xảy ra lỗi khi tạo ngoại hình. Vui lòng thử lại.");
+        } finally {
+            setIsLoading(prev => ({ ...prev, appearance: false }));
+        }
     };
 
     const handleGenerateBiography = async () => {
@@ -205,12 +226,30 @@ ${state.description || "Một thế giới chưa được mô tả."}
 
     return (
         <FormSection title="Thông Tin Nhân Vật" description="Kiến tạo linh hồn sẽ khuấy đảo vị diện này.">
-            <InputField
-                label="Tên Nhân Vật"
-                id="char-name"
-                placeholder="Tên gọi của bạn"
-                value={state.character.name}
-                onChange={e => handleCharacterChange('name', e.target.value)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <InputField
+                    label="Tên Nhân Vật"
+                    id="char-name"
+                    placeholder="Tên gọi của bạn"
+                    value={state.character.name}
+                    onChange={e => handleCharacterChange('name', e.target.value)}
+                />
+                 <InputField
+                    label="Tuổi"
+                    id="char-age"
+                    type="number"
+                    placeholder="18"
+                    value={state.character.age}
+                    onChange={e => handleCharacterChange('age', parseInt(e.target.value) || 0)}
+                />
+            </div>
+
+             <InputField
+                label="URL Ảnh đại diện (Avatar)"
+                id="char-avatar"
+                placeholder="https://example.com/avatar.png"
+                value={state.character.avatarUrl}
+                onChange={e => handleCharacterChange('avatarUrl', e.target.value)}
             />
             
             <div>
@@ -249,6 +288,27 @@ ${state.description || "Một thế giới chưa được mô tả."}
                 value={state.character.personality}
                 onChange={e => handleCharacterChange('personality', e.target.value)}
             />
+            
+            <div>
+                <div className="flex justify-between items-center mb-2">
+                    <label htmlFor="char-appearance" className="block text-sm font-medium text-neutral-400">Đặc điểm Ngoại hình</label>
+                    <button
+                        onClick={handleGenerateAppearance}
+                        disabled={isLoading['appearance']}
+                        className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full bg-black/20 border border-white/10 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="AI Hỗ trợ Ngoại hình"
+                    >
+                        <SparklesIcon isLoading={isLoading['appearance']} />
+                    </button>
+                </div>
+                <TextareaField
+                    id="char-appearance"
+                    placeholder="Tóc trắng, mắt đỏ, dáng người cao gầy..."
+                    value={state.character.appearance}
+                    onChange={e => handleCharacterChange('appearance', e.target.value)}
+                    rows={3}
+                />
+            </div>
 
             <div>
                 <div className="flex justify-between items-center mb-2">

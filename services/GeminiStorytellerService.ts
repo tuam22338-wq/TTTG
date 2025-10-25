@@ -38,10 +38,11 @@ const getSafetySettings = (safety: SafetySettings) => {
             ];
         case 'BLOCK_MOST':
              return [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MOST },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MOST },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MOST },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MOST },
+// FIX: Replaced invalid HarmBlockThreshold.BLOCK_MOST with a valid enum member.
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
             ];
         default:
             return undefined;
@@ -262,6 +263,25 @@ export async function generateSkillFromUserInput(
     skill.name = name;
 
     return skill as Skill;
+}
+
+export async function generateCharacterAppearance(
+    worldState: WorldCreationState,
+    apiClient: client.ApiClient,
+    aiModelSettings: AiModelSettings,
+    safetySettings: SafetySettings
+): Promise<string> {
+    const { character, description } = worldState;
+    const charGender = character.gender === 'Tự định nghĩa' ? character.customGender : character.gender;
+
+    const prompt = prompts.CHARACTER_APPEARANCE_GENERATOR_PROMPT
+        .replace('{WORLD_CONTEXT_PLACEHOLDER}', description)
+        .replace('{NAME_PLACEHOLDER}', character.name || 'Chưa có tên')
+        .replace('{GENDER_PLACEHOLDER}', charGender)
+        .replace('{PERSONALITY_PLACEHOLDER}', character.personality || 'Chưa xác định');
+
+    const response = await client.callCreativeTextAI(prompt, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    return response.text;
 }
 
 

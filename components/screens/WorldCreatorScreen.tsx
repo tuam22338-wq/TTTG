@@ -50,9 +50,12 @@ const defaultWorldCreationState: WorldCreationState = {
     narrativePerspective: 'Nhãn Quan Toàn Tri',
     character: {
       name: '',
+      age: 18,
       gender: 'Nam',
       customGender: '',
       personality: '',
+      appearance: '',
+      avatarUrl: '',
       biography: '',
       skills: [],
     },
