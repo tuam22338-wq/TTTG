@@ -6,9 +6,9 @@ import { EditIcon } from '../icons/EditIcon';
 import { TrashIcon } from '../icons/TrashIcon';
 import ToggleSwitch from '../ui/ToggleSwitch';
 import Button from '../ui/Button';
-
-// Re-using for a different purpose
 import { BookIcon } from '../icons/BookIcon';
+import { LawIcon } from '../icons/LawIcon';
+import { PlusIcon } from '../icons/PlusIcon';
 
 
 interface CodexPanelProps {
@@ -65,7 +65,7 @@ const CodexPanel: React.FC<CodexPanelProps> = ({ isOpen, onClose, gameState, onU
       setSelectedEntry({ type, id });
   };
   
-  const TabButton: React.FC<{ tabId: CodexTab; label: string }> = ({ tabId, label }) => {
+  const NavButton: React.FC<{ tabId: CodexTab, icon: React.ReactNode, label: string }> = ({ tabId, icon, label }) => {
     const isActive = activeTab === tabId;
     return (
       <button
@@ -73,13 +73,13 @@ const CodexPanel: React.FC<CodexPanelProps> = ({ isOpen, onClose, gameState, onU
             setActiveTab(tabId);
             setSelectedEntry(null);
         }}
-        className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-300 focus:outline-none ${
-          isActive 
-            ? 'text-white bg-neutral-700/80 border-b-2 border-pink-500' 
-            : 'text-neutral-400 bg-neutral-900/50 hover:bg-neutral-800'
+        className={`w-full flex flex-col items-center justify-center p-2 rounded-lg transition-colors duration-200 aspect-square ${
+          isActive ? 'bg-white/10 text-white' : 'text-neutral-400 hover:bg-white/5'
         }`}
+        title={label}
       >
-        {label}
+        <div className="h-7 w-7">{icon}</div>
+        <span className="text-xs mt-1 font-semibold">{label}</span>
       </button>
     );
   };
@@ -89,10 +89,11 @@ const CodexPanel: React.FC<CodexPanelProps> = ({ isOpen, onClose, gameState, onU
     return (
          <button 
             onClick={() => handleSelectEntry(type, entry.id)}
-            className={`w-full text-left p-3 rounded-lg transition-colors duration-200 ${isSelected ? 'bg-pink-500/20' : 'hover:bg-white/5'}`}
+            className={`w-full text-left p-3 rounded-lg transition-colors duration-200 relative overflow-hidden ${isSelected ? 'bg-pink-900/40' : 'hover:bg-neutral-800/60'}`}
         >
-            <p className={`font-bold truncate ${isSelected ? 'text-pink-300' : 'text-white'}`}>{entry.name || '(Chưa có tên)'}</p>
-            <p className="text-xs text-neutral-400 truncate mt-1">{entry.content}</p>
+            {isSelected && <div className="absolute left-0 top-0 h-full w-1 bg-pink-400 animate-fade-in-fast"></div>}
+            <p className={`font-bold truncate pl-2 ${isSelected ? 'text-pink-300' : 'text-neutral-200'}`}>{entry.name || '(Chưa có tên)'}</p>
+            <p className="text-xs text-neutral-400 truncate mt-1 pl-2">{entry.content}</p>
         </button>
     );
   };
@@ -100,81 +101,82 @@ const CodexPanel: React.FC<CodexPanelProps> = ({ isOpen, onClose, gameState, onU
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-40 flex justify-center items-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 p-4 animate-fade-in-fast" onClick={onClose}>
       <div
-        className="w-full max-w-6xl h-[90vh] bg-neutral-900/90 backdrop-blur-md flex flex-col rounded-2xl border border-neutral-700 shadow-2xl animate-fade-in-fast"
+        className="relative w-full h-full bg-gradient-to-br from-[#110d18] to-[#0e0c14] rounded-2xl border border-neutral-700 shadow-2xl flex"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <header className="flex-shrink-0 p-4 flex justify-between items-center border-b border-neutral-700">
-            <div className="flex items-center gap-3">
-                <BookIcon className="h-7 w-7 text-pink-400" />
-                <h2 className="text-2xl font-bold text-white font-rajdhani">Bách Khoa Toàn Thư</h2>
-            </div>
-            <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-        </header>
+        {/* Nav Column */}
+        <nav className="w-24 flex-shrink-0 bg-black/20 border-r border-neutral-700/50 p-3 flex flex-col items-center gap-3">
+            <NavButton tabId="lore" label="Bách Khoa" icon={<BookIcon className="h-full w-full"/>} />
+            <NavButton tabId="rules" label="Quy Luật" icon={<LawIcon className="h-full w-full"/>} />
+        </nav>
 
-        {/* Search & Tabs */}
-         <div className="flex-shrink-0 p-3 border-b border-neutral-700 space-y-3">
-             <div className="relative">
-                <InputField id="codex-search" placeholder="Tìm kiếm mục..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-10"/>
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
-                    <SearchIcon />
+        {/* List Column */}
+        <aside className="w-80 flex-shrink-0 border-r border-neutral-700/50 flex flex-col bg-black/10">
+             <div className="p-3 border-b border-neutral-700/50">
+                 <div className="relative">
+                    <InputField id="codex-search" placeholder="Tìm kiếm..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-9 !py-2 !rounded-md"/>
+                    <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500">
+                        <SearchIcon />
+                    </div>
                 </div>
-            </div>
-         </div>
-        <div className="flex-shrink-0 flex"><TabButton tabId="lore" label="Mục Bách Khoa" /><TabButton tabId="rules" label="Quy Luật Thế Giới" /></div>
-        
-        {/* Main Content */}
-        <main className="flex-grow min-h-0 flex">
-            {/* Left Panel: List */}
-            <aside className="w-1/3 border-r border-neutral-700 flex flex-col">
-                <div className="flex-grow overflow-y-auto p-2 custom-scrollbar">
-                    {activeTab === 'lore' && (
-                        <div className="space-y-1">
-                            {filteredLore.map(entry => <EntryListItem key={entry.id} entry={entry} type="lore" />)}
-                            {filteredLore.length === 0 && <p className="text-center text-sm text-neutral-500 p-4">Không có mục nào.</p>}
-                        </div>
-                    )}
-                    {activeTab === 'rules' && (
-                         <div className="space-y-1">
-                            {filteredRules.map(entry => <EntryListItem key={entry.id} entry={entry} type="rule" />)}
-                             {filteredRules.length === 0 && <p className="text-center text-sm text-neutral-500 p-4">Không có quy luật nào.</p>}
-                        </div>
-                    )}
-                </div>
+             </div>
+             <div className="flex-grow overflow-y-auto p-2 custom-scrollbar">
+                 {activeTab === 'lore' && (
+                    <div className="space-y-1">
+                        {filteredLore.map(entry => <EntryListItem key={entry.id} entry={entry} type="lore" />)}
+                        {filteredLore.length === 0 && <p className="text-center text-sm text-neutral-500 p-4">Không có mục nào.</p>}
+                    </div>
+                )}
                 {activeTab === 'rules' && (
-                    <div className="flex-shrink-0 p-2 border-t border-neutral-700">
-                         <Button onClick={() => onAddRule({name: 'Quy luật mới', content: '', isEnabled: true})} variant="secondary" className="w-full !text-sm !py-2">+ Thêm Quy Luật</Button>
+                     <div className="space-y-1">
+                        {filteredRules.map(entry => <EntryListItem key={entry.id} entry={entry} type="rule" />)}
+                         {filteredRules.length === 0 && <p className="text-center text-sm text-neutral-500 p-4">Không có quy luật nào.</p>}
                     </div>
                 )}
-            </aside>
+             </div>
+             {activeTab === 'rules' && (
+                <div className="flex-shrink-0 p-2 border-t border-neutral-700/50">
+                     <Button onClick={() => onAddRule({name: 'Quy luật mới', content: '', isEnabled: true})} variant="secondary" className="w-full !text-sm !py-2 flex items-center justify-center gap-2">
+                         <PlusIcon /> Thêm Quy Luật
+                     </Button>
+                </div>
+            )}
+        </aside>
 
-            {/* Right Panel: Details */}
-            <section className="w-2/3 overflow-y-auto p-6 custom-scrollbar">
-                {currentEntryData ? (
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-start">
-                             <h3 className="text-2xl font-bold font-rajdhani text-pink-300">{currentEntryData.name}</h3>
-                             {selectedEntry?.type === 'rule' && (
-                                <div className="flex items-center gap-2">
-                                    <ToggleSwitch id={`rule-toggle-${currentEntryData.id}`} label="" description="" enabled={currentEntryData.isEnabled ?? true} setEnabled={val => onUpdateRule(currentEntryData.id, { isEnabled: val })} />
-                                    <button onClick={() => {}} className="p-2 text-neutral-400 hover:text-white"><EditIcon /></button>
-                                    <button onClick={() => {onDeleteRule(currentEntryData.id); setSelectedEntry(null);}} className="p-2 text-neutral-400 hover:text-red-500"><TrashIcon /></button>
-                                </div>
-                             )}
-                        </div>
-                        <p className="text-neutral-300 prose prose-invert max-w-none" style={{whiteSpace: 'pre-wrap'}}>{currentEntryData.content}</p>
+        {/* Detail Column */}
+        <main className="flex-grow p-8 overflow-y-auto custom-scrollbar">
+             {currentEntryData ? (
+                <div className="space-y-6 animate-fade-in-fast">
+                    <div className="flex justify-between items-start gap-4">
+                        <h3 className="text-4xl font-bold font-rajdhani text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+                            {currentEntryData.name}
+                        </h3>
+                        {selectedEntry?.type === 'rule' && (
+                            <div className="flex items-center gap-3 flex-shrink-0 mt-2">
+                                <span className="text-sm font-semibold text-neutral-400">{currentEntryData.isEnabled ? 'Đang Bật' : 'Đang Tắt'}</span>
+                                <ToggleSwitch id={`rule-toggle-${currentEntryData.id}`} label="" description="" enabled={currentEntryData.isEnabled ?? true} setEnabled={val => onUpdateRule(currentEntryData.id, { isEnabled: val })} />
+                                <button onClick={() => {}} className="p-2 text-neutral-400 hover:text-white rounded-full hover:bg-white/10"><EditIcon /></button>
+                                <button onClick={() => {onDeleteRule(currentEntryData.id); setSelectedEntry(null);}} className="p-2 text-neutral-400 hover:text-red-500 rounded-full hover:bg-red-500/10"><TrashIcon className="h-5 w-5"/></button>
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="flex items-center justify-center h-full">
-                        <p className="text-neutral-500 italic">Chọn một mục để xem chi tiết</p>
-                    </div>
-                )}
-            </section>
+                    <div className="prose prose-invert max-w-none text-neutral-300 leading-relaxed text-lg" style={{whiteSpace: 'pre-wrap'}}>{currentEntryData.content}</div>
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full text-neutral-600">
+                    <BookIcon className="h-24 w-24" />
+                    <p className="mt-4 text-lg font-semibold">Chọn một mục để xem chi tiết</p>
+                    <p className="text-sm">Khám phá tri thức và luật lệ của thế giới.</p>
+                </div>
+            )}
         </main>
+        
+        {/* Close Button */}
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-neutral-500 hover:text-white transition-colors rounded-full hover:bg-white/10">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </div>
       <style>{`
           .animate-fade-in-fast { animation: fadeIn 0.3s ease-out forwards; }

@@ -11,7 +11,7 @@ const defaultAiModelSettings: AiModelSettings = {
   topK: 40,
   topP: 0.95,
   maxOutputTokens: 2250,
-  jsonBuffer: 500,
+  jsonBuffer: 1000,
   thinkingBudget: 1000,
   autoRotateModels: true,
   rotationDelay: 0,

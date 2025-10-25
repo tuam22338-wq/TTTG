@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
-import { GameState, CharacterStat, StatType, AttributeType, CharacterCoreStats } from '../../types';
-import { GetIconComponent } from '../icons/AttributeIcons';
+import React from 'react';
+import { GameState, CharacterStat, StatType } from '../../types';
+import { getRealmString } from '../../services/CultivationService';
+import { AtkIcon, DefIcon, MDefIcon, AgiIcon, CritIcon, CritDmgIcon, CdrIcon } from '../icons/CombatStatIcons';
 
 interface CharacterSheetProps {
     gameState: GameState;
@@ -8,177 +9,96 @@ interface CharacterSheetProps {
     recentlyUpdatedStats: Set<string>;
 }
 
-const getStatColorClasses = (type: StatType): string => {
-    switch (type) {
-        case StatType.GOOD: return 'border-green-500 bg-green-900/30 hover:bg-green-800/40 text-green-200';
-        case StatType.BAD: return 'border-red-500 bg-red-900/30 hover:bg-red-800/40 text-red-300';
-        case StatType.INJURY: return 'border-orange-500 bg-orange-900/30 hover:bg-orange-800/40 text-orange-300';
-        case StatType.NSFW: return 'border-pink-500 bg-pink-900/30 hover:bg-pink-800/40 text-pink-300';
-        case StatType.KNOWLEDGE: return 'border-blue-500 bg-blue-900/30 hover:bg-blue-800/40 text-blue-300';
-        default: return 'border-gray-600 bg-gray-800/30 hover:bg-gray-700/40 text-gray-300';
-    }
-};
-
-const StatBar: React.FC<{
-    current: number;
-    max: number;
-    label: string;
-    barColor: string;
-    borderColor: string;
-}> = ({ current, max, label, barColor, borderColor }) => {
+const StatBar: React.FC<{ current: number; max: number; barColor: string; label: string }> = ({ current, max, barColor, label }) => {
     const percentage = max > 0 ? (current / max) * 100 : 0;
     return (
         <div>
-            <div className="flex justify-between items-baseline text-xs mb-1">
-                <span className="font-semibold text-neutral-400">{label}</span>
-                <span className="font-bold text-white font-mono">{`${Math.floor(current)} / ${max}`}</span>
+            <div className="flex justify-between text-xs mb-1">
+                <span className="font-semibold text-neutral-300">{label}</span>
+                <span className="font-mono">{`${Math.floor(current)}/${max}`}</span>
             </div>
-            <div className={`h-2.5 w-full bg-black/30 rounded-full overflow-hidden border ${borderColor}`}>
+            <div className="h-2.5 w-full bg-black/40 rounded-full overflow-hidden border border-black/50">
                 <div className={`${barColor} h-full rounded-full transition-all duration-300`} style={{ width: `${percentage}%` }}></div>
             </div>
         </div>
     );
 };
 
-const StatGridItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; }> = ({ icon, label, value }) => (
-    <div className="flex items-center gap-2 p-1.5 bg-black/20 rounded">
+const CombatStat: React.FC<{ icon: React.ReactNode; label: string; value: string | number; title: string }> = ({ icon, label, value, title }) => (
+    <div className="flex items-center gap-2 bg-black/30 p-2 rounded-md" title={title}>
         <div className="w-5 h-5 text-neutral-400">{icon}</div>
-        <span className="text-sm font-semibold text-neutral-300">{label}:</span>
-        <span className="text-sm font-bold font-mono text-white ml-auto">{value}</span>
+        <div className="flex-grow">
+            <p className="text-xs text-neutral-400">{label}</p>
+            <p className="text-sm font-bold text-white font-mono">{value}</p>
+        </div>
     </div>
 );
 
+const getStatTheme = (type: StatType) => {
+    switch (type) {
+        case StatType.GOOD: return { border: 'border-l-green-400', bg: 'bg-green-900/10' };
+        case StatType.BAD: return { border: 'border-l-red-400', bg: 'bg-red-900/10' };
+        case StatType.INJURY: return { border: 'border-l-orange-400', bg: 'bg-orange-900/10' };
+        case StatType.NSFW: return { border: 'border-l-pink-400', bg: 'bg-pink-900/10' };
+        case StatType.KNOWLEDGE: return { border: 'border-l-blue-400', bg: 'bg-blue-900/10' };
+        default: return { border: 'border-l-gray-500', bg: 'bg-gray-900/20' };
+    }
+};
 
 const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick, recentlyUpdatedStats }) => {
+    const { playerStats, playerStatOrder, coreStats, cultivation, worldContext } = gameState;
+    const realmString = getRealmString(cultivation.level, worldContext);
+
+    const formatPercent = (value: number) => `${(value * 100).toFixed(0)}%`;
+
+    const combatStats = [
+        { icon: <AtkIcon />, label: 'Công Kích', value: coreStats.congKich, title: 'Sát thương vật lý cơ bản' },
+        { icon: <DefIcon />, label: 'Phòng Ngự', value: coreStats.phongNgu, title: 'Chống chịu sát thương vật lý' },
+        { icon: <MDefIcon />, label: 'Kháng Phép', value: coreStats.khangPhep, title: 'Chống chịu sát thương phép' },
+        { icon: <AgiIcon />, label: 'Thân Pháp', value: coreStats.thanPhap, title: 'Tốc độ, né tránh' },
+        { icon: <CritIcon />, label: 'Tỉ Lệ Chí Mạng', value: formatPercent(coreStats.chiMang), title: 'Cơ hội gây sát thương chí mạng' },
+        { icon: <CritDmgIcon />, label: 'ST Chí Mạng', value: formatPercent(coreStats.satThuongChiMang), title: 'Bội số sát thương khi chí mạng' },
+        { icon: <CdrIcon />, label: 'Giảm Hồi Chiêu', value: formatPercent(coreStats.giamHoiChieu), title: 'Giảm thời gian hồi kỹ năng' },
+    ];
     
-    const { coreStats, worldContext: { customAttributes }, playerStats, playerStatOrder } = gameState;
-
-    const vitalAttributes = useMemo(() => 
-        customAttributes.filter(attr => attr.type === AttributeType.VITAL), 
-        [customAttributes]
-    );
-    const primaryAttributes = useMemo(() => 
-        customAttributes.filter(attr => attr.type === AttributeType.PRIMARY), 
-        [customAttributes]
-    );
-    const informationalAttributes = useMemo(() => 
-        customAttributes.filter(attr => attr.type === AttributeType.INFORMATIONAL), 
-        [customAttributes]
-    );
-
-    const orderedStats = useMemo(() => {
-        const stats: { name: string, stat: CharacterStat }[] = [];
-        for (const statName of playerStatOrder) {
-            const stat = playerStats[statName];
-            if (stat && typeof stat === 'object' && 'description' in stat && 'type' in stat) {
-                stats.push({ name: statName, stat });
-            }
-        }
-        return stats;
-    }, [playerStats, playerStatOrder]);
-
-    const VITAL_COLORS: Record<string, { bar: string, border: string }> = {
-        sinhLucToiDa: { bar: 'bg-red-500', border: 'border-red-500/50' },
-        linhLucToiDa: { bar: 'bg-blue-500', border: 'border-blue-500/50' },
-        theLucToiDa: { bar: 'bg-yellow-500', border: 'border-yellow-500/50' },
-        doNoToiDa: { bar: 'bg-orange-500', border: 'border-orange-500/50' },
-        doNuocToiDa: { bar: 'bg-sky-500', border: 'border-sky-500/50' },
-    };
-
     return (
-        <div className="h-full flex flex-col p-4 space-y-4">
-            
-            {/* Vital Stats */}
-            <div className="flex-shrink-0 space-y-2">
-                 {vitalAttributes.map(attr => {
-                    const maxStatKey = attr.id as keyof CharacterCoreStats;
-                    const currentStatKey = attr.id.replace('ToiDa', '') as keyof CharacterCoreStats;
-                    
-                    const currentValue = coreStats[currentStatKey] ?? 0;
-                    const maxValue = coreStats[maxStatKey] ?? 0;
+        <div className="h-full overflow-y-auto custom-scrollbar p-4 space-y-6">
+            <section>
+                <h3 className="text-lg font-bold text-white mb-3">Tài Nguyên</h3>
+                <div className="space-y-3">
+                    <StatBar current={coreStats.sinhLuc} max={coreStats.sinhLucToiDa} barColor="bg-gradient-to-r from-red-500 to-red-600" label="Sinh Lực" />
+                    <StatBar current={coreStats.linhLuc} max={coreStats.linhLucToiDa} barColor="bg-gradient-to-r from-blue-500 to-cyan-500" label="Linh Lực" />
+                    <StatBar current={coreStats.theLuc} max={coreStats.theLucToiDa} barColor="bg-gradient-to-r from-yellow-500 to-amber-500" label="Thể Lực" />
+                </div>
+            </section>
 
-                    // Do not render if the stat was not defined (max value is 0)
-                    if (maxValue === 0 && currentValue === 0) return null;
+            <section>
+                <h3 className="text-lg font-bold text-white mb-3">Chỉ số Chiến Đấu</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {combatStats.map(stat => <CombatStat key={stat.label} {...stat} />)}
+                </div>
+            </section>
 
-                    const colors = VITAL_COLORS[attr.id] || { bar: 'bg-gray-500', border: 'border-gray-500/50' };
-
-                    return (
-                        <StatBar 
-                            key={attr.id} 
-                            current={currentValue} 
-                            max={maxValue} 
-                            label={attr.name} 
-                            barColor={colors.bar}
-                            borderColor={colors.border}
-                        />
-                    );
-                 })}
-            </div>
-            
-             {/* Primary and Informational Stats */}
-            <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                     <h3 className="text-sm font-bold text-neutral-400 mb-2 uppercase tracking-wider">Chỉ số Chính</h3>
-                     <div className="grid grid-cols-1 gap-1">
-                        {primaryAttributes.map(attr => {
-                            const value = coreStats[attr.id as keyof typeof coreStats] ?? attr.baseValue;
-                            const Icon = GetIconComponent({ name: attr.icon, className: "h-5 w-5 text-neutral-400"});
-                            const displayValue = ['chiMang', 'satThuongChiMang', 'giamHoiChieu'].includes(attr.id) ? `${(Number(value) * 100).toFixed(0)}%` : value;
-
+            <section>
+                <h3 className="text-lg font-bold text-white mb-3">Trạng Thái & Thuộc Tính</h3>
+                {playerStatOrder.length > 0 ? (
+                    <div className="space-y-2">
+                        {playerStatOrder.map(statName => {
+                            const stat = playerStats[statName];
+                            if (!stat) return null;
+                            const theme = getStatTheme(stat.type);
                             return (
-                                <StatGridItem key={attr.id} icon={Icon} label={attr.name} value={displayValue} />
+                                <button key={statName} onClick={() => onStatClick({ ...stat, name: statName }, worldContext.character.name, 'player')} className={`w-full text-left p-3 rounded-md border-l-4 transition-colors hover:bg-neutral-700/50 ${theme.border} ${theme.bg}`}>
+                                    <p className="font-bold text-white">{statName}</p>
+                                    <p className="text-sm text-neutral-400 truncate">{stat.description}</p>
+                                </button>
                             );
                         })}
-                     </div>
-                </div>
-                 <div>
-                    <h3 className="text-sm font-bold text-neutral-400 mb-2 uppercase tracking-wider">Thông tin & Tài nguyên</h3>
-                    <div className="space-y-1">
-                        {informationalAttributes.map(attr => {
-                            const Icon = GetIconComponent({ name: attr.icon, className: "h-4 w-4 text-neutral-400"});
-                            const value = coreStats[attr.id as keyof typeof coreStats] ?? attr.baseValue;
-                            return (
-                                <div key={attr.id} className="flex justify-between items-center text-sm px-2 py-1 bg-black/20 rounded">
-                                    <div className="flex items-center gap-2">
-                                        {Icon}
-                                        <span className="font-semibold text-neutral-300">{attr.name}</span>
-                                    </div>
-                                    <span className="font-bold text-white font-mono">{value}</span>
-                                </div>
-                            )
-                        })}
                     </div>
-                </div>
-            </div>
-            
-            {/* Character Statuses */}
-            <div className="flex-shrink-0">
-                 <h3 className="text-sm font-bold text-neutral-400 mb-2 uppercase tracking-wider">Trạng Thái Hiện Tại</h3>
-                 <div className="h-40 overflow-y-auto custom-scrollbar bg-black/20 p-2 rounded-lg border border-neutral-700">
-                    {orderedStats.length === 0 ? (
-                        <p className="text-center text-sm text-neutral-500 pt-16">Nhân vật không có trạng thái đặc biệt nào.</p>
-                    ) : (
-                         <div className="flex flex-wrap gap-2">
-                            {orderedStats.map(({ name, stat }) => (
-                                <button
-                                    key={name}
-                                    onClick={() => onStatClick({ ...stat, name }, gameState.worldContext.character.name, 'player')}
-                                    className={`px-2 py-1 rounded-md border text-left transition-all duration-200 ${getStatColorClasses(stat.type)} ${recentlyUpdatedStats.has(name) ? 'animate-pulse-fast' : ''}`}
-                                >
-                                    <p className="font-semibold text-xs truncate">{name}</p>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                 </div>
-            </div>
-            <style>{`
-                @keyframes pulse-fast {
-                    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.2); }
-                    50% { transform: scale(1.02); box-shadow: 0 0 0 4px rgba(255,255,255,0); }
-                }
-                .animate-pulse-fast { animation: pulse-fast 1.5s ease-out; }
-            `}</style>
+                ) : (
+                    <p className="text-neutral-500 italic">Không có trạng thái đặc biệt nào.</p>
+                )}
+            </section>
         </div>
     );
 };

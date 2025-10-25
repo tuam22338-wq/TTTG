@@ -1,13 +1,13 @@
-import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage, NovelSession, TrainingDataSet } from '../types';
+import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage, NovelSession, TrainingDataSet, AssistantSession } from '../types';
 
 const DB_NAME = 'BMS_TamThienTheGioi';
-// FIX: Incremented DB_VERSION to 3 to trigger onupgradeneeded for adding a new object store.
-const DB_VERSION = 3;
+// FIX: Incremented DB_VERSION to 4 to trigger onupgradeneeded for adding the assistant store.
+const DB_VERSION = 4;
 const GAME_SAVES_STORE = 'gameSaves';
 const SETTINGS_STORE = 'appSettings';
 const NOVEL_WRITER_STORE = 'novelWriter';
-// FIX: Added a constant for the new training data store.
 const TRAINING_DATA_STORE = 'trainingData';
+const ASSISTANT_SESSIONS_STORE = 'assistantSessions';
 
 let db: IDBDatabase | null = null;
 
@@ -60,9 +60,11 @@ function getDb(): Promise<IDBDatabase> {
             if (!tempDb.objectStoreNames.contains(NOVEL_WRITER_STORE)) {
                 tempDb.createObjectStore(NOVEL_WRITER_STORE);
             }
-            // FIX: Create the new object store for training data if it doesn't exist.
             if (!tempDb.objectStoreNames.contains(TRAINING_DATA_STORE)) {
                 tempDb.createObjectStore(TRAINING_DATA_STORE);
+            }
+            if (!tempDb.objectStoreNames.contains(ASSISTANT_SESSIONS_STORE)) {
+                tempDb.createObjectStore(ASSISTANT_SESSIONS_STORE);
             }
         };
     });
@@ -177,6 +179,25 @@ export async function saveNovelSession(session: NovelSession): Promise<void> {
 export async function deleteNovelSession(id: string): Promise<void> {
     await del(NOVEL_WRITER_STORE, id);
 }
+
+// --- Assistant Chat Sessions ---
+export async function getAllAssistantSessions(): Promise<AssistantSession[]> {
+  const sessions = await getAll<AssistantSession>(ASSISTANT_SESSIONS_STORE);
+  return sessions.sort((a, b) => b.lastModified - a.lastModified);
+}
+
+export async function loadAssistantSession(id: string): Promise<AssistantSession | null> {
+  return await get<AssistantSession>(ASSISTANT_SESSIONS_STORE, id);
+}
+
+export async function saveAssistantSession(session: AssistantSession): Promise<void> {
+  await set(ASSISTANT_SESSIONS_STORE, session.id, session);
+}
+
+export async function deleteAssistantSession(id: string): Promise<void> {
+  await del(ASSISTANT_SESSIONS_STORE, id);
+}
+
 
 export async function saveTrainingSet(dataSet: TrainingDataSet): Promise<void> {
     await set(TRAINING_DATA_STORE, dataSet.id, dataSet);

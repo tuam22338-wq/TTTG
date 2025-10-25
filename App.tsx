@@ -5,7 +5,7 @@ import GameScreen from './components/screens/GameScreen';
 import SettingsModal from './components/SettingsModal';
 import WorldCreatorScreen from './components/screens/WorldCreatorScreen';
 import * as GameSaveService from './services/GameSaveService';
-import { GameState, WorldCreationState, NovelSession } from './types';
+import { GameState, WorldCreationState, NovelSession, AssistantSession } from './types';
 import ConfirmationModal from './components/ui/ConfirmationModal';
 import Modal from './components/ui/Modal';
 import Button from './components/ui/Button';
@@ -16,8 +16,10 @@ import { migrateFromLocalStorage } from './services/StorageService';
 import NovelWriterScreen from './components/screens/NovelWriterScreen';
 import NovelLibraryModal from './components/ui/NovelLibraryModal';
 import DataTrainerModal from './components/DataTrainerModal';
+import AssistantChatScreen from './components/screens/AssistantChatScreen';
+import AssistantLibraryModal from './components/ui/AssistantLibraryModal';
 
-type Screen = 'menu' | 'game' | 'world-creator' | 'novel-writer';
+type Screen = 'menu' | 'game' | 'world-creator' | 'novel-writer' | 'assistant-chat';
 type ApiKeyStatus = 'checking' | 'selected' | 'not_selected';
 
 const App: React.FC = () => {
@@ -36,6 +38,8 @@ const App: React.FC = () => {
   const [isNovelLibraryModalOpen, setIsNovelLibraryModalOpen] = useState(false);
   const [isDataTrainerOpen, setIsDataTrainerOpen] = useState(false);
   const [activeNovelSessionId, setActiveNovelSessionId] = useState<string | null>(null);
+  const [isAssistantLibraryModalOpen, setIsAssistantLibraryModalOpen] = useState(false);
+  const [activeAssistantSessionId, setActiveAssistantSessionId] = useState<string | null>(null);
 
   
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('checking');
@@ -88,6 +92,11 @@ const App: React.FC = () => {
     if (!ensureApiKey()) return;
     setIsNovelLibraryModalOpen(true);
   };
+
+  const handleStartAssistantChat = () => {
+    if (!ensureApiKey()) return;
+    setIsAssistantLibraryModalOpen(true);
+  };
   
   const handleStartNewNovelSession = () => {
     const newSessionId = `novel_${Date.now()}`;
@@ -100,6 +109,19 @@ const App: React.FC = () => {
       setActiveNovelSessionId(sessionId);
       setIsNovelLibraryModalOpen(false);
       setCurrentScreen('novel-writer');
+  };
+  
+  const handleStartNewAssistantSession = () => {
+    const newSessionId = `assistant_${Date.now()}`;
+    setActiveAssistantSessionId(newSessionId);
+    setIsAssistantLibraryModalOpen(false);
+    setCurrentScreen('assistant-chat');
+  };
+
+  const handleContinueAssistantSession = (sessionId: string) => {
+    setActiveAssistantSessionId(sessionId);
+    setIsAssistantLibraryModalOpen(false);
+    setCurrentScreen('assistant-chat');
   };
 
 
@@ -171,7 +193,6 @@ const App: React.FC = () => {
                 />;
       case 'novel-writer':
         if (!activeNovelSessionId) {
-          // Fallback if somehow screen is reached without data
           setCurrentScreen('menu');
           return null;
         }
@@ -181,6 +202,17 @@ const App: React.FC = () => {
                   onApiKeyInvalid={handleApiKeyInvalid}
                   sessionId={activeNovelSessionId}
                 />;
+      case 'assistant-chat':
+        if (!activeAssistantSessionId) {
+          setCurrentScreen('menu');
+          return null;
+        }
+        return <AssistantChatScreen 
+                  onBackToMenu={() => setCurrentScreen('menu')} 
+                  settingsHook={settingsHook}
+                  onApiKeyInvalid={handleApiKeyInvalid}
+                  sessionId={activeAssistantSessionId}
+                />;
       case 'game':
         if (!gameStartData) {
           // Fallback if somehow game screen is reached without data
@@ -188,6 +220,7 @@ const App: React.FC = () => {
             onStart={handleStartGame}
             onContinue={() => setIsContinueModalOpen(true)}
             onStartNovelWriter={handleStartNovelWriter}
+            onStartAssistantChat={handleStartAssistantChat}
             onLoadFromFile={handleLoadFromFile}
             onSettings={() => setIsSettingsOpen(true)}
             onShowInfo={() => setIsInfoModalOpen(true)}
@@ -213,6 +246,7 @@ const App: React.FC = () => {
             onStart={handleStartGame}
             onContinue={() => setIsContinueModalOpen(true)}
             onStartNovelWriter={handleStartNovelWriter}
+            onStartAssistantChat={handleStartAssistantChat}
             onLoadFromFile={handleLoadFromFile}
             onSettings={() => setIsSettingsOpen(true)}
             onShowInfo={() => setIsInfoModalOpen(true)}
@@ -255,6 +289,12 @@ const App: React.FC = () => {
             onClose={() => setIsNovelLibraryModalOpen(false)}
             onStartNew={handleStartNewNovelSession}
             onContinue={handleContinueNovelSession}
+          />
+          <AssistantLibraryModal
+            isOpen={isAssistantLibraryModalOpen}
+            onClose={() => setIsAssistantLibraryModalOpen(false)}
+            onStartNew={handleStartNewAssistantSession}
+            onContinue={handleContinueAssistantSession}
           />
           <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title="Thông tin">
             <div className="text-center p-4">

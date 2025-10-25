@@ -22,12 +22,14 @@ import {
     Weather,
     StatType,
     CharacterStat,
+    ChronicleEntry,
 } from '../types';
 import * as GeminiStorytellerService from '../services/GeminiStorytellerService';
 import * as GameSaveService from '../services/GameSaveService';
 import { GoogleGenAI } from '@google/genai';
 import { AiModelSettings, SafetySettings } from '../types';
 import { ApiClient } from '../services/gemini/client';
+import * as client from '../services/gemini/client';
 
 const INITIAL_AI_SETTINGS: AiSettings = {
     isLogicModeOn: true,
@@ -105,12 +107,22 @@ export function useGameEngine(
             } = await GeminiStorytellerService.initializeStory(worldState, apiClient, aiModelSettings, safetySettings);
 
             const initialCoreStats = getInitialCoreStats(worldState);
+
+            const summaryEmbedding = await client.callEmbeddingModel(summaryText, apiClient);
+            const initialChronicleEntry: ChronicleEntry = {
+                turnNumber: 1,
+                summary: summaryText,
+                timestamp: new Date().toLocaleTimeString('vi-VN'),
+                isoTimestamp: new Date().toISOString(),
+                embedding: summaryEmbedding,
+            };
             
             const newGameState: GameState = {
                 worldContext: worldState,
                 history: [initialTurn],
                 playerStats: {},
                 playerStatOrder: [],
+                playerTitle: '',
                 npcs: [],
                 playerSkills: initialPlayerSkills || [],
                 plotChronicle,
@@ -122,7 +134,7 @@ export function useGameEngine(
                 cultivation: { level: 1, exp: 0, expToNextLevel: 100 },
                 inventory: { items: [], capacity: 50, maxWeight: 25 },
                 equipment: { WEAPON: null, HEAD: null, CHEST: null, LEGS: null, HANDS: null, FEET: null },
-                chronicle: [{ turnNumber: 1, summary: summaryText, timestamp: new Date().toLocaleTimeString('vi-VN') }],
+                chronicle: [initialChronicleEntry],
                 time: { day: 1, hour: 8, minute: 0, season: 'Xuân', weather: 'Quang đãng' },
                 isInCombat: false,
                 combatants: [],
@@ -310,25 +322,7 @@ export function useGameEngine(
                 });
             };
 
-            const {
-                newTurn,
-                playerStatChanges,
-                npcUpdates,
-                newlyAcquiredSkill,
-                newPlotChronicle,
-                presentNpcIds,
-                summaryText,
-                itemsReceived,
-                timeElapsed,
-                nsfwSceneStateChange,
-                expGained,
-                coreStatsChanges,
-                weatherChange,
-                isInCombat,
-                combatantNpcIds,
-                totalTokens,
-                playerSkills,
-            } = await GeminiStorytellerService.continueStory(
+            const response = await GeminiStorytellerService.continueStory(
                 gameState, choice, apiClient,
                 gameState.aiSettings.isLogicModeOn, gameState.aiSettings.lustModeFlavor,
                 gameState.aiSettings.npcMindset, gameState.aiSettings.isConscienceModeOn,
@@ -338,33 +332,44 @@ export function useGameEngine(
                 aiModelSettings, safetySettings, onChunk
             );
             
+            const summaryEmbedding = (isRewrite || !response.summaryText) 
+                ? null 
+                : await client.callEmbeddingModel(response.summaryText, apiClient);
+
             setGameState(prevState => {
                  if (!prevState) return null;
                  
                  let newState = { ...prevState };
 
                  // 1. Apply stat & NPC updates
-                 newState = applyStatChanges(newState, playerStatChanges, 'PLAYER');
-                 newState = applyNpcUpdates(newState, npcUpdates);
+                 newState = applyStatChanges(newState, response.playerStatChanges, 'PLAYER');
+                 newState = applyNpcUpdates(newState, response.npcUpdates);
                  
                  // 2. Update history and chronicle with the final, complete turn data
                  const finalHistory = [...prevState.history];
-                 finalHistory[finalHistory.length - 1] = newTurn;
+                 finalHistory[finalHistory.length - 1] = response.newTurn;
                  newState.history = finalHistory;
 
-                 if (!isRewrite) {
-                     newState.chronicle = [...prevState.chronicle, { turnNumber: prevState.history.length, summary: summaryText, timestamp: new Date().toLocaleTimeString('vi-VN'), isoTimestamp: new Date().toISOString() }];
+                 if (!isRewrite && summaryEmbedding) {
+                     newState.chronicle = [...prevState.chronicle, { 
+                         turnNumber: prevState.history.length, 
+                         summary: response.summaryText, 
+                         timestamp: new Date().toLocaleTimeString('vi-VN'), 
+                         isoTimestamp: new Date().toISOString(),
+                         embedding: summaryEmbedding
+                     }];
                  }
                  
                  // 3. Update core state
-                 newState.plotChronicle = newPlotChronicle;
-                 newState.presentNpcIds = presentNpcIds;
-                 newState.totalTokens += totalTokens || 0;
+                 newState.plotChronicle = response.newPlotChronicle;
+                 newState.playerTitle = response.playerTitle || prevState.playerTitle;
+                 newState.presentNpcIds = response.presentNpcIds;
+                 newState.totalTokens += response.totalTokens || 0;
                  newState.requestCount += 1;
                  
                  // 4. Handle Experience and Leveling
-                if (expGained > 0) {
-                    let newExp = newState.cultivation.exp + expGained;
+                if (response.expGained > 0) {
+                    let newExp = newState.cultivation.exp + response.expGained;
                     let newLevel = newState.cultivation.level;
                     let newExpToNext = newState.cultivation.expToNextLevel;
 
@@ -383,7 +388,7 @@ export function useGameEngine(
                 }
 
                  // 5. Handle time and environment
-                 const newMinutes = prevState.time.minute + timeElapsed;
+                 const newMinutes = prevState.time.minute + response.timeElapsed;
                  const newHour = prevState.time.hour + Math.floor(newMinutes / 60);
                  const newDay = prevState.time.day + Math.floor(newHour / 24);
                  
@@ -394,8 +399,8 @@ export function useGameEngine(
                      day: newDay
                  };
 
-                 if (weatherChange) {
-                    newState.time.weather = weatherChange;
+                 if (response.weatherChange) {
+                    newState.time.weather = response.weatherChange;
                  }
 
                  // Season Logic (assuming 91 days per season)
@@ -411,19 +416,19 @@ export function useGameEngine(
                 }
 
                  // 6. Apply core stat changes from AI
-                if (coreStatsChanges) {
-                    newState.coreStats = { ...newState.coreStats, ...coreStatsChanges };
+                if (response.coreStatsChanges) {
+                    newState.coreStats = { ...newState.coreStats, ...response.coreStatsChanges };
                     // Ensure current resource values do not exceed their new maximums
-                    if (coreStatsChanges.sinhLucToiDa !== undefined) newState.coreStats.sinhLuc = Math.min(newState.coreStats.sinhLuc, newState.coreStats.sinhLucToiDa);
-                    if (coreStatsChanges.linhLucToiDa !== undefined) newState.coreStats.linhLuc = Math.min(newState.coreStats.linhLuc, newState.coreStats.linhLucToiDa);
-                    if (coreStatsChanges.theLucToiDa !== undefined) newState.coreStats.theLuc = Math.min(newState.coreStats.theLuc, newState.coreStats.theLucToiDa);
-                    if (coreStatsChanges.doNoToiDa !== undefined) newState.coreStats.doNo = Math.min(newState.coreStats.doNo, newState.coreStats.doNoToiDa);
-                    if (coreStatsChanges.doNuocToiDa !== undefined) newState.coreStats.doNuoc = Math.min(newState.coreStats.doNuoc, newState.coreStats.doNuocToiDa);
+                    if (response.coreStatsChanges.sinhLucToiDa !== undefined) newState.coreStats.sinhLuc = Math.min(newState.coreStats.sinhLuc, newState.coreStats.sinhLucToiDa);
+                    if (response.coreStatsChanges.linhLucToiDa !== undefined) newState.coreStats.linhLuc = Math.min(newState.coreStats.linhLuc, newState.coreStats.linhLucToiDa);
+                    if (response.coreStatsChanges.theLucToiDa !== undefined) newState.coreStats.theLuc = Math.min(newState.coreStats.theLuc, newState.coreStats.theLucToiDa);
+                    if (response.coreStatsChanges.doNoToiDa !== undefined) newState.coreStats.doNo = Math.min(newState.coreStats.doNo, newState.coreStats.doNoToiDa);
+                    if (response.coreStatsChanges.doNuocToiDa !== undefined) newState.coreStats.doNuoc = Math.min(newState.coreStats.doNuoc, newState.coreStats.doNuocToiDa);
                 }
 
                 // 7. Apply full skill list update from AI
-                if (playerSkills) {
-                    newState.playerSkills = playerSkills;
+                if (response.playerSkills) {
+                    newState.playerSkills = response.playerSkills;
                 }
 
 
@@ -432,8 +437,8 @@ export function useGameEngine(
                  return newState;
             });
 
-            if (newlyAcquiredSkill) {
-                setNewlyAcquiredSkill(newlyAcquiredSkill);
+            if (response.newlyAcquiredSkill) {
+                setNewlyAcquiredSkill(response.newlyAcquiredSkill);
             }
             
         } catch (e: any) {
@@ -491,10 +496,44 @@ export function useGameEngine(
         });
     };
     
-    const executeEntityAction = async (target: EntityTarget, action: StatAction, scopes: StatScopes, directive?: string, newPersonality?: string) => {
-        // This is a placeholder for a complex operation that would call the GeminiStorytellerService
-        console.log("Executing action:", { target, action, scopes, directive, newPersonality });
-        // In a real implementation, you'd call a service function here and update state with the result.
+    const executeEntityAction = async (target: EntityTarget, action: StatAction, scopes: StatScopes, directive?: string, newPersonality?: string): Promise<boolean> => {
+        if (!gameState || !apiClient.getApiClient()) {
+            setError("Hành động thất bại: Game hoặc AI chưa sẵn sàng.");
+            return false;
+        }
+        
+        setIsLoading(true);
+        setError(null); // Clear previous error before trying
+        
+        try {
+            if (action === 'SANITIZE') {
+                console.log("Sanitizing game state...");
+                const { playerStatChanges, npcUpdates, sanitizedPlotChronicle } = await GeminiStorytellerService.sanitizeGameState(gameState, apiClient, aiModelSettings, safetySettings);
+
+                setGameState(prevState => {
+                    if (!prevState) return null;
+                    let newState = { ...prevState, plotChronicle: sanitizedPlotChronicle };
+                    newState = applyStatChanges(newState, playerStatChanges, 'PLAYER');
+                    npcUpdates.forEach(npcUpdate => {
+                        newState = applyStatChanges(newState, npcUpdate.statsChanges, npcUpdate.id);
+                    });
+                    console.log("Sanitization complete. Game state updated.");
+                    return newState;
+                });
+
+                alert("Đã cố gắng làm sạch và tối ưu hóa dữ liệu game. Lỗi đã được xóa. Vui lòng thử lại hành động trước đó hoặc tiếp tục chơi.");
+                return true; // Indicate success
+            } else {
+                console.warn(`Action ${action} is not implemented yet.`);
+                return false;
+            }
+        } catch (e: any) {
+            console.error("Lỗi khi thực thi hành động thực thể:", e);
+            setError(`Lỗi khi tối ưu hóa: ${e.message}`);
+            return false; // Indicate failure
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleAcknowledgeSkill = () => {
@@ -523,5 +562,6 @@ export function useGameEngine(
         addPlayerSkill, // Expose for manual adding if needed
         setShowIntroductoryModal, // To close it from GameScreen
         setGameState, // For direct state manipulation like combat results
+        setError,
     };
 }

@@ -1,5 +1,5 @@
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
-import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather, TrainingDataSet, TrainingDataChunk } from '../types';
+import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather, TrainingDataSet, TrainingDataChunk, ChronicleEntry } from '../types';
 import * as schemas from './gemini/schemas';
 import * as client from './gemini/client';
 import * as prompts from './prompt-engineering/corePrompts';
@@ -75,13 +75,15 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
     return dotProduct / (magnitudeA * magnitudeB);
 }
 
-function findTopKChunks(promptEmbedding: number[], chunks: TrainingDataChunk[], k: number = 3): TrainingDataChunk[] {
+function findTopKChunks<T extends { embedding?: number[] }>(promptEmbedding: number[], chunks: T[], k: number = 3): T[] {
     if (chunks.length === 0) return [];
 
-    const similarities = chunks.map(chunk => ({
-        chunk,
-        similarity: cosineSimilarity(promptEmbedding, chunk.embedding),
-    }));
+    const similarities = chunks
+        .filter(chunk => chunk.embedding && chunk.embedding.length > 0)
+        .map(chunk => ({
+            chunk,
+            similarity: cosineSimilarity(promptEmbedding, chunk.embedding!),
+        }));
 
     similarities.sort((a, b) => b.similarity - a.similarity);
 
@@ -410,6 +412,7 @@ export async function continueStory(
     presentNpcIds: string[];
     summaryText: string;
     itemsReceived: string[]; // Changed from Item[]
+    playerTitle: string | null;
     timeElapsed: number;
     nsfwSceneStateChange: 'ENTER' | 'EXIT' | 'NONE';
     expGained: number;
@@ -420,11 +423,44 @@ export async function continueStory(
     totalTokens: number;
     playerSkills: Skill[] | null;
 }> {
-    const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history, presentNpcIds, inventory, equipment } = gameState;
+    const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history, presentNpcIds, inventory, equipment, chronicle } = gameState;
+
+    // --- Start: RAG - Memory Retrieval ---
+    const lastTurnText = history.length > 0 ? history[history.length - 1].storyText : "";
+    const retrievalQuery = `${choice}\n${lastTurnText.slice(-200)}`;
+    const queryEmbedding = await client.callEmbeddingModel(retrievalQuery, apiClient);
+
+    // 1. Retrieve Episodic Memory (from Chronicle)
+    const relevantMemories = findTopKChunks(queryEmbedding, chronicle, 3);
+    const episodicMemoryContext = relevantMemories.length > 0 
+        ? relevantMemories.map(m => `- (Lượt ${m.turnNumber}): ${m.summary}`).join('\n')
+        : "Không có ký ức tình tiết nào liên quan.";
+
+    // 2. Retrieve World Knowledge (from Knowledge Base)
+    let knowledgeContext = "Không có kiến thức nền nào liên quan.";
+    if (worldContext.knowledgeBaseId) {
+        const knowledgeBase = await StorageService.getTrainingSetById(worldContext.knowledgeBaseId);
+        if (knowledgeBase) {
+            const relevantKnowledge = findTopKChunks(queryEmbedding, knowledgeBase.chunks, 2);
+            if (relevantKnowledge.length > 0) {
+                knowledgeContext = relevantKnowledge.map((k, i) => `**Kiến thức ${i+1}:** ${k.content}`).join('\n\n');
+            }
+        }
+    }
+    
+    const ragContextPrompt = `
+**4.0. TẦNG KÝ ỨC TRUY VẤN (RETRIEVAL-AUGMENTED MEMORY):**
+Đây là những ký ức và kiến thức liên quan nhất đến tình hình hiện tại, được hệ thống tự động chắt lọc.
+- **Ký ức Tình tiết Liên quan:**
+${episodicMemoryContext}
+- **Kiến thức Thế giới Liên quan:**
+${knowledgeContext}
+`;
+    // --- End: RAG ---
+
 
     const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
 
-    // Filter to only send relevant attributes to the AI, not core combat stats.
     const informationalAttributes = worldContext.customAttributes.filter(attr => attr.type === AttributeType.INFORMATIONAL || attr.type === AttributeType.HIDDEN);
     const customAttributesString = informationalAttributes.length > 0
         ? JSON.stringify(informationalAttributes.map(({ name, description, baseValue }) => ({ name, description, baseValue })), null, 2)
@@ -437,8 +473,7 @@ export async function continueStory(
     const flowOfDestinyRules = getFlowOfDestinyRules(shouldTriggerWorldTurn, choice);
     const worldRulesPrompt = getWorldRulesPrompt(worldContext.specialRules, worldContext.initialLore);
 
-    const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 3.5); // Use a more conservative token-per-word ratio for Vietnamese
-    // Use a multiplier to leave a larger buffer for the JSON structure itself.
+    const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 3.5);
     const targetStoryWordCount = Math.max(150, Math.floor(approximateWordCount * 0.7));
     
     const lengthInstruction = `
@@ -468,8 +503,10 @@ Bạn BẮT BUỘC phải viết một đoạn \`storyText\` có độ dài **T�
         .map(({ id, name, relationship, status, lastInteractionSummary }) => ({ id, name, relationship, status, lastInteractionSummary }));
 
     const userPrompt = `
-### THÙY 4: KÝ ỨC & BỐI CẢNH (MEMORY & CONTEXT LOBE) ###
+### BẢN TÓM TẮT NHẬN THỨC (COGNITIVE SNAPSHOT) ###
 Đây là toàn bộ thông tin bạn cần để đưa ra quyết định cho lượt truyện này.
+
+${ragContextPrompt}
 
 **4.1. TẦNG KÝ ỨC DÀI HẠN (NỀN TẢNG & BIÊN NIÊN SỬ):**
 - **Nền tảng Thế giới:** Thể loại: ${worldContext.genre || "Không có"}, Bối cảnh: ${worldContext.description}
@@ -567,6 +604,7 @@ ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt c�
                 presentNpcIds: logicAiResponse.presentNpcIds || [],
                 summaryText: logicAiResponse.summaryText,
                 itemsReceived: logicAiResponse.itemsReceived || [],
+                playerTitle: logicAiResponse.playerTitle || null,
                 timeElapsed: logicAiResponse.timeElapsed || 10,
                 nsfwSceneStateChange: logicAiResponse.nsfwSceneStateChange || 'NONE',
                 expGained: logicAiResponse.expGained || 0,

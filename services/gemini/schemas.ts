@@ -117,6 +117,7 @@ export const coreLogicSchema = {
             items: { type: Type.STRING }
         },
         playerStatChanges: { ...statChangesSchema, nullable: true },
+        playerTitle: { type: Type.STRING, nullable: true },
         npcUpdates: {
             type: Type.ARRAY,
             items: {

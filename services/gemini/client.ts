@@ -1,8 +1,8 @@
-import { GoogleGenAI, GenerateContentResponse, EmbedContentResponse, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse, EmbedContentResponse, HarmCategory, HarmBlockThreshold, BatchEmbedContentsResponse, ContentEmbedding } from '@google/genai';
 import { AiModelSettings } from '../../types';
 import { ApiStatsManager } from '../../hooks/useApiStats';
 
-const MAX_RATE_LIMIT_RETRIES = 3;
+const MAX_API_RETRIES = 3;
 
 export interface ApiClient {
     getApiClient: () => GoogleGenAI | null;
@@ -40,11 +40,11 @@ function fixJsonControlCharacters(jsonString: string): string {
 }
 
 
-async function callGeminiWithRetry<T>(
+async function callGeminiWithResiliency<T>(
     apiClient: ApiClient,
     callFunction: (geminiService: GoogleGenAI) => Promise<T>
 ): Promise<T> {
-    for (let i = 0; i < MAX_RATE_LIMIT_RETRIES; i++) {
+    for (let i = 0; i < MAX_API_RETRIES; i++) {
         const geminiService = apiClient.getApiClient();
         if (!geminiService) {
             throw new Error("Không thể khởi tạo Gemini Client. Vui lòng kiểm tra API key.");
@@ -53,20 +53,31 @@ async function callGeminiWithRetry<T>(
         try {
             return await callFunction(geminiService);
         } catch (error: any) {
-            const isRateLimitError = error.message && (error.message.includes('429') || error.message.includes('rate limit'));
-            if (isRateLimitError && i < MAX_RATE_LIMIT_RETRIES - 1) {
+            const errorMessage = error.message || '';
+            const isRateLimitError = errorMessage.includes('429') || errorMessage.includes('rate limit');
+            const isServerError = errorMessage.includes('500') || errorMessage.includes('internal error');
+
+            if ((isRateLimitError || isServerError) && i < MAX_API_RETRIES - 1) {
                 const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
-                console.warn(`Rate limit error (429) encountered. Retrying with next key in ${Math.round(delay / 1000)}s... (Attempt ${i + 1}/${MAX_RATE_LIMIT_RETRIES})`);
-                apiClient.cycleToNextApiKey(); // Cycle to the next key before retrying
+                const errorType = isServerError ? "Server error (500)" : "Rate limit error (429)";
+                
+                console.warn(`${errorType} encountered. Retrying in ${Math.round(delay / 1000)}s... (Attempt ${i + 1}/${MAX_API_RETRIES})`);
+                
+                // For rate limit errors, we also cycle the API key
+                if (isRateLimitError) {
+                    apiClient.cycleToNextApiKey(); 
+                    console.log("Cycling to next API key.");
+                }
+                
                 await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-                // Re-throw the error if it's not a rate limit error or if it's the last retry
+                // Re-throw the error if it's not a retriable error or if it's the last retry
                 throw error;
             }
         }
     }
     // This line should theoretically be unreachable
-    throw new Error("Đã đạt đến số lần thử lại tối đa cho lỗi rate limit.");
+    throw new Error("Đã đạt đến số lần thử lại tối đa cho lỗi API.");
 }
 
 
@@ -78,7 +89,7 @@ async function performApiCall<T>(
     const startTime = Date.now();
     let success = false;
     try {
-        const response = await callGeminiWithRetry(apiClient, callLogic);
+        const response = await callGeminiWithResiliency(apiClient, callLogic);
         success = true;
         return response;
     } catch (e: any) {
@@ -191,6 +202,41 @@ export async function callJsonAIStream(
      return performApiCall(apiClient, callLogic);
 }
 
+export async function callTextAIStream(
+    prompt: string, 
+    history: { role: string; parts: { text: string }[] }[],
+    apiClient: ApiClient, 
+    modelSettings: AiModelSettings,
+    systemInstruction: string,
+    safetySettings: any
+): Promise<AsyncGenerator<GenerateContentResponse>> {
+     const callLogic = (geminiService: GoogleGenAI) => {
+        const config: any = {
+            safetySettings: safetySettings,
+            temperature: modelSettings.temperature,
+            topP: modelSettings.topP,
+            topK: modelSettings.topK,
+            maxOutputTokens: modelSettings.maxOutputTokens,
+            systemInstruction: systemInstruction,
+        };
+        if (modelSettings.model === 'gemini-2.5-flash') {
+            config.thinkingConfig = { thinkingBudget: modelSettings.thinkingBudget };
+        }
+        
+        const contents = [
+            ...history,
+            { role: 'user', parts: [{ text: prompt }] }
+        ];
+
+        return geminiService.models.generateContentStream({
+            model: modelSettings.model,
+            contents,
+            config,
+        });
+    };
+     return performApiCall(apiClient, callLogic);
+}
+
 
 export async function callCreativeTextAI(
     prompt: string, 
@@ -240,6 +286,23 @@ export async function callEmbeddingModel(
     
     const response = await performApiCall(apiClient, callLogic);
     return response.embedding.values;
+}
+
+export async function callBatchEmbeddingModel(
+    texts: string[],
+    apiClient: ApiClient,
+): Promise<number[][]> {
+     const callLogic = async (geminiService: GoogleGenAI): Promise<number[][]> => {
+        const requests = texts.map(text => ({
+            model: 'text-embedding-004',
+            content: { parts: [{ text }] }
+        }));
+        
+        const result: BatchEmbedContentsResponse = await geminiService.models.batchEmbedContents({ requests });
+        return result.embeddings.map((e: ContentEmbedding) => e.values);
+    };
+
+    return performApiCall(apiClient, callLogic);
 }
 
 

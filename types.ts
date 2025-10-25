@@ -77,6 +77,13 @@ export interface NovelSession {
   history: ChatMessage[];
 }
 
+export interface AssistantSession {
+  id: string;
+  title: string;
+  lastModified: number;
+  history: ChatMessage[];
+}
+
 export interface TrainingDataChunk {
     content: string;
     embedding: number[];
@@ -486,6 +493,7 @@ export interface ChronicleEntry {
     summary: string;
     timestamp: string;
     isoTimestamp?: string;
+    embedding?: number[];
 }
 
 export type Season = 'Xuân' | 'Hạ' | 'Thu' | 'Đông';
@@ -504,6 +512,7 @@ export interface GameState {
     history: GameTurn[];
     playerStats: CharacterStats;
     playerStatOrder: string[];
+    playerTitle: string;
     npcs: NPC[];
     playerSkills: Skill[];
     plotChronicle: string;

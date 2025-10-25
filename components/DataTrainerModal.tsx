@@ -95,13 +95,25 @@ const DataTrainerModal: React.FC<DataTrainerModalProps> = ({ isOpen, onClose, se
                 throw new Error("Không có nội dung nào trong tệp để huấn luyện.");
             }
 
-            const embeddedChunks: TrainingDataChunk[] = [];
-            for (let i = 0; i < chunks.length; i++) {
-                setProgressMessage(`Đang vector hóa chunk ${i + 1} / ${chunks.length}...`);
-                // FIX: Removed the third argument as client.callEmbeddingModel only expects two arguments (text and apiClient).
-                const embedding = await client.callEmbeddingModel(chunks[i], apiClient);
-                embeddedChunks.push({ content: chunks[i], embedding });
+            setProgressMessage(`Chuẩn bị vector hóa ${chunks.length} chunks...`);
+            
+            const BATCH_SIZE = 100; // Gemini API limit for batchEmbedContents
+            const allEmbeddings: number[][] = [];
+            for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+                const batchChunks = chunks.slice(i, i + BATCH_SIZE);
+                setProgressMessage(`Đang vector hóa chunks ${i + 1}-${Math.min(i + BATCH_SIZE, chunks.length)} / ${chunks.length}...`);
+                const batchEmbeddings = await client.callBatchEmbeddingModel(batchChunks, apiClient);
+                allEmbeddings.push(...batchEmbeddings);
             }
+            
+            if (allEmbeddings.length !== chunks.length) {
+                throw new Error(`Số lượng embeddings trả về (${allEmbeddings.length}) không khớp với số lượng chunks (${chunks.length}).`);
+            }
+
+            const embeddedChunks: TrainingDataChunk[] = chunks.map((chunk, index) => ({
+                content: chunk,
+                embedding: allEmbeddings[index],
+            }));
 
             const newDataSet: TrainingDataSet = {
                 id: `knowledge_${Date.now()}`,

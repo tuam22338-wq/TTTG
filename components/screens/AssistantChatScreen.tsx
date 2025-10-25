@@ -1,31 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import { HarmCategory, HarmBlockThreshold } from '@google/genai';
 import { useSettings } from '../../hooks/useSettings';
-import { ChatMessage, NovelSession, NovelWriterSettings } from '../../types';
+import { ChatMessage, AssistantSession } from '../../types';
 import * as StorageService from '../../services/StorageService';
 import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
-import { NOVEL_WRITER_SYSTEM_PROMPT } from '../../services/prompt-engineering/corePrompts';
+import { GAME_MASTER_ASSISTANT_SYSTEM_PROMPT, PACKAGING_KNOWLEDGE_PROMPT, PACKAGING_TEMPLATE_PROMPT } from '../../services/prompt-engineering/corePrompts';
 import { marked } from 'https://esm.sh/marked@13.0.2';
 import Button from '../ui/Button';
 import TextareaField from '../ui/TextareaField';
-import { TuneIcon } from '../icons/TuneIcon';
-import NovelControlPanelModal from '../novel-writer/NovelControlPanelModal';
 import * as client from '../../services/gemini/client';
+import { PackageIcon } from '../icons/PackageIcon';
+import * as schemas from '../../services/gemini/schemas';
 
-// Simple loading spinner
 const Spinner: React.FC = () => (
     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
 );
 
-// New component for the send button
 const SendIcon: React.FC<{className?: string}> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
         <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
     </svg>
 );
 
+const downloadFile = (content: string, filename: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
 
-const NovelWriterScreen: React.FC<{ 
+
+const AssistantChatScreen: React.FC<{ 
     onBackToMenu: () => void; 
     settingsHook: ReturnType<typeof useSettings>;
     onApiKeyInvalid: () => void;
@@ -35,29 +45,17 @@ const NovelWriterScreen: React.FC<{
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isPackaging, setIsPackaging] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const isSavingRef = useRef(false);
-    const [currentSession, setCurrentSession] = useState<NovelSession | null>(null);
-    const [isControlPanelOpen, setIsControlPanelOpen] = useState(false);
-    const [novelSettings, setNovelSettings] = useState<NovelWriterSettings>({
-        pacing: 'cân bằng',
-        timePerChapter: '1 tiếng',
-        allowAiTimeskip: false,
-        writingRules: [],
-        chapterLength: 3000,
-    });
+    const [currentSession, setCurrentSession] = useState<AssistantSession | null>(null);
 
-
-    // Initialization
     useEffect(() => {
         const initialize = async () => {
             setIsLoading(true);
-            setError(null);
             try {
-                let loadedSession = await StorageService.loadNovelSession(sessionId);
-                
-                // If session doesn't exist, create a new one
+                let loadedSession = await StorageService.loadAssistantSession(sessionId);
                 if (!loadedSession) {
                     loadedSession = {
                         id: sessionId,
@@ -66,14 +64,11 @@ const NovelWriterScreen: React.FC<{
                         history: [],
                     };
                 }
-                
                 setCurrentSession(loadedSession);
                 setChatHistory(loadedSession.history);
-
                 if (!isKeyConfigured) {
                      setError("Vui lòng cấu hình API key trong phần cài đặt trước khi sử dụng.");
                 }
-
             } catch (e: any) {
                 setError(`Lỗi khởi tạo: ${e.message}`);
             } finally {
@@ -83,101 +78,67 @@ const NovelWriterScreen: React.FC<{
         initialize();
     }, [sessionId, isKeyConfigured]);
     
-    // Auto-scrolling
     useEffect(() => {
         if (chatContainerRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
     }, [chatHistory]);
 
-    // Save history
     useEffect(() => {
-        if (!isLoading && currentSession && !isSavingRef.current) {
+        if (!isLoading && currentSession && !isSavingRef.current && chatHistory.length > 0) {
             isSavingRef.current = true;
-            // Create a title if one doesn't exist from the first user message
-            const title = currentSession.title || chatHistory.find(m => m.role === 'user')?.text.substring(0, 50) || 'Câu chuyện mới';
+            const title = currentSession.title || chatHistory.find(m => m.role === 'user')?.text.substring(0, 50) || 'Phiên mới';
 
-            const sessionToSave: NovelSession = {
+            const sessionToSave: AssistantSession = {
                 ...currentSession,
                 history: chatHistory,
                 lastModified: Date.now(),
-                title: title,
+                title,
             };
             
-            StorageService.saveNovelSession(sessionToSave).then(() => {
-                // Update local session state to prevent re-creating title every time
+            StorageService.saveAssistantSession(sessionToSave).then(() => {
                 setCurrentSession(sessionToSave);
             }).finally(() => {
                 isSavingRef.current = false;
             });
         }
     }, [chatHistory, isLoading, currentSession]);
-
-    const constructPromptPrefix = (settings: NovelWriterSettings): string => {
-        let prefix = "### CHỈ DẪN BỔ SUNG TỪ TÁC GIẢ ###\n";
-        prefix += `**Yêu cầu về nhịp độ:** ${settings.pacing}.\n`;
-        prefix += `**Yêu cầu về độ dài chương:** Khoảng ${settings.chapterLength} từ.\n`;
-        prefix += `**Yêu cầu về bước nhảy thời gian (Timeskip):** ${settings.allowAiTimeskip ? 'AI được phép tự tạo timeskip nếu cần thiết để đẩy nhanh cốt truyện.' : 'AI không được tự tạo timeskip lớn trừ khi có chỉ dẫn cụ thể.'}\n`;
-        if (settings.timePerChapter) {
-            prefix += `**Yêu cầu về thời gian trôi qua trong chương này:** ${settings.timePerChapter}.\n`;
-        }
-        if (settings.writingRules.length > 0) {
-            prefix += "**Các quy tắc hành văn bắt buộc phải tuân thủ:**\n";
-            settings.writingRules.forEach(rule => {
-                prefix += `- **${rule.name}:** ${rule.content}\n`;
-            });
-        }
-        prefix += "### CHỈ DẪN TIẾP THEO ###\n";
-        return prefix;
-    };
-
+    
     const handleSend = async () => {
-        if (!userInput.trim() || isLoading) return;
-
+        if (!userInput.trim() || isLoading || isPackaging) return;
         const apiClientObject: client.ApiClient = { getApiClient, cycleToNextApiKey, apiStats, onApiKeyInvalid };
         if (!apiClientObject.getApiClient()) {
-            setError("Dịch vụ AI chưa được khởi tạo. Vui lòng kiểm tra lại API key trong phần cài đặt.");
+            setError("Dịch vụ AI chưa sẵn sàng.");
             onApiKeyInvalid();
             return;
         }
 
-        const userMessageForDisplay: ChatMessage = { role: 'user', text: userInput };
-        const promptPrefix = constructPromptPrefix(novelSettings);
-        const fullUserInput = promptPrefix + userInput;
-        
-        const currentChatHistory = [...chatHistory, userMessageForDisplay];
-        setChatHistory(currentChatHistory);
+        const userMessage: ChatMessage = { role: 'user', text: userInput };
+        const newChatHistory = [...chatHistory, userMessage];
+        setChatHistory(newChatHistory);
         setUserInput('');
         setIsLoading(true);
         setError(null);
 
-        const novelModelSettings = {
+        const assistantModelSettings = {
             ...settings.aiModelSettings,
-            maxOutputTokens: 8192, // Maximize output for long chapters
-            temperature: 0.75, // Slightly less random for consistency
+            maxOutputTokens: 8192,
+            temperature: 0.7,
         };
         
-        const safetySettingsConfig = [
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ];
-
-        // Prepare history for stateless API call - use the history *before* adding the new user message.
-        const historyForApi = chatHistory.map(msg => ({
+        const historyForApi = newChatHistory.map(msg => ({
             role: msg.role as 'user' | 'model',
             parts: [{ text: msg.text }]
         }));
 
         try {
             const stream = await client.callTextAIStream(
-                fullUserInput,
+                "", // User input is already in the history
                 historyForApi,
                 apiClientObject,
-                novelModelSettings,
-                NOVEL_WRITER_SYSTEM_PROMPT,
-                safetySettingsConfig
+                assistantModelSettings,
+                GAME_MASTER_ASSISTANT_SYSTEM_PROMPT,
+                [] // No safety settings for creative assistant
             );
 
             let modelResponse = '';
@@ -194,27 +155,44 @@ const NovelWriterScreen: React.FC<{
                     return newHistory;
                 });
             }
-
         } catch (e: any) {
             const errorMessage = e.message || 'Lỗi không xác định.';
-            setError(`Lỗi khi gửi tin nhắn: ${errorMessage}`);
-            const errorMsg = `*Đã xảy ra lỗi. Vui lòng thử lại. Lỗi: ${errorMessage}*`;
-            setChatHistory(prev => {
-                const newHistory = [...prev];
-                const lastMessage = newHistory[newHistory.length - 1];
-                if (lastMessage && lastMessage.role === 'model' && lastMessage.text === '') {
-                    lastMessage.text = errorMsg;
-                } else {
-                    newHistory.push({ role: 'model', text: errorMsg });
-                }
-                return newHistory;
-            });
-
-            if (errorMessage.includes('API key expired') || errorMessage.includes('Requested entity was not found') || errorMessage.includes('API_KEY_INVALID')) {
-                onApiKeyInvalid();
-            }
+            setError(`Lỗi: ${errorMessage}`);
+            setChatHistory(prev => [...prev, { role: 'model', text: `*Đã xảy ra lỗi: ${errorMessage}*` }]);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handlePackage = async () => {
+        if (isPackaging || chatHistory.length === 0) return;
+        
+        setIsPackaging(true);
+        setError(null);
+        const apiClientObject: client.ApiClient = { getApiClient, cycleToNextApiKey, apiStats, onApiKeyInvalid };
+
+        try {
+            const historyText = chatHistory.map(m => `**${m.role === 'user' ? 'Tác giả' : 'GameMasterAI'}:**\n${m.text}`).join('\n\n---\n\n');
+            const sessionTitle = currentSession?.title || 'world';
+            const filenameBase = sessionTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+            // 1. Generate Knowledge File
+            const knowledgePrompt = PACKAGING_KNOWLEDGE_PROMPT.replace('{CHAT_HISTORY_PLACEHOLDER}', historyText);
+            const knowledgeResponse = await client.callCreativeTextAI(knowledgePrompt, apiClientObject, settings.aiModelSettings, []);
+            downloadFile(knowledgeResponse.text, `${filenameBase}_knowledge.txt`, 'text/plain;charset=utf-8');
+
+            // 2. Generate Template File
+            const templatePrompt = PACKAGING_TEMPLATE_PROMPT.replace('{CHAT_HISTORY_PLACEHOLDER}', historyText);
+            const { parsed: templateJson } = await client.callJsonAI(templatePrompt, schemas.quickAssistSchema, apiClientObject, { ...settings.aiModelSettings, maxOutputTokens: 8192 }, []);
+            downloadFile(JSON.stringify(templateJson, null, 2), `${filenameBase}_template.json`, 'application/json;charset=utf-8');
+            
+            alert("Đã đóng gói và tải về thành công 2 file: knowledge.txt và template.json!");
+
+        } catch(e: any) {
+            setError(`Lỗi khi đóng gói: ${e.message}`);
+            alert(`Đã xảy ra lỗi khi đóng gói. Vui lòng thử lại. Lỗi: ${e.message}`);
+        } finally {
+            setIsPackaging(false);
         }
     };
 
@@ -224,14 +202,25 @@ const NovelWriterScreen: React.FC<{
                 <button onClick={onBackToMenu} className="p-2 rounded-full text-neutral-400 hover:bg-neutral-700 hover:text-white transition-colors" aria-label="Quay lại">
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
-                <h1 className="text-xl font-bold text-white font-rajdhani">AI Tiểu Thuyết Gia</h1>
-                 <button onClick={() => setIsControlPanelOpen(true)} className="p-2 rounded-full text-neutral-400 hover:bg-neutral-700 hover:text-white transition-colors" aria-label="Bảng điều khiển viết tiểu thuyết">
-                    <TuneIcon className="h-6 w-6" />
-                </button>
+                <h1 className="text-xl font-bold text-white font-rajdhani">Huấn Luyện Chat</h1>
+                <Button 
+                    onClick={handlePackage}
+                    disabled={isPackaging || isLoading || chatHistory.length === 0}
+                    className="!w-auto !py-2 !px-3 !text-sm !rounded-lg flex items-center gap-2"
+                >
+                    {isPackaging ? <Spinner /> : <PackageIcon className="w-5 h-5" />}
+                    <span>{isPackaging ? 'Đang Đóng Gói...' : 'Đóng Gói'}</span>
+                </Button>
             </header>
 
             <main ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto custom-scrollbar">
                 <div className="max-w-4xl mx-auto space-y-6">
+                     {chatHistory.length === 0 && !isLoading && (
+                        <div className="text-center text-neutral-500 pt-20">
+                            <p>Bắt đầu cuộc trò chuyện với GameMasterAI.</p>
+                            <p className="text-sm">Hãy đưa ra ý tưởng, AI sẽ giúp bạn phát triển nó thành một thế giới hoàn chỉnh.</p>
+                        </div>
+                    )}
                     {chatHistory.map((msg, index) => (
                         <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div
@@ -242,7 +231,7 @@ const NovelWriterScreen: React.FC<{
                             ></div>
                         </div>
                     ))}
-                    {isLoading && chatHistory.length > 0 && chatHistory[chatHistory.length - 1]?.role === 'user' && (
+                    {isLoading && (
                          <div className="flex justify-start">
                             <div className="p-4 rounded-2xl max-w-2xl bg-neutral-700/80 text-neutral-200 rounded-bl-lg">
                                <Spinner />
@@ -260,7 +249,7 @@ const NovelWriterScreen: React.FC<{
             <footer className="flex-shrink-0 p-4 bg-neutral-800/50 border-t border-neutral-700">
                 <div className="max-w-3xl mx-auto relative">
                     <TextareaField
-                        id="novel-input"
+                        id="assistant-input"
                         value={userInput}
                         onChange={e => setUserInput(e.target.value)}
                         onKeyDown={e => {
@@ -269,26 +258,20 @@ const NovelWriterScreen: React.FC<{
                                 handleSend();
                             }
                         }}
-                        placeholder={isLoading ? "AI đang viết..." : "Nhập chỉ dẫn cho chương tiếp theo..."}
-                        disabled={isLoading}
+                        placeholder={isLoading || isPackaging ? "AI đang làm việc..." : "Nhập ý tưởng hoặc câu hỏi của bạn..."}
+                        disabled={isLoading || isPackaging}
                         className="flex-grow bg-neutral-900/50 border border-neutral-600 rounded-2xl focus:ring-pink-500 resize-none py-3 pl-4 pr-16 w-full"
                         rows={1}
                     />
                      <Button
                         onClick={handleSend}
-                        disabled={isLoading || !userInput.trim()}
+                        disabled={isLoading || isPackaging || !userInput.trim()}
                         className="!absolute !right-2 !bottom-2 !w-auto !rounded-full !p-3"
                     >
                         <SendIcon className="w-5 h-5" />
                     </Button>
                 </div>
             </footer>
-             <NovelControlPanelModal
-                isOpen={isControlPanelOpen}
-                onClose={() => setIsControlPanelOpen(false)}
-                settings={novelSettings}
-                onSettingsChange={setNovelSettings}
-            />
              <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -299,4 +282,4 @@ const NovelWriterScreen: React.FC<{
     );
 };
 
-export default NovelWriterScreen;
+export default AssistantChatScreen;
