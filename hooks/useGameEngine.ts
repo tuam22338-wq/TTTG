@@ -473,25 +473,44 @@ export function useGameEngine(
             if (prev.playerSkills.some(s => s.name === skill.name)) {
                 return prev;
             }
-            
+    
             const statName = `Lĩnh ngộ: ${skill.name}`;
             const newStat: CharacterStat = {
                 description: `Bạn đã học được một kỹ năng mới! Chi tiết đã được thêm vào sổ tay kỹ năng của bạn.`,
                 type: StatType.GOOD,
             };
-
+    
             const newPlayerStats = { ...prev.playerStats, [statName]: newStat };
             const newPlayerStatOrder = [...prev.playerStatOrder];
             if (!newPlayerStatOrder.includes(statName)) {
                 newPlayerStatOrder.push(statName);
             }
-
-            return {
-                ...prev,
-                playerSkills: [...prev.playerSkills, skill],
+    
+            // Defensive update: explicitly copy all properties to prevent state loss.
+            const newState: GameState = {
+                worldContext: prev.worldContext,
+                history: prev.history,
                 playerStats: newPlayerStats,
                 playerStatOrder: newPlayerStatOrder,
+                playerTitle: prev.playerTitle,
+                npcs: prev.npcs,
+                playerSkills: [...prev.playerSkills, skill],
+                plotChronicle: prev.plotChronicle,
+                presentNpcIds: prev.presentNpcIds,
+                totalTokens: prev.totalTokens,
+                requestCount: prev.requestCount,
+                aiSettings: prev.aiSettings,
+                coreStats: prev.coreStats, // Explicitly preserve
+                cultivation: prev.cultivation, // Explicitly preserve
+                inventory: prev.inventory,
+                equipment: prev.equipment,
+                chronicle: prev.chronicle,
+                time: prev.time,
+                isInCombat: prev.isInCombat,
+                combatants: prev.combatants,
+                codex: prev.codex,
             };
+            return newState;
         });
     };
     

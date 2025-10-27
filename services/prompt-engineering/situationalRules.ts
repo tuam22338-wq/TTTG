@@ -62,8 +62,13 @@ export function getSituationalRules(
 
     if (isCorrection) {
         ruleModules.push(`
-**MỆNH LỆNH CHỈNH LỐI (ƯU TIÊN TỐI CAO):**
-AI, bạn đã mắc lỗi lặp lại văn bản hoặc chỉ cập nhật tình hình thay vì viết tiếp câu chuyện. Đây là một lỗi nghiêm trọng. Lần này, bạn BẮT BUỘC phải viết một đoạn truyện **HOÀN TOÀN MỚI** để **TIẾP NỐI** câu chuyện, mô tả những gì xảy ra **SAU** hành động của người chơi. TUYỆT ĐỐI CẤM lặp lại bất kỳ ý tưởng hay mô tả nào từ lượt trước.`);
+**MỆNH LỆNH SỬA LỖI NGHIÊM TRỌNG (CRITICAL ERROR CORRECTION - ƯU TIÊN TUYỆT ĐỐI):**
+AI, bạn đã thất bại. Phản hồi trước đó của bạn đã lặp lại nội dung hoặc không thể tiếp nối câu chuyện, đó là một lỗi không thể chấp nhận được. Người dùng đã phải nhấn nút "Sửa lỗi" để buộc bạn làm lại.
+**NHIỆM VỤ CỦA BẠN BÂY GIỜ LÀ:**
+1.  **QUÊN ĐI PHẢN HỒI LỖI:** Hoàn toàn phớt lờ đoạn văn bản bạn vừa viết.
+2.  **ĐỌC LẠI HÀNH ĐỘNG CỦA NGƯỜI CHƠI:** Nhìn lại hành động cuối cùng của người chơi.
+3.  **VIẾT TIẾP:** Viết một đoạn \`storyText\` **HOÀN TOÀN MỚI** và **CÓ Ý NGHĨA** để mô tả những gì xảy ra **NGAY SAU** hành động đó. Phản hồi của bạn phải là một bước tiến rõ ràng trong câu chuyện.
+4.  **CẤM TUYỆT ĐỐI:** Không được tóm tắt, diễn giải lại, hoặc nhắc lại bất kỳ chi tiết nào từ phản hồi lỗi trước đó. Chỉ viết tiếp. Đây là cơ hội duy nhất để bạn sửa chữa sai lầm này.`);
     }
 
     if (isMetaCommand) {
