@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
     GameState,
     WorldCreationState,
@@ -88,6 +88,7 @@ export function useGameEngine(
     const [newlyAcquiredSkill, setNewlyAcquiredSkill] = useState<Skill | null>(null);
     const [itemsReceived, setItemsReceived] = useState<Item[]>([]);
     const [showIntroductoryModal, setShowIntroductoryModal] = useState(false);
+    const hasInitialized = useRef(false);
     
     const { aiModelSettings, masterSafetySwitch, safety } = settings;
 
@@ -162,12 +163,17 @@ export function useGameEngine(
     }, [apiClient, aiModelSettings, masterSafetySwitch, safety]);
 
     useEffect(() => {
+        if (hasInitialized.current) {
+            return;
+        }
         if ('history' in initialData) {
             // It's a saved GameState
             setGameState(initialData as GameState);
             setIsLoading(false);
+            hasInitialized.current = true;
         } else {
             // It's WorldCreationState for a new game
+            hasInitialized.current = true;
             initializeGame(initialData as WorldCreationState);
             setShowIntroductoryModal(true);
         }
