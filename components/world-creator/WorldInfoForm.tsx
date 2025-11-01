@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { WorldCreationState, NarrativePerspective, Settings, TrainingDataSet } from '../../types';
 import FormSection from './FormSection';
 import InputField from '../ui/InputField';
@@ -9,6 +9,7 @@ import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import Button from '../ui/Button';
 import * as client from '../../services/gemini/client';
 import { ApiClient } from '../../services/gemini/client';
+import { CheckIcon } from '../icons/CheckIcon';
 
 interface WorldInfoFormProps {
     state: WorldCreationState;
@@ -17,6 +18,10 @@ interface WorldInfoFormProps {
     settings: Settings;
     trainingSets: TrainingDataSet[];
 }
+
+const GENRE_OPTIONS = [
+    'Tiên hiệp', 'Huyền huyễn', 'Đô thị', 'Khoa huyễn', 'Mạt thế', 'Lịch sử', 'Kiếm hiệp', 'Hắc Ám', 'Hài hước', 'Tình cảm', 'Trinh thám', 'Linh dị'
+];
 
 const perspectiveDescriptions: Record<NarrativePerspective, { title: string; text: string; special?: string }> = {
   'Nhãn Quan Toàn Tri': {
@@ -40,7 +45,22 @@ const perspectiveDescriptions: Record<NarrativePerspective, { title: string; tex
 
 const WorldInfoForm: React.FC<WorldInfoFormProps> = ({ state, setState, apiClient, settings, trainingSets }) => {
     const [isLoading, setIsLoading] = useState(false);
+    const [isGenreCustom, setIsGenreCustom] = useState(!GENRE_OPTIONS.includes(state.genre) && state.genre !== '');
+    const [isKnowledgeDropdownOpen, setIsKnowledgeDropdownOpen] = useState(false);
+    const knowledgeDropdownRef = useRef<HTMLDivElement>(null);
     const { getApiClient } = apiClient;
+    const selectClass = "w-full px-4 py-3 bg-transparent border-none rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/80 transition-all neumorphic-concave";
+
+
+     useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (knowledgeDropdownRef.current && !knowledgeDropdownRef.current.contains(event.target as Node)) {
+                setIsKnowledgeDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleGenerateDescription = async () => {
         if (!getApiClient()) {
@@ -115,29 +135,69 @@ Hãy viết một đoạn văn mạch lạc, kết hợp các yếu-tố trên �
     
     const currentDescription = perspectiveDescriptions[state.narrativePerspective];
 
+    const handleGenreSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value;
+        if (value === 'custom') {
+            setIsGenreCustom(true);
+            setState(s => ({...s, genre: ''}));
+        } else {
+            setIsGenreCustom(false);
+            setState(s => ({...s, genre: value}));
+        }
+    };
+    
+    const handleKnowledgeBaseToggle = (id: string) => {
+        setState(s => {
+            const newIds = s.knowledgeBaseIds.includes(id)
+                ? s.knowledgeBaseIds.filter(kid => kid !== id)
+                : [...s.knowledgeBaseIds, id];
+            return { ...s, knowledgeBaseIds: newIds };
+        });
+    };
+
+    const selectedKnowledgeSets = state.knowledgeBaseIds.map(id => trainingSets.find(ts => ts.id === id)?.name).filter(Boolean);
+
+
     return (
         <FormSection title="Thế Giới & Cốt Truyện" description="Đặt nền móng cho thế giới mà bạn sắp thống trị.">
-            <InputField
-                label="Thể loại game"
-                id="genre"
-                placeholder="VD: Tiên hiệp, Tận thế, Hoan dâm thế giới..."
-                value={state.genre}
-                onChange={e => setState(s => ({ ...s, genre: e.target.value }))}
-            />
             <div>
-                <label htmlFor="narrative-perspective" className="block text-sm font-medium text-neutral-400 mb-2">Ngôi kể</label>
+                <label htmlFor="genre-select" className="block text-sm font-medium text-neutral-300 mb-2">Thể loại game</label>
+                <div className="flex gap-2">
+                    <select
+                        id="genre-select"
+                        value={isGenreCustom ? 'custom' : state.genre}
+                        onChange={handleGenreSelectChange}
+                        className={selectClass}
+                    >
+                        <option value="" disabled>-- Chọn thể loại --</option>
+                        {GENRE_OPTIONS.map(genre => <option key={genre} value={genre}>{genre}</option>)}
+                        <option value="custom">Tự định nghĩa...</option>
+                    </select>
+                    {isGenreCustom && (
+                         <InputField
+                            id="genre-custom"
+                            placeholder="Nhập thể loại..."
+                            value={state.genre}
+                            onChange={e => setState(s => ({ ...s, genre: e.target.value }))}
+                            className="!w-full"
+                        />
+                    )}
+                </div>
+            </div>
+            <div>
+                <label htmlFor="narrative-perspective" className="block text-sm font-medium text-neutral-300 mb-2">Ngôi kể</label>
                 <select
                     id="narrative-perspective"
                     value={state.narrativePerspective}
                     onChange={e => setState(s => ({ ...s, narrativePerspective: e.target.value as NarrativePerspective }))}
-                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                    className={selectClass}
                 >
                     {Object.keys(perspectiveDescriptions).map(key => (
                         <option key={key} value={key}>{perspectiveDescriptions[key as NarrativePerspective].title}</option>
                     ))}
                 </select>
                 {currentDescription && (
-                    <div className="mt-3 p-3 bg-black/20 rounded-lg border border-white/10 transition-all duration-300 animate-fade-in-fast">
+                    <div className="mt-3 p-3 neumorphic-inset rounded-lg transition-all duration-300 animate-fade-in-fast">
                         <p className="text-sm font-semibold text-white">{currentDescription.title}</p>
                         <p className="text-xs text-neutral-300 mt-1">{currentDescription.text}</p>
                         {currentDescription.special && (
@@ -147,28 +207,44 @@ Hãy viết một đoạn văn mạch lạc, kết hợp các yếu-tố trên �
                 )}
             </div>
              <div>
-                <label htmlFor="knowledge-base" className="block text-sm font-medium text-neutral-400 mb-2">Kiến thức nền AI (Tùy chọn)</label>
-                <select
-                    id="knowledge-base"
-                    value={state.knowledgeBaseId || ''}
-                    onChange={e => setState(s => ({ ...s, knowledgeBaseId: e.target.value || undefined }))}
-                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-                    disabled={trainingSets.length === 0}
-                >
-                    <option value="">-- Không sử dụng --</option>
-                    {trainingSets.map(set => (
-                        <option key={set.id} value={set.id}>{set.name}</option>
-                    ))}
-                </select>
-                <p className="text-xs text-neutral-500 mt-2">Chọn một bộ dữ liệu đã huấn luyện để AI sử dụng làm tri thức nền khi tạo thế giới hoặc trong game.</p>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">Kiến thức nền AI (Tùy chọn)</label>
+                <div className="relative" ref={knowledgeDropdownRef}>
+                    <button
+                        type="button"
+                        onClick={() => setIsKnowledgeDropdownOpen(prev => !prev)}
+                        className={`${selectClass} text-left flex justify-between items-center`}
+                        disabled={trainingSets.length === 0}
+                    >
+                        <span className="truncate">
+                            {selectedKnowledgeSets.length > 0 ? selectedKnowledgeSets.join(', ') : '-- Chọn một hoặc nhiều --'}
+                        </span>
+                         <svg className={`w-5 h-5 transition-transform duration-200 ${isKnowledgeDropdownOpen ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    </button>
+                    {isKnowledgeDropdownOpen && (
+                        <div className="absolute top-full mt-1 w-full glassmorphic rounded-lg z-10 max-h-48 overflow-y-auto custom-scrollbar">
+                            {trainingSets.map(set => (
+                                <label key={set.id} className="flex items-center gap-3 p-3 hover:bg-white/10 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={state.knowledgeBaseIds.includes(set.id)}
+                                        onChange={() => handleKnowledgeBaseToggle(set.id)}
+                                        className="h-4 w-4 rounded text-white bg-transparent border-neutral-700 focus:ring-white"
+                                    />
+                                    <span className="text-white flex-grow">{set.name}</span>
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <p className="text-xs text-neutral-500 mt-2">Chọn các bộ dữ liệu đã huấn luyện để AI sử dụng làm tri thức nền.</p>
             </div>
             <div>
                  <div className="flex justify-between items-center mb-2">
-                    <label htmlFor="description" className="block text-sm font-medium text-neutral-400">Mô tả Bối Cảnh</label>
+                    <label htmlFor="description" className="block text-sm font-medium text-neutral-300">Mô tả Bối Cảnh</label>
                     <button
                         onClick={handleGenerateDescription}
                         disabled={isLoading}
-                        className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full bg-black/20 border border-white/10 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-neutral-300 hover:text-white transition-colors rounded-full neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] disabled:opacity-50 disabled:cursor-not-allowed"
                         title="AI Hỗ trợ Bối cảnh"
                     >
                         <SparklesIcon isLoading={isLoading} />

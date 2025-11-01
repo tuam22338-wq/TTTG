@@ -27,6 +27,7 @@ const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, 
     const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
     const [expandedSkills, setExpandedSkills] = useState<Set<string>>(new Set());
     const { getApiClient } = apiClient;
+    const selectClass = "w-full px-4 py-3 bg-transparent border-none rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/80 transition-all neumorphic-concave";
     
     const handleCharacterChange = (field: keyof WorldCreationState['character'], value: any) => {
         setState(s => ({ ...s, character: { ...s.character, [field]: value } }));
@@ -41,8 +42,8 @@ const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, 
         setIsLoading(prev => ({ ...prev, appearance: true }));
 
         try {
-            const safetySettingsConfig = state.isNsfw ? settings.safety : undefined;
-            const generatedAppearance = await GeminiStorytellerService.generateCharacterAppearance(state, apiClient, settings.aiModelSettings, safetySettingsConfig);
+            // FIX: Pass the correct arguments (including masterSafetySwitch) to the service function.
+            const generatedAppearance = await GeminiStorytellerService.generateCharacterAppearance(state, apiClient, settings.aiModelSettings, settings.masterSafetySwitch, settings.safety);
             handleCharacterChange('appearance', generatedAppearance);
         } catch (error) {
             console.error("Error generating character appearance:", error);
@@ -253,7 +254,7 @@ ${state.description || "Một thế giới chưa được mô tả."}
             />
             
             <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-2">Giới tính</label>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">Giới tính</label>
                 <div className="flex flex-wrap gap-x-6 gap-y-3">
                     {['Nam', 'Nữ', 'Tự định nghĩa'].map(g => (
                         <label key={g} className="flex items-center cursor-pointer">
@@ -263,7 +264,7 @@ ${state.description || "Một thế giới chưa được mô tả."}
                                 value={g}
                                 checked={state.character.gender === g}
                                 onChange={() => handleCharacterChange('gender', g)}
-                                className="h-4 w-4 text-pink-500 bg-neutral-800 border-neutral-700 focus:ring-pink-500 focus:ring-offset-neutral-900"
+                                className="h-4 w-4 text-white bg-transparent border-neutral-700 focus:ring-white focus:ring-offset-[#1a1a1a]"
                             />
                             <span className="ml-2 text-sm text-white">{g}</span>
                         </label>
@@ -280,22 +281,30 @@ ${state.description || "Một thế giới chưa được mô tả."}
                     </div>
                 )}
             </div>
-
-            <InputField
-                label="Tính cách"
-                id="char-personality"
-                placeholder="Lạnh lùng, tà ác, dâm đãng, chính nghĩa..."
-                value={state.character.personality}
-                onChange={e => handleCharacterChange('personality', e.target.value)}
-            />
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <InputField
+                    label="Tính cách"
+                    id="char-personality"
+                    placeholder="Lạnh lùng, tà ác, dâm đãng, chính nghĩa..."
+                    value={state.character.personality}
+                    onChange={e => handleCharacterChange('personality', e.target.value)}
+                />
+                <InputField
+                    label="Cảnh giới ban đầu"
+                    id="char-initial-realm"
+                    placeholder="VD: Phàm nhân, Luyện Khí tầng ba..."
+                    value={state.character.initialRealm}
+                    onChange={e => handleCharacterChange('initialRealm', e.target.value)}
+                />
+            </div>
             
             <div>
                 <div className="flex justify-between items-center mb-2">
-                    <label htmlFor="char-appearance" className="block text-sm font-medium text-neutral-400">Đặc điểm Ngoại hình</label>
+                    <label htmlFor="char-appearance" className="block text-sm font-medium text-neutral-300">Đặc điểm Ngoại hình</label>
                     <button
                         onClick={handleGenerateAppearance}
                         disabled={isLoading['appearance']}
-                        className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full bg-black/20 border border-white/10 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-neutral-300 hover:text-white transition-colors rounded-full neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] disabled:opacity-50 disabled:cursor-not-allowed"
                         title="AI Hỗ trợ Ngoại hình"
                     >
                         <SparklesIcon isLoading={isLoading['appearance']} />
@@ -312,11 +321,11 @@ ${state.description || "Một thế giới chưa được mô tả."}
 
             <div>
                 <div className="flex justify-between items-center mb-2">
-                    <label htmlFor="char-bio" className="block text-sm font-medium text-neutral-400">Tiểu sử</label>
+                    <label htmlFor="char-bio" className="block text-sm font-medium text-neutral-300">Tiểu sử</label>
                     <button
                         onClick={handleGenerateBiography}
                         disabled={isLoading['bio']}
-                        className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full bg-black/20 border border-white/10 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-neutral-300 hover:text-white transition-colors rounded-full neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] disabled:opacity-50 disabled:cursor-not-allowed"
                         title="AI Hỗ trợ Tiểu sử"
                     >
                         <SparklesIcon isLoading={isLoading['bio']} />
@@ -332,12 +341,12 @@ ${state.description || "Một thế giới chưa được mô tả."}
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-2">Kỹ năng / Quyền năng khởi đầu</label>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">Kỹ năng / Quyền năng khởi đầu</label>
                 <div className="space-y-3">
                     {state.character.skills.map((skill) => {
                         const isExpanded = expandedSkills.has(skill.id);
                         return (
-                            <div key={skill.id} className="bg-black/20 rounded-lg border border-white/10 overflow-hidden transition-all">
+                            <div key={skill.id} className="neumorphic-convex rounded-lg overflow-hidden transition-all">
                                 <div className="flex items-center p-3">
                                     <div className="flex-grow min-w-0">
                                         <InputField
@@ -355,14 +364,14 @@ ${state.description || "Một thế giới chưa được mô tả."}
                                     </div>
                                 </div>
                                 {isExpanded && (
-                                    <div className="px-3 pb-3 border-t border-white/10 space-y-4 animate-fade-in-fast">
+                                    <div className="px-3 pb-3 neumorphic-inset space-y-4 animate-fade-in-fast">
                                         <TextareaField id={`skill-desc-${skill.id}`} label="Mô tả" placeholder="Mô tả ngắn gọn về bản chất kỹ năng." value={skill.description} onChange={e => handleSkillChange(skill.id, 'description', e.target.value)} rows={3} />
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <InputField id={`skill-cost-${skill.id}`} label="Năng lượng" type="number" value={skill.cost} onChange={e => handleSkillChange(skill.id, 'cost', parseInt(e.target.value) || 0)} />
                                             <InputField id={`skill-cd-${skill.id}`} label="Hồi chiêu (lượt)" type="number" value={skill.cooldown} onChange={e => handleSkillChange(skill.id, 'cooldown', parseInt(e.target.value) || 0)} />
                                             <div>
-                                                <label htmlFor={`skill-target-${skill.id}`} className="block text-sm font-medium text-neutral-400 mb-2">Mục tiêu</label>
-                                                <select id={`skill-target-${skill.id}`} value={skill.target} onChange={e => handleSkillChange(skill.id, 'target', e.target.value)} className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg text-white">
+                                                <label htmlFor={`skill-target-${skill.id}`} className="block text-sm font-medium text-neutral-300 mb-2">Mục tiêu</label>
+                                                <select id={`skill-target-${skill.id}`} value={skill.target} onChange={e => handleSkillChange(skill.id, 'target', e.target.value)} className={selectClass}>
                                                     <option value={SkillTarget.SELF}>Bản thân</option>
                                                     <option value={SkillTarget.SINGLE_ENEMY}>1 Kẻ địch</option>
                                                     <option value={SkillTarget.ALL_ENEMIES}>Toàn bộ Kẻ địch</option>
@@ -375,7 +384,7 @@ ${state.description || "Một thế giới chưa được mô tả."}
                             </div>
                         )
                     })}
-                    <button onClick={handleAddSkill} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-2 text-sm border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-white/5 hover:text-white hover:border-white/10 hover:border-solid font-semibold">+ Thêm Kỹ Năng</button>
+                    <button onClick={handleAddSkill} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-2 text-sm border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-white/5 hover:text-white hover:border-neutral-500 hover:border-solid font-semibold">+ Thêm Kỹ Năng</button>
                 </div>
             </div>
             <style>{`

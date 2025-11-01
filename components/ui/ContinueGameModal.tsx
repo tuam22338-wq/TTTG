@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GameState } from '../../types';
 import * as GameSaveService from '../../services/GameSaveService';
@@ -15,9 +14,9 @@ interface ContinueGameModalProps {
 const SaveSlotCard: React.FC<{ title: string; saveData: GameState | null; onLoad: () => void; }> = ({ title, saveData, onLoad }) => {
   if (!saveData) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 bg-black/20 rounded-lg border-2 border-dashed border-neutral-700 h-52 text-center">
-        <p className="text-neutral-500 font-semibold">{title}</p>
-        <p className="text-neutral-600 text-sm mt-1">Trống</p>
+      <div className="flex flex-col items-center justify-center p-6 neumorphic-inset rounded-lg h-52 text-center">
+        <p className="text-neutral-400 font-semibold">{title}</p>
+        <p className="text-neutral-500 text-sm mt-1">Trống</p>
       </div>
     );
   }
@@ -31,8 +30,8 @@ const SaveSlotCard: React.FC<{ title: string; saveData: GameState | null; onLoad
     : 'Không rõ';
 
   return (
-    <div className="flex flex-col p-4 bg-black/30 rounded-lg border border-neutral-600 hover:border-pink-500/50 transition-colors duration-300">
-      <h3 className="text-lg font-bold text-pink-400 border-b border-neutral-700 pb-2 mb-3">{title}</h3>
+    <div className="flex flex-col p-4 glassmorphic neumorphic-convex rounded-lg">
+      <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mb-3">{title}</h3>
       <div className="space-y-1 text-sm flex-grow">
         <p><span className="font-semibold text-neutral-400">Nhân vật:</span> <span className="text-white font-bold">{saveData.worldContext.character.name}</span></p>
         <p><span className="font-semibold text-neutral-400">Cấp độ:</span> <span className="text-white font-bold">{saveData.cultivation.level}</span></p>

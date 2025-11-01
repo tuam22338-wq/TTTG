@@ -221,6 +221,19 @@ export const coreLogicSchema = {
     required: ['storyText', 'choices', 'summaryText']
 };
 
+export const actionParserSchema = {
+    type: Type.OBJECT,
+    properties: {
+        command: { type: Type.STRING, enum: ['USE_ITEM', 'EQUIP_ITEM', 'UNEQUIP_ITEM', 'ATTACK_TARGET', 'CAST_SKILL', 'SPEAK_TO', 'MOVE_TO', 'INSPECT', 'NARRATIVE_ACTION', 'META_COMMAND'] },
+        itemId: { type: Type.STRING, nullable: true, description: "ID of the item from the item list, if applicable." },
+        slot: { type: Type.STRING, enum: ['WEAPON', 'HEAD', 'CHEST', 'LEGS', 'HANDS', 'FEET'], nullable: true, description: "The equipment slot for EQUIP/UNEQUIP actions." },
+        targetId: { type: Type.STRING, nullable: true, description: "ID of the NPC being targeted, or 'PLAYER'." },
+        skillId: { type: Type.STRING, nullable: true, description: "ID of the skill being used." },
+        details: { type: Type.STRING, description: "For narrative actions, this contains the full player action. For commands like SPEAK, it contains the dialogue." }
+    },
+    required: ['command', 'details']
+};
+
 export const novelModeSchema = {
     type: Type.OBJECT,
     properties: {

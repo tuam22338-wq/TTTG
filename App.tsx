@@ -304,7 +304,7 @@ const App: React.FC = () => {
           <Modal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} title="Ủng hộ dự án">
             <div className="text-center p-4 space-y-4">
               <p className="text-neutral-300">Nếu có lòng, bạn có thể ủng hộ để dự án tiếp tục phát triển.</p>
-              <div className="p-3 bg-black/20 rounded-lg border border-neutral-700">
+              <div className="p-3 neumorphic-inset rounded-lg">
                 <p className="text-sm text-neutral-400">MB BANK</p>
                 <p className="text-2xl font-bold font-mono tracking-widest text-white">0337892181</p>
               </div>

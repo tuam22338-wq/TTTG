@@ -48,12 +48,14 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         onApiKeyInvalid
     }), [getApiClient, cycleToNextApiKey, onApiKeyInvalid]);
 
+    // FIX: Pass the entire settings object to useGameEngine and destructure addNarrativeEvent.
     const { 
         gameState, isLoading, error, processTurn, 
         updateAiSettings, newlyAcquiredSkill, handleAcknowledgeSkill, 
         handleDeclineSkill, showIntroductoryModal, setShowIntroductoryModal,
         executeEntityAction, setGameState, addPlayerSkill, setError,
-    } = useGameEngine(initialData, apiClient, settings.aiModelSettings, settings.safety);
+        addNarrativeEvent,
+    } = useGameEngine(initialData, apiClient, settings);
     
     const [viewMode, setViewMode] = useLocalStorage<ViewMode>('gameViewMode', 'desktop');
     const [customAction, setCustomAction] = useState('');
@@ -307,6 +309,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 gameState={gameState}
                 onStatClick={handleStatClick}
                 onShowAchievement={(item) => { setAchievementData(item); setIsAchievementModalOpen(true); }}
+                setGameState={setGameState}
+                addNarrativeEvent={addNarrativeEvent}
             />
             
             <StatDetailModal

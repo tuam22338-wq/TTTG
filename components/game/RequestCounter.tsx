@@ -10,7 +10,7 @@ const RequestCounter: React.FC<RequestCounterProps> = ({ count }) => {
     }
 
     return (
-        <div className="text-sm text-neutral-400 bg-black/20 rounded-lg px-3 py-1.5 border border-solid border-white/10 whitespace-nowrap">
+        <div className="text-sm text-neutral-300 rounded-lg px-3 py-1.5 whitespace-nowrap neumorphic-inset">
             <span>Requests: </span>
             <span className="font-semibold text-white">{count}</span>
         </div>

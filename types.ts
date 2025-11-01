@@ -24,6 +24,7 @@ export interface AiModelSettings {
   topK: number;
   topP: number;
   maxOutputTokens: number;
+  minOutputWords: number;
   jsonBuffer: number;
   thinkingBudget: number;
   autoRotateModels: boolean;
@@ -42,10 +43,11 @@ export interface AudioSettings {
   volume: number;
 }
 
-export type SafetyLevel = 'BLOCK_NONE' | 'BLOCK_ONLY_HIGH' | 'BLOCK_MEDIUM_AND_ABOVE' | 'BLOCK_MOST';
-
 export interface SafetySettings {
-  level: SafetyLevel;
+  blockHarassment: boolean;
+  blockHateSpeech: boolean;
+  blockSexuallyExplicit: boolean;
+  blockDangerousContent: boolean;
 }
 
 export type NarrativePerspective = 'Nhãn Quan Toàn Tri' | 'Ngôi thứ ba Giới hạn' | 'Ngôi thứ hai' | 'Ngôi thứ ba Toàn tri';
@@ -59,6 +61,7 @@ export interface Settings {
   aiModelSettings: AiModelSettings;
   deepSeekModelSettings: DeepSeekModelSettings;
   audio: AudioSettings;
+  masterSafetySwitch: boolean;
   safety: SafetySettings;
   autoHideActionPanel: boolean;
   narrativePerspective: NarrativePerspective;
@@ -208,6 +211,7 @@ export interface WorldCreationState {
     avatarUrl: string;
     biography: string;
     skills: Skill[];
+    initialRealm: string;
   };
   isCultivationEnabled: boolean;
   cultivationSystem: CultivationSystemSettings;
@@ -216,7 +220,7 @@ export interface WorldCreationState {
   initialNpcs: InitialNpc[];
   specialRules: WorldRule[];
   initialLore: WorldRule[];
-  knowledgeBaseId?: string;
+  knowledgeBaseIds: string[];
 }
 
 export enum StatType {
@@ -288,6 +292,9 @@ export interface NPC {
     level: number;
     coreStats: CharacterCoreStats;
     skills: Skill[];
+    goal: string | null;
+    currentLocation: string;
+    affinity: number;
 }
 
 export type NPCUpdateAction = 'CREATE' | 'UPDATE' | 'DELETE';
@@ -510,6 +517,24 @@ export interface GameTime {
     weather: Weather;
 }
 
+export type ActionCommand = 'USE_ITEM' | 'EQUIP_ITEM' | 'UNEQUIP_ITEM' | 'ATTACK_TARGET' | 'CAST_SKILL' | 'SPEAK_TO' | 'MOVE_TO' | 'INSPECT' | 'NARRATIVE_ACTION' | 'META_COMMAND';
+
+export interface ParsedAction {
+    command: ActionCommand;
+    itemId?: string;
+    slot?: EquipmentSlot;
+    targetId?: string;
+    skillId?: string;
+    details: string;
+}
+
+export type WorldEvent = {
+    id: string;
+    type: 'NPC_UPDATE' | 'FACTION_UPDATE' | 'WORLD_NARRATIVE';
+    description: string;
+    relatedEntityId?: string; // e.g., an NPC id
+};
+
 export interface GameState {
     worldContext: WorldCreationState;
     history: GameTurn[];
@@ -532,6 +557,9 @@ export interface GameState {
     isInCombat: boolean;
     combatants: Combatant[];
     codex: WorldRule[];
+    pendingNarrativeEvents: string[];
+    worldTickCounter: number;
+    pendingWorldEvents: WorldEvent[];
 }
 
 export type ViewMode = 'desktop' | 'mobile';

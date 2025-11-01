@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface ToggleSwitchProps {
@@ -21,9 +20,7 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ id, label, description, ena
       <button
         id={id}
         type="button"
-        className={`${
-          enabled ? 'bg-neutral-300' : 'bg-neutral-600'
-        } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-neutral-800`}
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-white/80 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] neumorphic-concave`}
         role="switch"
         aria-checked={enabled}
         onClick={() => setEnabled(!enabled)}
@@ -31,8 +28,8 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ id, label, description, ena
         <span
           aria-hidden="true"
           className={`${
-            enabled ? 'translate-x-5' : 'translate-x-0'
-          } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+            enabled ? 'translate-x-5 bg-white' : 'translate-x-0 bg-neutral-400'
+          } pointer-events-none inline-block h-5 w-5 transform rounded-full shadow ring-0 transition duration-200 ease-in-out neumorphic-convex`}
         />
       </button>
     </div>

@@ -1,8 +1,7 @@
 import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage, NovelSession, TrainingDataSet, AssistantSession } from '../types';
 
 const DB_NAME = 'BMS_TamThienTheGioi';
-// FIX: Incremented DB_VERSION to 4 to trigger onupgradeneeded for adding the assistant store.
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const GAME_SAVES_STORE = 'gameSaves';
 const SETTINGS_STORE = 'appSettings';
 const NOVEL_WRITER_STORE = 'novelWriter';
@@ -24,7 +23,7 @@ const DEFAULT_AI_SETTINGS: AiSettings = {
     isStrictInterpretationOn: false,
     destinyCompassMode: 'NORMAL',
     npcMindset: 'DEFAULT',
-    flowOfDestinyInterval: null,
+    flowOfDestinyInterval: 3,
     authorsMandate: [],
     isTurnBasedCombat: true,
 };
@@ -211,6 +210,83 @@ export async function getTrainingSetById(id: string): Promise<TrainingDataSet | 
     return await get<TrainingDataSet>(TRAINING_DATA_STORE, id);
 }
 
+// --- Data Management ---
+export async function exportAllData(): Promise<void> {
+  try {
+    const allData = {
+      manualSave: await loadGameState('manual'),
+      autoSave: await loadGameState('auto'),
+      settings: await loadSettings(),
+      novelSessions: await getAllNovelSessions(),
+      trainingData: await getAllTrainingSets(),
+      assistantSessions: await getAllAssistantSessions(),
+    };
+    const serializedData = JSON.stringify(allData, null, 2);
+    const blob = new Blob([serializedData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `BMS-TG_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Failed to export data:", error);
+    alert("Không thể xuất dữ liệu sao lưu.");
+  }
+}
+
+export async function importAllData(file: File): Promise<void> {
+    const fileContent = await file.text();
+    const allData = JSON.parse(fileContent);
+
+    // Basic validation
+    if (typeof allData.settings === 'undefined' || typeof allData.novelSessions === 'undefined') {
+        throw new Error("File sao lưu không hợp lệ hoặc bị hỏng.");
+    }
+    
+    await deleteAllData(); // Clear everything first
+
+    // Use a single transaction for efficiency if possible, but separate sets are safer
+    if (allData.manualSave) await saveGameState('manual', allData.manualSave);
+    if (allData.autoSave) await saveGameState('auto', allData.autoSave);
+    if (allData.settings) await saveSettings(allData.settings);
+    for (const session of allData.novelSessions || []) {
+        await saveNovelSession(session);
+    }
+    for (const dataSet of allData.trainingData || []) {
+        await saveTrainingSet(dataSet);
+    }
+     for (const session of allData.assistantSessions || []) {
+        await saveAssistantSession(session);
+    }
+}
+
+export async function deleteAllData(): Promise<void> {
+    const db = await getDb();
+    const storeNames = [
+        GAME_SAVES_STORE, 
+        SETTINGS_STORE, 
+        NOVEL_WRITER_STORE, 
+        TRAINING_DATA_STORE, 
+        ASSISTANT_SESSIONS_STORE
+    ];
+    
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeNames, 'readwrite');
+        transaction.onerror = () => reject(transaction.error);
+        transaction.oncomplete = () => resolve();
+
+        storeNames.forEach(storeName => {
+            if (db.objectStoreNames.contains(storeName)) {
+                transaction.objectStore(storeName).clear();
+            }
+        });
+    });
+}
+
 
 // --- Migration Logic ---
 
@@ -267,13 +343,16 @@ export function validateAndHydrateGameState(parsedState: any): GameState | null 
     const hydratedState = { ...parsedState };
 
     // --- Hydrate missing root-level properties ---
-    hydratedState.npcs = Array.isArray(parsedState.npcs) ? parsedState.npcs : [];
     hydratedState.playerSkills = Array.isArray(parsedState.playerSkills) ? parsedState.playerSkills : [];
     hydratedState.playerStatOrder = Array.isArray(parsedState.playerStatOrder) ? parsedState.playerStatOrder : [];
     hydratedState.chronicle = Array.isArray(parsedState.chronicle) ? parsedState.chronicle : [];
     hydratedState.combatants = Array.isArray(parsedState.combatants) ? parsedState.combatants : [];
     hydratedState.isInCombat = typeof parsedState.isInCombat === 'boolean' ? parsedState.isInCombat : false;
     hydratedState.codex = Array.isArray(parsedState.codex) ? parsedState.codex : [];
+    hydratedState.pendingNarrativeEvents = Array.isArray(parsedState.pendingNarrativeEvents) ? parsedState.pendingNarrativeEvents : [];
+    hydratedState.worldTickCounter = typeof parsedState.worldTickCounter === 'number' ? parsedState.worldTickCounter : 0;
+    hydratedState.pendingWorldEvents = Array.isArray(parsedState.pendingWorldEvents) ? parsedState.pendingWorldEvents : [];
+
 
     // AI Settings
     hydratedState.aiSettings = { ...DEFAULT_AI_SETTINGS, ...(parsedState.aiSettings || {}) };
@@ -298,6 +377,14 @@ export function validateAndHydrateGameState(parsedState: any): GameState | null 
     // Core Stats
     hydratedState.coreStats = parsedState.coreStats || {};
     
+    // NPCs
+    hydratedState.npcs = (Array.isArray(parsedState.npcs) ? parsedState.npcs : []).map((npc: any) => ({
+        ...npc,
+        goal: typeof npc.goal === 'string' ? npc.goal : null,
+        currentLocation: typeof npc.currentLocation === 'string' ? npc.currentLocation : 'Không xác định',
+        affinity: typeof npc.affinity === 'number' ? npc.affinity : 0,
+    }));
+
     // World Context sub-properties
     if (hydratedState.worldContext) {
         hydratedState.worldContext.initialFactions = Array.isArray(hydratedState.worldContext.initialFactions) ? hydratedState.worldContext.initialFactions : [];

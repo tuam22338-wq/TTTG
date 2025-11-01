@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export const FactionIcon: React.FC<{ className?: string }> = ({ className }) => (

@@ -29,10 +29,10 @@ const HeartbeatMonitor: React.FC<{ isActive: boolean }> = ({ isActive }) => {
         const height = canvas.height;
         let animationFrameId: number;
 
-        ctx.strokeStyle = '#34d399'; // Emerald-400
+        ctx.strokeStyle = '#e0e0e0';
         ctx.lineWidth = 1.5;
         ctx.shadowBlur = 5;
-        ctx.shadowColor = '#34d399';
+        ctx.shadowColor = '#e0e0e0';
 
         const data = new Uint8Array(width);
         for(let i = 0; i < width; i++) data[i] = height / 2;
@@ -82,15 +82,15 @@ const ApiStatusOverlay: React.FC<ApiStatusOverlayProps> = ({ stats }) => {
 
     if (!isVisible) {
          return (
-             <button onClick={() => setIsVisible(true)} className="fixed top-20 left-4 bg-black/70 backdrop-blur-md border border-neutral-700 rounded-full p-2 shadow-lg z-50 animate-fade-in-fast" title="Hiển thị Trạng thái API">
+             <button onClick={() => setIsVisible(true)} className="fixed top-20 left-4 glassmorphic neumorphic-convex rounded-full p-2 z-50 animate-fade-in-fast" title="Hiển thị Trạng thái API">
                 <ActiveIcon className="w-5 h-5 text-green-400" />
             </button>
          )
     }
 
     return (
-        <div className="fixed top-20 left-4 bg-black/70 backdrop-blur-md border border-neutral-700 rounded-lg p-3 shadow-lg z-50 w-64 animate-fade-in-fast">
-            <div className="flex justify-between items-center border-b border-neutral-600 pb-2 mb-2">
+        <div className="fixed top-20 left-4 glassmorphic neumorphic-convex rounded-lg p-3 w-64 animate-fade-in-fast z-50">
+            <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-2">
                 <h4 className="font-rajdhani text-base font-bold text-white">API STATUS</h4>
                 <button onClick={() => setIsVisible(false)} className="text-neutral-500 hover:text-white" title="Ẩn">-</button>
             </div>

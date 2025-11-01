@@ -45,7 +45,7 @@ const RuleListEditor: React.FC<RuleListEditorProps> = ({ title, description, rul
                 {rules.map(rule => {
                     const isExpanded = expandedIds.has(rule.id);
                     return (
-                        <div key={rule.id} className="bg-black/20 rounded-lg border border-white/10 overflow-hidden transition-all">
+                        <div key={rule.id} className="neumorphic-convex rounded-lg overflow-hidden transition-all">
                             <div className="flex items-center p-3">
                                 <div className="flex-grow min-w-0">
                                     <InputField value={rule.name} onChange={e => onUpdate(rule.id, 'name', e.target.value)} id={`rule-name-${rule.id}`} placeholder="Tên quy luật" className="!py-1 !px-2 text-base font-semibold" />
@@ -56,7 +56,7 @@ const RuleListEditor: React.FC<RuleListEditorProps> = ({ title, description, rul
                                 </div>
                             </div>
                             {isExpanded && (
-                                <div className="p-3 border-t border-white/10 animate-fade-in-fast">
+                                <div className="p-3 neumorphic-inset animate-fade-in-fast">
                                     <TextareaField
                                         label="Nội dung quy luật"
                                         id={`rule-content-${rule.id}`}
@@ -70,7 +70,7 @@ const RuleListEditor: React.FC<RuleListEditorProps> = ({ title, description, rul
                         </div>
                     );
                 })}
-                <button onClick={onAdd} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-2 text-sm border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-white/5 hover:text-white hover:border-white/10 hover:border-solid font-semibold">+ Thêm Quy Luật</button>
+                <button onClick={onAdd} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-2 text-sm border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-white/5 hover:text-white hover:border-neutral-500 hover:border-solid font-semibold">+ Thêm Quy Luật</button>
             </div>
              <style>{`
                 @keyframes fade-in-fast {

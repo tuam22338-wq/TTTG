@@ -11,7 +11,7 @@ const TokenCounter: React.FC<TokenCounterProps> = ({ lastTurn, total }) => {
     }
 
     return (
-        <div className="text-sm text-neutral-400 bg-black/20 rounded-lg px-3 py-1.5 border border-solid border-white/10 whitespace-nowrap">
+        <div className="text-sm text-neutral-300 rounded-lg px-3 py-1.5 whitespace-nowrap neumorphic-inset">
             <span>Tokens: </span>
             <span className="font-semibold text-white">{lastTurn}</span>
             <span className="text-neutral-400"> / </span>

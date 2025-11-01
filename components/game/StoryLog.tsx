@@ -51,20 +51,20 @@ const StoryLog: React.FC<StoryLogProps> = ({ turn }) => {
     return (
         <div className="space-y-6">
             {playerAction && (
-                <div className="bg-black/20 p-4 rounded-xl border border-white/10 italic animate-fade-in-fast">
+                <div className="p-4 rounded-xl italic animate-fade-in-fast neumorphic-concave">
                     <p className="text-lg text-neutral-300 font-semibold">{'> '}{renderTextWithHighlighting(playerAction)}</p>
                 </div>
             )}
             
-            <div className="prose prose-invert prose-lg max-w-none leading-relaxed text-neutral-300 animate-fade-in-fast" style={{animationDelay: '100ms'}}>
+            <div className="prose prose-invert prose-lg max-w-none leading-relaxed text-neutral-200 animate-fade-in-fast" style={{animationDelay: '100ms'}}>
                  {storyText.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
                     <p key={index}>{renderTextWithHighlighting(paragraph)}</p>
                 ))}
             </div>
 
             {statusNarration && (
-                <div className="bg-neutral-800/50 border-l-4 border-cyan-400 p-4 rounded-r-lg animate-fade-in-fast" style={{animationDelay: '150ms'}}>
-                    <p className="flex items-center text-lg italic text-cyan-200">
+                <div className="glassmorphic border-l-4 border-white/50 p-4 rounded-r-lg animate-fade-in-fast" style={{animationDelay: '150ms'}}>
+                    <p className="flex items-center text-lg italic text-neutral-200">
                         <StatusNarrationIcon />
                         <span>{renderTextWithHighlighting(statusNarration)}</span>
                     </p>
@@ -72,12 +72,12 @@ const StoryLog: React.FC<StoryLogProps> = ({ turn }) => {
             )}
 
             {omniscientInterlude && (
-                <div className="bg-black/30 border-2 border-purple-500/50 p-4 rounded-xl shadow-lg shadow-purple-900/20 animate-fade-in-fast" style={{animationDelay: '200ms'}}>
-                    <h3 className="flex items-center text-xl font-bold text-purple-300 mb-2">
+                <div className="glassmorphic neumorphic-convex p-4 rounded-xl animate-fade-in-fast" style={{animationDelay: '200ms'}}>
+                    <h3 className="flex items-center text-xl font-bold text-white mb-2">
                         <EyeIcon />
                         {omniscientInterlude.title}
                     </h3>
-                    <div className="prose prose-invert prose-base max-w-none text-purple-200/90 italic">
+                    <div className="prose prose-invert prose-base max-w-none text-neutral-200/90 italic">
                         {omniscientInterlude.text.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
                             <p key={index}>{renderTextWithHighlighting(paragraph)}</p>
                         ))}

@@ -14,7 +14,7 @@ const RangeSlider: React.FC<{
     <div>
         <label htmlFor={id} className="block text-sm font-medium text-neutral-300 mb-1">{label}</label>
         <div className="flex items-center gap-4">
-            <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={onChange} className="w-full h-2 bg-black/30 rounded-lg appearance-none cursor-pointer" />
+            <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={onChange} className="w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer neumorphic-inset" />
             <span className="text-sm font-mono text-white w-20 text-center">
                 {displayTransform ? displayTransform(value) : `${value}${unit || ''}`}
             </span>

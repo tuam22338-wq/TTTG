@@ -23,11 +23,13 @@ import {
     StatType,
     CharacterStat,
     ChronicleEntry,
+    ParsedAction,
+    WorldEvent,
+    Settings,
 } from '../types';
 import * as GeminiStorytellerService from '../services/GeminiStorytellerService';
 import * as GameSaveService from '../services/GameSaveService';
 import { GoogleGenAI } from '@google/genai';
-import { AiModelSettings, SafetySettings } from '../types';
 import { ApiClient } from '../services/gemini/client';
 import * as client from '../services/gemini/client';
 
@@ -38,7 +40,7 @@ const INITIAL_AI_SETTINGS: AiSettings = {
     isStrictInterpretationOn: false,
     destinyCompassMode: 'NORMAL',
     npcMindset: 'DEFAULT',
-    flowOfDestinyInterval: null,
+    flowOfDestinyInterval: 3,
     authorsMandate: [],
     isTurnBasedCombat: true,
 };
@@ -78,8 +80,7 @@ function getInitialCoreStats(worldState: WorldCreationState): CharacterCoreStats
 export function useGameEngine(
     initialData: WorldCreationState | GameState,
     apiClient: ApiClient,
-    aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    settings: Settings,
 ) {
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -87,6 +88,8 @@ export function useGameEngine(
     const [newlyAcquiredSkill, setNewlyAcquiredSkill] = useState<Skill | null>(null);
     const [itemsReceived, setItemsReceived] = useState<Item[]>([]);
     const [showIntroductoryModal, setShowIntroductoryModal] = useState(false);
+    
+    const { aiModelSettings, masterSafetySwitch, safety } = settings;
 
     const initializeGame = useCallback(async (worldState: WorldCreationState) => {
         if (!apiClient.getApiClient()) {
@@ -104,7 +107,7 @@ export function useGameEngine(
                 presentNpcIds,
                 summaryText,
                 initialInventory,
-            } = await GeminiStorytellerService.initializeStory(worldState, apiClient, aiModelSettings, safetySettings);
+            } = await GeminiStorytellerService.initializeStory(worldState, apiClient, aiModelSettings, masterSafetySwitch, safety);
 
             const initialCoreStats = getInitialCoreStats(worldState);
 
@@ -139,6 +142,9 @@ export function useGameEngine(
                 isInCombat: false,
                 combatants: [],
                 codex: [],
+                pendingNarrativeEvents: [],
+                worldTickCounter: 0,
+                pendingWorldEvents: [],
             };
 
             // Apply initial updates
@@ -153,7 +159,7 @@ export function useGameEngine(
         } finally {
             setIsLoading(false);
         }
-    }, [apiClient, aiModelSettings, safetySettings]);
+    }, [apiClient, aiModelSettings, masterSafetySwitch, safety]);
 
     useEffect(() => {
         if ('history' in initialData) {
@@ -163,6 +169,7 @@ export function useGameEngine(
         } else {
             // It's WorldCreationState for a new game
             initializeGame(initialData as WorldCreationState);
+            setShowIntroductoryModal(true);
         }
     }, [initialData, initializeGame]);
     
@@ -236,6 +243,9 @@ export function useGameEngine(
                             level: 1,
                             coreStats: getInitialCoreStats(currentState.worldContext),
                             skills: [],
+                            goal: null,
+                            currentLocation: 'Unknown',
+                            affinity: 50,
                             ...restOfPayload,
                             id: update.id,
                             stats: initialStats
@@ -276,6 +286,28 @@ export function useGameEngine(
         return { ...currentState, npcs: newNpcs };
     };
 
+    const runWorldTick = (currentState: GameState): GameState => {
+        let newPendingEvents: WorldEvent[] = [...currentState.pendingWorldEvents];
+    
+        // Simple simulation: an NPC with a goal might "achieve" it.
+        currentState.npcs.forEach(npc => {
+            if (npc.goal && Math.random() < 0.1) { // 10% chance per tick for an NPC to do something
+                const newEvent: WorldEvent = {
+                    id: `event_${Date.now()}_${npc.id}`,
+                    type: 'WORLD_NARRATIVE',
+                    description: `Có tin tức về ${npc.name}: ${npc.goal}`,
+                    relatedEntityId: npc.id,
+                };
+                newPendingEvents.push(newEvent);
+                // In a more complex simulation, we'd update the NPC's state here
+                // For now, we just clear the goal to prevent repeated events
+                // This state change should be applied with the game state update
+            }
+        });
+    
+        return { ...currentState, pendingWorldEvents: newPendingEvents };
+    };
+
     const processTurn = async (choice: string, isRewrite: boolean = false, isCorrection: boolean = false) => {
         if (!gameState || !apiClient.getApiClient()) {
             setError("Trạng thái game hoặc dịch vụ AI không hợp lệ.");
@@ -283,6 +315,33 @@ export function useGameEngine(
         }
         setIsLoading(true);
         setError(null);
+
+        let tempState = { ...gameState };
+
+        // --- World Simulation ---
+        const tickInterval = tempState.aiSettings.flowOfDestinyInterval;
+        let shouldTriggerWorldTurn = false;
+        let eventToProcess: WorldEvent | undefined = undefined;
+
+        if (tickInterval !== null && tickInterval > 0 && !isRewrite && !isCorrection) {
+            const newTickCounter = tempState.worldTickCounter + 1;
+            if (newTickCounter >= tickInterval) {
+                tempState = runWorldTick(tempState);
+                tempState.worldTickCounter = 0; // Reset counter
+            } else {
+                tempState.worldTickCounter = newTickCounter;
+            }
+        }
+
+        if (tempState.pendingWorldEvents.length > 0) {
+            shouldTriggerWorldTurn = true;
+            eventToProcess = tempState.pendingWorldEvents[0];
+            tempState.pendingWorldEvents = tempState.pendingWorldEvents.slice(1);
+        }
+        
+        // --- End Simulation ---
+
+        const logicResultSummary = tempState.pendingNarrativeEvents.join('\n');
 
         // 1. Immediately add a new turn shell to history for streaming
         setGameState(prevState => {
@@ -295,7 +354,7 @@ export function useGameEngine(
                 omniscientInterlude: null
             };
             const history = isRewrite ? [...prevState.history.slice(0, -1), playerActionTurn] : [...prevState.history, playerActionTurn];
-            return { ...prevState, history };
+            return { ...prevState, history, pendingNarrativeEvents: [] };
         });
         
         try {
@@ -322,13 +381,13 @@ export function useGameEngine(
             };
 
             const response = await GeminiStorytellerService.continueStory(
-                gameState, choice, apiClient,
-                gameState.aiSettings.isLogicModeOn, gameState.aiSettings.lustModeFlavor,
-                gameState.aiSettings.npcMindset, gameState.aiSettings.isConscienceModeOn,
-                gameState.aiSettings.isStrictInterpretationOn, gameState.aiSettings.destinyCompassMode,
-                isRewrite, false, isCorrection, gameState.coreStats,
-                gameState.aiSettings.authorsMandate, gameState.aiSettings.isTurnBasedCombat,
-                aiModelSettings, safetySettings, onChunk
+                tempState, choice, logicResultSummary, apiClient,
+                tempState.aiSettings.isLogicModeOn, tempState.aiSettings.lustModeFlavor,
+                tempState.aiSettings.npcMindset, tempState.aiSettings.isConscienceModeOn,
+                tempState.aiSettings.isStrictInterpretationOn, tempState.aiSettings.destinyCompassMode,
+                isRewrite, shouldTriggerWorldTurn, isCorrection, tempState.coreStats,
+                tempState.aiSettings.authorsMandate, tempState.aiSettings.isTurnBasedCombat,
+                aiModelSettings, masterSafetySwitch, safety, onChunk, eventToProcess
             );
             
             const summaryEmbedding = (isRewrite || !response.summaryText) 
@@ -338,7 +397,7 @@ export function useGameEngine(
             setGameState(prevState => {
                  if (!prevState) return null;
                  
-                 let newState = { ...prevState };
+                 let newState: GameState = { ...prevState, ...tempState }; // Apply intermediate state from simulation
 
                  // 1. Apply stat & NPC updates
                  newState = applyStatChanges(newState, response.playerStatChanges, 'PLAYER');
@@ -486,31 +545,12 @@ export function useGameEngine(
                 newPlayerStatOrder.push(statName);
             }
     
-            // Defensive update: explicitly copy all properties to prevent state loss.
-            const newState: GameState = {
-                worldContext: prev.worldContext,
-                history: prev.history,
+            return {
+                ...prev,
                 playerStats: newPlayerStats,
                 playerStatOrder: newPlayerStatOrder,
-                playerTitle: prev.playerTitle,
-                npcs: prev.npcs,
-                playerSkills: [...prev.playerSkills, skill],
-                plotChronicle: prev.plotChronicle,
-                presentNpcIds: prev.presentNpcIds,
-                totalTokens: prev.totalTokens,
-                requestCount: prev.requestCount,
-                aiSettings: prev.aiSettings,
-                coreStats: prev.coreStats, // Explicitly preserve
-                cultivation: prev.cultivation, // Explicitly preserve
-                inventory: prev.inventory,
-                equipment: prev.equipment,
-                chronicle: prev.chronicle,
-                time: prev.time,
-                isInCombat: prev.isInCombat,
-                combatants: prev.combatants,
-                codex: prev.codex,
+                playerSkills: [...prev.playerSkills, skill]
             };
-            return newState;
         });
     };
     
@@ -526,7 +566,7 @@ export function useGameEngine(
         try {
             if (action === 'SANITIZE') {
                 console.log("Sanitizing game state...");
-                const { playerStatChanges, npcUpdates, sanitizedPlotChronicle } = await GeminiStorytellerService.sanitizeGameState(gameState, apiClient, aiModelSettings, safetySettings);
+                const { playerStatChanges, npcUpdates, sanitizedPlotChronicle } = await GeminiStorytellerService.sanitizeGameState(gameState, apiClient, aiModelSettings, masterSafetySwitch, safety);
 
                 setGameState(prevState => {
                     if (!prevState) return null;
@@ -565,6 +605,16 @@ export function useGameEngine(
         setNewlyAcquiredSkill(null);
     };
 
+    const addNarrativeEvent = useCallback((event: string) => {
+        setGameState(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                pendingNarrativeEvents: [...(prev.pendingNarrativeEvents || []), event],
+            };
+        });
+    }, []);
+
     return {
         gameState,
         isLoading,
@@ -581,5 +631,6 @@ export function useGameEngine(
         setShowIntroductoryModal, // To close it from GameScreen
         setGameState, // For direct state manipulation like combat results
         setError,
+        addNarrativeEvent,
     };
 }

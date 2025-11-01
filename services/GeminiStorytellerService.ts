@@ -1,5 +1,5 @@
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
-import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather, TrainingDataSet, TrainingDataChunk, ChronicleEntry } from '../types';
+import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather, TrainingDataSet, TrainingDataChunk, ChronicleEntry, ParsedAction, WorldEvent } from '../types';
 import * as schemas from './gemini/schemas';
 import * as client from './gemini/client';
 import * as prompts from './prompt-engineering/corePrompts';
@@ -13,40 +13,24 @@ import * as StorageService from './StorageService';
 
 const itemListString = predefinedEquipment.map(item => `- ${item.id}: ${item.name}`).join('\n');
 
-const getSafetySettings = (safety: SafetySettings) => {
-    switch (safety.level) {
-        case 'BLOCK_NONE':
-            return [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            ];
-        case 'BLOCK_ONLY_HIGH':
-            return [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-            ];
-        case 'BLOCK_MEDIUM_AND_ABOVE':
-             return [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-            ];
-        case 'BLOCK_MOST':
-             return [
-// FIX: Replaced invalid HarmBlockThreshold.BLOCK_MOST with a valid enum member.
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-            ];
-        default:
-            return undefined;
+const getSafetySettings = (masterSwitch: boolean, safetyConfig: SafetySettings) => {
+    if (!masterSwitch) {
+        return [
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ];
     }
+    
+    const threshold = HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE;
+    
+    return [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: safetyConfig.blockHarassment ? threshold : HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: safetyConfig.blockHateSpeech ? threshold : HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: safetyConfig.blockSexuallyExplicit ? threshold : HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: safetyConfig.blockDangerousContent ? threshold : HarmBlockThreshold.BLOCK_NONE },
+    ];
 };
 
 
@@ -94,23 +78,64 @@ function findTopKChunks<T extends { embedding?: number[] }>(promptEmbedding: num
 
 // --- CORE LOGIC ---
 
+export async function parsePlayerAction(
+    action: string,
+    inventory: Item[],
+    skills: Skill[],
+    presentNpcs: NPC[],
+    apiClient: client.ApiClient,
+    aiModelSettings: AiModelSettings
+): Promise<ParsedAction> {
+    const inventoryString = inventory.map(i => `- ${i.name} (id: ${i.id})`).join('\n') || "Không có";
+    const skillsString = skills.map(s => `- ${s.name} (id: ${s.id})`).join('\n') || "Không có";
+    const npcsString = presentNpcs.map(n => `- ${n.name} (id: ${n.id})`).join('\n') || "Không có";
+
+    const prompt = prompts.ACTION_PARSER_PROMPT
+        .replace('{INVENTORY_PLACEHOLDER}', inventoryString)
+        .replace('{SKILLS_PLACEHOLDER}', skillsString)
+        .replace('{NPCS_PLACEHOLDER}', npcsString)
+        .replace('{ACTION_PLACEHOLDER}', action);
+    
+    // Use a faster, cheaper model for parsing
+    const parserModelSettings: AiModelSettings = {
+        ...aiModelSettings,
+        model: 'gemini-2.5-flash',
+        temperature: 0, // Be deterministic
+        maxOutputTokens: 256,
+        jsonBuffer: 100,
+        thinkingBudget: 0,
+    };
+
+    const { parsed } = await client.callJsonAI(prompt, schemas.actionParserSchema, apiClient, parserModelSettings, []);
+    return parsed as ParsedAction;
+}
+
+
 export async function generateWorldFromPromptWithKnowledge(
     userIdea: string,
-    knowledgeBaseId: string,
+    knowledgeBaseIds: string[],
     isNsfw: boolean,
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<Partial<WorldCreationState>> {
 
-    const knowledgeBase = await StorageService.getTrainingSetById(knowledgeBaseId);
-    if (!knowledgeBase || knowledgeBase.chunks.length === 0) {
-        throw new Error("Không tìm thấy hoặc bộ kiến thức nền bị rỗng.");
+    const allChunks: TrainingDataChunk[] = [];
+    for (const id of knowledgeBaseIds) {
+        const knowledgeBase = await StorageService.getTrainingSetById(id);
+        if (knowledgeBase && knowledgeBase.chunks.length > 0) {
+            allChunks.push(...knowledgeBase.chunks);
+        }
+    }
+
+    if (allChunks.length === 0) {
+        throw new Error("Không tìm thấy hoặc các bộ kiến thức nền được chọn bị rỗng.");
     }
     
     const promptEmbedding = await client.callEmbeddingModel(userIdea, apiClient);
     
-    const topChunks = findTopKChunks(promptEmbedding, knowledgeBase.chunks, 5);
+    const topChunks = findTopKChunks(promptEmbedding, allChunks, 5);
     const knowledgeContext = topChunks.map((chunk, index) => `**Kiến thức tham khảo ${index + 1}:**\n${chunk.content}`).join('\n\n');
 
     const nsfwInstruction = isNsfw
@@ -145,7 +170,7 @@ ${userIdea}
 Hãy bắt đầu sáng tạo.`;
 
     const worldGenModelSettings: AiModelSettings = { ...aiModelSettings, maxOutputTokens: 8192 };
-    const { parsed: aiResponse } = await client.callJsonAI(prompt, schemas.quickAssistSchema, apiClient, worldGenModelSettings, getSafetySettings(safetySettings));
+    const { parsed: aiResponse } = await client.callJsonAI(prompt, schemas.quickAssistSchema, apiClient, worldGenModelSettings, getSafetySettings(masterSafetySwitch, safety));
     
     const generatedFactions = (aiResponse.initialFactions || []).map((faction: any, index: number) => ({ ...faction, id: `faction_${index + 1}_${Date.now()}` }));
     const factionIdMap = new Map(generatedFactions.map((f: any, i: number) => [ `faction_${i+1}`, f.id ]));
@@ -172,7 +197,8 @@ export async function generateWorldFromPrompt(
     isNsfw: boolean,
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<Partial<WorldCreationState>> {
     const nsfwInstruction = isNsfw
         ? "Quan trọng: Bối cảnh này có yếu tố 18+ (NSFW). Hãy sáng tạo các yếu tố nhân vật, phe phái, và bối cảnh phản ánh sự trưởng thành, phức tạp, và có thể bao gồm các chủ đề nhạy cảm một cách tinh tế."
@@ -204,7 +230,7 @@ Hãy bắt đầu sáng tạo.`;
         maxOutputTokens: 8192, // Increase token limit for complex world generation.
     };
 
-    const { parsed: aiResponse } = await client.callJsonAI(prompt, schemas.quickAssistSchema, apiClient, worldGenModelSettings, getSafetySettings(safetySettings));
+    const { parsed: aiResponse } = await client.callJsonAI(prompt, schemas.quickAssistSchema, apiClient, worldGenModelSettings, getSafetySettings(masterSafetySwitch, safety));
     
     const generatedFactions = (aiResponse.initialFactions || []).map((faction: any, index: number) => ({
         ...faction,
@@ -250,14 +276,15 @@ export async function generateSkillFromUserInput(
     worldContext: WorldCreationState,
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<Skill> {
     const prompt = prompts.SKILL_GENERATOR_FROM_USER_PROMPT
         .replace('{WORLD_CONTEXT_PLACEHOLDER}', worldContext.description)
         .replace('{SKILL_NAME_PLACEHOLDER}', name)
         .replace('{SKILL_DESCRIPTION_PLACEHOLDER}', description);
 
-    const { parsed: skill } = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    const { parsed: skill } = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
 
     // Ensure the name matches the user's input, as the AI might change it slightly.
     skill.name = name;
@@ -269,7 +296,8 @@ export async function generateCharacterAppearance(
     worldState: WorldCreationState,
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<string> {
     const { character, description } = worldState;
     const charGender = character.gender === 'Tự định nghĩa' ? character.customGender : character.gender;
@@ -280,7 +308,7 @@ export async function generateCharacterAppearance(
         .replace('{GENDER_PLACEHOLDER}', charGender)
         .replace('{PERSONALITY_PLACEHOLDER}', character.personality || 'Chưa xác định');
 
-    const response = await client.callCreativeTextAI(prompt, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    const response = await client.callCreativeTextAI(prompt, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
     return response.text;
 }
 
@@ -290,13 +318,14 @@ export async function generateSkillFromStat(
     worldContext: WorldCreationState, 
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<Skill> {
     const prompt = prompts.SKILL_GENERATOR_PROMPT
         .replace('{WORLD_CONTEXT_PLACEHOLDER}', worldContext.description)
         .replace('{STAT_NAME_PLACEHOLDER}', statName);
     
-    const { parsed: skill } = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    const { parsed: skill } = await client.callJsonAI(prompt, schemas.skillSchema, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
 
     // Ensure the name matches, sometimes AI might change it slightly
     skill.name = statName;
@@ -308,7 +337,8 @@ export async function initializeStory(
     worldState: WorldCreationState, 
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<{
     initialTurn: GameTurn;
     initialPlayerStatChanges: StatChanges;
@@ -359,7 +389,7 @@ export async function initializeStory(
 
 **4.1. TẦNG KÝ ỨC DÀI HẠN (NỀN TẢNG):**
 - **Nền tảng Thế giới:** Thể loại: ${genre || "Không có"}, Bối cảnh: ${description}
-- **Thông tin Nhân vật chính:** Tên: ${character.name}, Giới tính: ${charGender}, Tính cách: ${character.personality}, Tiểu sử: ${character.biography}
+- **Thông tin Nhân vật chính:** Tên: ${character.name}, Giới tính: ${charGender}, Tính cách: ${character.personality}, Tiểu sử: ${character.biography}, Cảnh giới khởi đầu: ${character.initialRealm || 'Phàm nhân'}
 - **Kỹ năng khởi đầu (dạng dữ liệu JSON):** ${skillsString}
 - **Hệ thống Thuộc tính Tùy chỉnh:** ${customAttributesString}
 - **Thế lực khởi đầu:** ${factionsString}
@@ -380,7 +410,7 @@ Bắt đầu cuộc phiêu lưu.
 
     console.debug("Initializing story with custom token limit:", initialModelSettings.maxOutputTokens);
 
-    const { parsed: aiResponse, response: result } = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, initialModelSettings, getSafetySettings(safetySettings));
+    const { parsed: aiResponse, response: result } = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, initialModelSettings, getSafetySettings(masterSafetySwitch, safety));
 
     // Player skills are now taken directly from the world state, not generated by AI.
     const initialPlayerSkills = worldState.character.skills || [];
@@ -407,6 +437,7 @@ Bắt đầu cuộc phiêu lưu.
 export async function continueStory(
     gameState: GameState,
     choice: string,
+    logicResultSummary: string,
     apiClient: client.ApiClient,
     isLogicModeOn: boolean,
     lustModeFlavor: LustModeFlavor | null,
@@ -421,8 +452,10 @@ export async function continueStory(
     authorsMandate: string[],
     isTurnBasedCombat: boolean,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings,
-    onChunk: (chunk: string) => void
+    masterSafetySwitch: boolean,
+    safety: SafetySettings,
+    onChunk: (chunk: string) => void,
+    worldEvent?: WorldEvent
 ): Promise<{
     newTurn: GameTurn;
     playerStatChanges: StatChanges;
@@ -458,10 +491,16 @@ export async function continueStory(
 
     // 2. Retrieve World Knowledge (from Knowledge Base)
     let knowledgeContext = "Không có kiến thức nền nào liên quan.";
-    if (worldContext.knowledgeBaseId) {
-        const knowledgeBase = await StorageService.getTrainingSetById(worldContext.knowledgeBaseId);
-        if (knowledgeBase) {
-            const relevantKnowledge = findTopKChunks(queryEmbedding, knowledgeBase.chunks, 2);
+    if (worldContext.knowledgeBaseIds && worldContext.knowledgeBaseIds.length > 0) {
+        const allKnowledgeChunks: TrainingDataChunk[] = [];
+        for (const id of worldContext.knowledgeBaseIds) {
+            const knowledgeBase = await StorageService.getTrainingSetById(id);
+            if (knowledgeBase) {
+                allKnowledgeChunks.push(...knowledgeBase.chunks);
+            }
+        }
+        if (allKnowledgeChunks.length > 0) {
+            const relevantKnowledge = findTopKChunks(queryEmbedding, allKnowledgeChunks, 2);
             if (relevantKnowledge.length > 0) {
                 knowledgeContext = relevantKnowledge.map((k, i) => `**Kiến thức ${i+1}:** ${k.content}`).join('\n\n');
             }
@@ -490,16 +529,15 @@ ${knowledgeContext}
     const destinyCompassRules = getDestinyCompassRules(destinyCompassMode);
     const combatSystemRules = getCombatSystemRules(isTurnBasedCombat);
     let situationalRules = getSituationalRules(choice, isConscienceModeOn, lustModeFlavor, isStrictInterpretationOn, isLogicModeOn, npcMindset, isCorrection, authorsMandate);
-    const flowOfDestinyRules = getFlowOfDestinyRules(shouldTriggerWorldTurn, choice);
+    const flowOfDestinyRules = getFlowOfDestinyRules(shouldTriggerWorldTurn, choice, worldEvent);
     const worldRulesPrompt = getWorldRulesPrompt(worldContext.specialRules, worldContext.initialLore);
 
-    const approximateWordCount = Math.floor(aiModelSettings.maxOutputTokens / 3.5);
-    const targetStoryWordCount = Math.max(150, Math.floor(approximateWordCount * 0.7));
+    const targetStoryWordCount = aiModelSettings.minOutputWords;
     
     const lengthInstruction = `
 **QUY TẮC ĐỘ DÀI TƯỜNG THUẬT (STORY LENGTH RULE - MỆNH LỆNH TỐI THƯỢNG):**
 Bạn BẮT BUỘC phải viết một đoạn \`storyText\` có độ dài **TỐI THIỂU LÀ ${targetStoryWordCount} từ**. Đây là yêu cầu quan trọng nhất, ghi đè lên các quy tắc khác về sự ngắn gọn.
-- **LÀM THẾ NÀO ĐỂ ĐẠT ĐƯỢC:** Hãy đi sâu vào chi tiết. Mô tả môi trường, đi sâu vào suy nghĩ và cảm xúc nội tâm của nhân vật, kéo dài các đoạn hội thoại, và thêm các hành động hoặc mô tả phụ để làm phong phú thêm cảnh.
+- **LÀM THẾ NÀO ĐỂ ĐẠT ĐƯỢỢC:** Hãy đi sâu vào chi tiết. Mô tả môi trường, đi sâu vào suy nghĩ và cảm xúc nội tâm của nhân vật, kéo dài các đoạn hội thoại, và thêm các hành động hoặc mô tả phụ để làm phong phú thêm cảnh.
 - **KHÔNG VIẾT NGẮN:** TUYỆT ĐỐI không được viết một đoạn tường thuật ngắn hơn độ dài yêu cầu này. Nếu cần, hãy tự sáng tạo thêm tình tiết phụ để kéo dài câu chuyện.
 `;
 
@@ -520,7 +558,15 @@ Bạn BẮT BUỘC phải viết một đoạn \`storyText\` có độ dài **T�
     const presentNpcs = npcs.filter(npc => presentNpcIds?.includes(npc.id));
     const otherNpcsSummary = npcs
         .filter(npc => !presentNpcIds?.includes(npc.id))
-        .map(({ id, name, relationship, status, lastInteractionSummary }) => ({ id, name, relationship, status, lastInteractionSummary }));
+        .map(({ id, name, relationship, status, lastInteractionSummary, goal }) => ({ id, name, relationship, status, lastInteractionSummary, goal }));
+
+    const logicSummaryPrompt = logicResultSummary ? `
+**4.3.5. KẾT QUẢ LOGIC (SỰ THẬT TUYỆT ĐỐI):**
+Các sự kiện sau đã xảy ra do client xử lý logic. Bạn BẮT BUỘC phải tường thuật và tích hợp chúng vào \`storyText\`.
+---
+${logicResultSummary}
+---
+` : '';
 
     const userPrompt = `
 ### BẢN TÓM TẮT NHẬN THỨC (COGNITIVE SNAPSHOT) ###
@@ -547,6 +593,8 @@ ${ragContextPrompt}
 - **Trạng thái Người chơi (Hiệu ứng & Thuộc tính):** ${JSON.stringify(playerStats, null, 2)}
 - **Danh sách Vật phẩm Tham khảo:** ${itemListString}
 
+${logicSummaryPrompt}
+
 **4.4. Ý CHÍ NGƯỜI CHƠI (HÀNH ĐỘNG HIỆN TẠI):**
 ${choice}
 `;
@@ -559,7 +607,7 @@ ${choice}
         let totalTokens = 0;
         
         try {
-            const stream = await client.callJsonAIStream(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+            const stream = await client.callJsonAIStream(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
 
             for await (const chunk of stream) {
                 const chunkText = chunk.text;
@@ -587,7 +635,7 @@ ${logicAiResponse.storyText}
 **Danh sách NPC hiện diện và tóm tắt cũ:**
 ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt cũ: "${npc.lastInteractionSummary}")`).join('\n')}
 `;
-                const creativeResult = await client.callCreativeTextAI(prompts.CREATIVE_TEXT_SYSTEM_PROMPT + '\n\n' + creativeTextUserPrompt, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+                const creativeResult = await client.callCreativeTextAI(prompts.CREATIVE_TEXT_SYSTEM_PROMPT + '\n\n' + creativeTextUserPrompt, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
                 const creativeData = client.parseNpcCreativeText(creativeResult.text);
                 
                 logicAiResponse.npcUpdates = (logicAiResponse.npcUpdates || []).map((update: NPCUpdate) => {
@@ -654,7 +702,8 @@ export async function generateDefeatStory(
     gameState: GameState,
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<{ newTurn: GameTurn; }> {
     const { worldContext, plotChronicle, history } = gameState;
     const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
@@ -679,7 +728,7 @@ ${JSON.stringify({ ...gameState.coreStats }, null, 2)}
 
     const fullPrompt = prompts.DEFEAT_SYSTEM_PROMPT + '\n\n' + userPrompt;
 
-    const { parsed: aiResponse, response: result } = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    const { parsed: aiResponse, response: result } = await client.callJsonAI(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
 
     return {
         newTurn: {
@@ -696,12 +745,13 @@ export async function refineEntityStats(
     worldContext: WorldCreationState,
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<StatChanges> {
     const prompt = prompts.STAT_REFINEMENT_SYSTEM_PROMPT
         .replace('{STATS_JSON_PLACEHOLDER}', JSON.stringify(statsToRefine, null, 2));
 
-    const { parsed: changes } = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    const { parsed: changes } = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
 
     return changes as StatChanges;
 }
@@ -713,7 +763,8 @@ export async function reconstructEntity(
     newPersonality: string | undefined,
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<StatChanges> {
     let coreInfo = '';
     let oldStats: CharacterStats = {};
@@ -734,7 +785,7 @@ export async function reconstructEntity(
         .replace('{OLD_STATS_LIST_PLACEHOLDER}', JSON.stringify(Object.keys(oldStats), null, 2))
         .replace('{USER_DIRECTIVE_PLACEHOLDER}', directive || 'Không có.');
 
-    const { parsed: changes } = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    const { parsed: changes } = await client.callJsonAI(prompt, schemas.statChangesSchema, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
 
     return changes as StatChanges;
 }
@@ -743,7 +794,8 @@ export async function sanitizeGameState(
     gameState: GameState,
     apiClient: client.ApiClient,
     aiModelSettings: AiModelSettings,
-    safetySettings: SafetySettings
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
 ): Promise<{
     playerStatChanges: StatChanges;
     npcUpdates: { id: string; statsChanges: StatChanges }[];
@@ -758,7 +810,7 @@ export async function sanitizeGameState(
     const prompt = prompts.GAME_STATE_SANITIZATION_PROMPT
         .replace('{GAME_DATA_JSON_PLACEHOLDER}', JSON.stringify(dataToSanitize, null, 2));
 
-    const { parsed: sanitizedData } = await client.callJsonAI(prompt, schemas.sanitizedGameStateSchema, apiClient, aiModelSettings, getSafetySettings(safetySettings));
+    const { parsed: sanitizedData } = await client.callJsonAI(prompt, schemas.sanitizedGameStateSchema, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
 
     return sanitizedData;
 }

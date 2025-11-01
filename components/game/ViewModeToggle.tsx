@@ -13,11 +13,11 @@ const ViewModeToggle: React.FC<ViewModeToggleProps> = ({ viewMode, setViewMode, 
   const isDesktop = viewMode === 'desktop';
 
   return (
-    <div className="flex items-center rounded-lg border border-solid border-white/10 overflow-hidden" title="Chuyển đổi giao diện Desktop/Mobile">
+    <div className="flex items-center rounded-lg p-1 neumorphic-inset" title="Chuyển đổi giao diện Desktop/Mobile">
       <button
         onClick={() => setViewMode('desktop')}
         disabled={disabled}
-        className={`p-2 transition-colors duration-200 ${isDesktop ? 'bg-white/10 text-white' : 'bg-black/20 text-neutral-400 hover:bg-white/5'}`}
+        className={`p-2 rounded-md transition-all duration-200 ${isDesktop ? 'text-white neumorphic-convex' : 'text-neutral-400 hover:bg-white/5'}`}
         aria-pressed={isDesktop}
       >
         <DesktopIcon />
@@ -25,7 +25,7 @@ const ViewModeToggle: React.FC<ViewModeToggleProps> = ({ viewMode, setViewMode, 
       <button
         onClick={() => setViewMode('mobile')}
         disabled={disabled}
-        className={`p-2 transition-colors duration-200 ${!isDesktop ? 'bg-white/10 text-white' : 'bg-black/20 text-neutral-400 hover:bg-white/5'}`}
+        className={`p-2 rounded-md transition-all duration-200 ${!isDesktop ? 'text-white neumorphic-convex' : 'text-neutral-400 hover:bg-white/5'}`}
         aria-pressed={!isDesktop}
       >
         <MobileIcon />

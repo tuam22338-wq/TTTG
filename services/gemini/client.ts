@@ -278,7 +278,6 @@ export async function callEmbeddingModel(
     apiClient: ApiClient,
 ): Promise<number[]> {
      const callLogic = (geminiService: GoogleGenAI): Promise<EmbedContentResponse> => {
-        // FIX: Object literal may only specify known properties, but 'content' does not exist in type 'EmbedContentParameters'. Did you mean to write 'contents'?
         return geminiService.models.embedContent({
             model: 'text-embedding-004',
             contents: { parts: [{ text }] },
@@ -286,7 +285,6 @@ export async function callEmbeddingModel(
     };
     
     const response = await performApiCall(apiClient, callLogic);
-    // FIX: Property 'embedding' does not exist on type 'EmbedContentResponse'. Did you mean 'embeddings'?
     return response.embeddings[0].values;
 }
 
@@ -295,7 +293,6 @@ export async function callBatchEmbeddingModel(
     apiClient: ApiClient,
 ): Promise<number[][]> {
      const callLogic = async (geminiService: GoogleGenAI): Promise<number[][]> => {
-        // FIX: Property 'batchEmbedContents' does not exist on type 'Models'. Did you mean 'embedContent'?
         const result = await geminiService.models.embedContent({
             model: 'text-embedding-004',
             contents: texts.map(text => ({ parts: [{ text }] }))

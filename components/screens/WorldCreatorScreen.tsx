@@ -58,6 +58,7 @@ const defaultWorldCreationState: WorldCreationState = {
       avatarUrl: '',
       biography: '',
       skills: [],
+      initialRealm: '',
     },
     isCultivationEnabled: true,
     cultivationSystem: defaultCultivationSystem,
@@ -66,7 +67,7 @@ const defaultWorldCreationState: WorldCreationState = {
     initialNpcs: [],
     specialRules: [],
     initialLore: [],
-    knowledgeBaseId: undefined,
+    knowledgeBaseIds: [],
 };
 
 type CreatorView = 'WORLD' | 'CHARACTER' | 'CULTIVATION' | 'ATTRIBUTES' | 'RULES' | 'ENTITIES';
@@ -101,6 +102,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
 
 
   const handleToggleView = (viewId: CreatorView) => {
+    // FIX: Changed prevId to viewId
     setExpandedView(prev => (prev === viewId ? null : viewId));
     if (contentRef.current) {
         // We delay scroll to allow the element to render and get its position
@@ -149,7 +151,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
             onApiKeyInvalid();
             return;
         }
-        if (!state.knowledgeBaseId) {
+        if (!state.knowledgeBaseIds || state.knowledgeBaseIds.length === 0) {
             alert("Vui lòng chọn một bộ kiến thức nền trước khi sử dụng chức năng này.");
             return;
         }
@@ -159,14 +161,16 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
     const handleQuickAssistWithKnowledgeSubmit = async (idea: string) => {
         setIsQuickAssistLoading(true);
         try {
-            if (!state.knowledgeBaseId) throw new Error("Knowledge Base ID is missing.");
+            if (!state.knowledgeBaseIds || state.knowledgeBaseIds.length === 0) throw new Error("Knowledge Base ID is missing.");
 
+            // FIX: Added missing settings.masterSafetySwitch argument
             const generatedWorld = await GeminiStorytellerService.generateWorldFromPromptWithKnowledge(
                 idea,
-                state.knowledgeBaseId,
+                state.knowledgeBaseIds,
                 state.isNsfw,
                 apiClient,
                 settings.aiModelSettings,
+                settings.masterSafetySwitch,
                 settings.safety
             );
 
@@ -174,7 +178,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
                 ...defaultWorldCreationState,
                 narrativePerspective: prevState.narrativePerspective,
                 isNsfw: prevState.isNsfw,
-                knowledgeBaseId: prevState.knowledgeBaseId, // Preserve the selected knowledge base
+                knowledgeBaseIds: prevState.knowledgeBaseIds, // Preserve the selected knowledge base
                 ...generatedWorld,
             }));
             
@@ -192,11 +196,13 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
   const handleQuickAssistSubmit = async (idea: string) => {
     setIsQuickAssistLoading(true);
     try {
+        // FIX: Added missing settings.masterSafetySwitch argument
         const generatedWorld = await GeminiStorytellerService.generateWorldFromPrompt(
             idea,
             state.isNsfw,
             apiClient,
             settings.aiModelSettings,
+            settings.masterSafetySwitch,
             settings.safety
         );
 
@@ -255,6 +261,17 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
         if (!preset.initialLore) {
             preset.initialLore = [];
         }
+        
+        if ((preset as any).knowledgeBaseId && !preset.knowledgeBaseIds) {
+          preset.knowledgeBaseIds = [(preset as any).knowledgeBaseId];
+          delete (preset as any).knowledgeBaseId;
+        } else if (!preset.knowledgeBaseIds) {
+          preset.knowledgeBaseIds = [];
+        }
+        
+        if (preset.character && !preset.character.initialRealm) {
+            preset.character.initialRealm = '';
+        }
         // --- End Migration ---
 
         setState(preset);
@@ -295,7 +312,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
             onClick={onClick} 
             title={title}
             disabled={disabled}
-            className="flex flex-col items-center justify-center gap-2 w-24 h-24 bg-black/20 rounded-2xl border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0"
+            className="flex flex-col items-center justify-center gap-2 w-24 h-24 rounded-2xl text-neutral-300 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/80 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0 neumorphic-convex active:shadow-[inset_4px_4px_8px_#141414,_inset_-4px_-4px_8px_#202020] active:brightness-95"
         >
             <Icon className="h-7 w-7" />
             <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
@@ -314,12 +331,12 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
         }
        `}</style>
       
-       <div className="relative z-10 w-full max-w-4xl max-h-[90vh] bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50 p-4 sm:p-8 flex flex-col">
+       <div className="relative z-10 w-full max-w-4xl max-h-[90vh] glassmorphic neumorphic-convex rounded-3xl p-4 sm:p-8 flex flex-col">
           <header className="flex justify-between items-center mb-4 flex-shrink-0">
               <button onClick={onBackToMenu} className="p-2 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="Quay lại">
                   <ArrowLeftIcon className="h-6 w-6" />
               </button>
-              <h2 className="text-3xl font-rajdhani font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+              <h2 className="text-3xl font-rajdhani font-semibold text-white">
                 Thiết lập Thế giới
               </h2>
               <div className="w-10 h-10"></div> {/* Spacer to balance layout */}
@@ -330,7 +347,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
             <CreatorActionButton onClick={triggerFileLoad} label="Tải" Icon={UploadIcon} title="Tải thiết lập từ file" />
             <CreatorActionButton onClick={handleResetPreset} label="Xóa" Icon={TrashIcon} title="Xóa và đặt lại toàn bộ thiết lập"/>
             <CreatorActionButton onClick={handleQuickAssist} label="AI Hỗ Trợ" Icon={SparklesIcon} title="Sử dụng AI để tạo nhanh thế giới"/>
-            <CreatorActionButton onClick={handleQuickAssistWithKnowledge} label="AI Hỗ trợ (Tri thức)" Icon={BrainIcon} title="Sử dụng AI và kiến thức nền để tạo thế giới" disabled={!state.knowledgeBaseId} />
+            <CreatorActionButton onClick={handleQuickAssistWithKnowledge} label="AI Hỗ trợ (Tri thức)" Icon={BrainIcon} title="Sử dụng AI và kiến thức nền để tạo thế giới" disabled={!state.knowledgeBaseIds || state.knowledgeBaseIds.length === 0} />
           </div>
         
           <main ref={contentRef} className="flex-grow min-h-0 overflow-y-auto custom-scrollbar pr-4 -mr-4">
@@ -338,14 +355,14 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
                     {menuItems.map((item) => {
                         const isExpanded = expandedView === item.id;
                         return (
-                             <div key={item.id} id={`accordion-item-${item.id}`} className="bg-black/20 rounded-xl border border-white/10 overflow-hidden transition-all duration-300">
+                             <div key={item.id} id={`accordion-item-${item.id}`} className="neumorphic-convex rounded-xl overflow-hidden transition-all duration-300">
                                 <button 
                                     onClick={() => handleToggleView(item.id as CreatorView)}
-                                    className="w-full flex items-center justify-between p-3 text-left hover:bg-white/5 transition-colors"
+                                    className="w-full flex items-center justify-between p-3 text-left hover:brightness-110 transition-all"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-black/20 rounded-lg border border-white/10">
-                                            <item.Icon className="h-6 w-6 text-neutral-400"/>
+                                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg neumorphic-inset">
+                                            <item.Icon className="h-6 w-6 text-neutral-300"/>
                                         </div>
                                         <div className="flex-grow text-left">
                                             <p className="font-bold text-lg text-neutral-100">{item.label}</p>
@@ -357,7 +374,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
                                     </div>
                                 </button>
                                 {isExpanded && (
-                                    <div className="p-4 border-t border-white/10 animate-fade-in-fast">
+                                    <div className="p-4 neumorphic-inset animate-fade-in-fast">
                                         {getFormComponent(item.id as CreatorView)}
                                     </div>
                                 )}

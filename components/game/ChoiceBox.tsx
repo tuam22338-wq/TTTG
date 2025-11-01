@@ -51,9 +51,9 @@ const ChoiceBox: React.FC<ChoiceBoxProps> = ({
     };
 
     return (
-        <div className="bg-neutral-900/70 backdrop-blur-md border border-white/10 rounded-2xl p-4 transition-all duration-300">
+        <div className="glassmorphic neumorphic-convex rounded-2xl p-4 transition-all duration-300">
             {isLoading && (choices.length === 0) ? (
-                 <p className="text-center text-lg text-neutral-400 animate-pulse">AI đang suy nghĩ...</p>
+                 <p className="text-center text-lg text-neutral-300 animate-pulse">AI đang suy nghĩ...</p>
             ) : (
                 <div>
                     <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isChoicesVisible ? 'max-h-52 visible opacity-100' : 'max-h-0 invisible opacity-0'}`}>
@@ -73,13 +73,13 @@ const ChoiceBox: React.FC<ChoiceBoxProps> = ({
                         </div>
                     </div>
                     
-                    <div className={`${isChoicesVisible ? 'mt-4 pt-4 border-t' : 'mt-0 pt-0 border-t-0'} border-neutral-700/50`}>
+                    <div className={`${isChoicesVisible ? 'mt-4 pt-4 border-t' : 'mt-0 pt-0 border-t-0'} border-white/10`}>
                        <div className="flex items-center gap-2">
-                           <div className="group relative flex items-center bg-black/20 border border-white/10 rounded-lg transition-all duration-300 flex-grow">
+                           <div className="group relative flex items-center rounded-lg transition-all duration-300 flex-grow neumorphic-concave">
                                 <>
                                     <div className="flex-shrink-0 flex gap-1 p-1">
-                                        <button onClick={() => setPromptMode('action')} className={`px-3 py-1.5 text-xs rounded font-semibold transition-colors ${promptMode === 'action' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:bg-white/5'}`}>Hành động</button>
-                                        <button onClick={() => setPromptMode('speak')} className={`px-3 py-1.5 text-xs rounded font-semibold transition-colors ${promptMode === 'speak' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:bg-white/5'}`}>Nói</button>
+                                        <button onClick={() => setPromptMode('action')} className={`px-3 py-1.5 text-xs rounded-md font-semibold transition-all ${promptMode === 'action' ? 'text-white neumorphic-convex' : 'text-neutral-400 hover:bg-white/5'}`}>Hành động</button>
+                                        <button onClick={() => setPromptMode('speak')} className={`px-3 py-1.5 text-xs rounded-md font-semibold transition-all ${promptMode === 'speak' ? 'text-white neumorphic-convex' : 'text-neutral-400 hover:bg-white/5'}`}>Nói</button>
                                     </div>
                                     <div className="w-px h-6 bg-white/10 self-center"></div>
                                 </>
@@ -100,34 +100,20 @@ const ChoiceBox: React.FC<ChoiceBoxProps> = ({
                                     Gửi
                                 </Button>
                             </div>
-                            <button 
-                            onClick={() => setIsChoicesVisible(!isChoicesVisible)}
-                            disabled={isLoading}
-                            className="p-2.5 rounded-lg border border-solid border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0" 
-                            title={isChoicesVisible ? "Ẩn gợi ý" : "Hiện gợi ý"}>
-                            <ChevronIcon isExpanded={!isChoicesVisible} />
-                            </button>
-                           <button 
-                               onClick={onRequestCorrection}
-                               disabled={isLoading || !canCorrect}
-                               className="p-2.5 rounded-lg border border-solid border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0" 
-                               title="Chỉnh Lối Tường Thuật (Nhắc nhở AI viết tiếp)">
-                               <CompassIcon />
-                           </button>
-                           <button 
-                               onClick={onRequestRewrite}
-                               disabled={isLoading || !canRewrite}
-                               className="p-2.5 rounded-lg border border-solid border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0" 
-                               title="Viết Lại Lượt Này">
-                               <RewriteIcon />
-                           </button>
-                           <button 
-                               onClick={onOpenAiControlModal}
-                               disabled={isLoading}
-                               className="p-2.5 rounded-lg border border-solid border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0" 
-                               title="Bảng điều khiển AI">
-                               <BrainIcon />
-                           </button>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                                <button onClick={() => setIsChoicesVisible(!isChoicesVisible)} disabled={isLoading} className="p-2.5 rounded-lg text-neutral-300 transition-all neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] disabled:opacity-50" title={isChoicesVisible ? "Ẩn gợi ý" : "Hiện gợi ý"}>
+                                    <ChevronIcon isExpanded={!isChoicesVisible} />
+                                </button>
+                                <button onClick={onRequestCorrection} disabled={isLoading || !canCorrect} className="p-2.5 rounded-lg text-neutral-300 transition-all neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] disabled:opacity-50" title="Chỉnh Lối Tường Thuật (Nhắc nhở AI viết tiếp)">
+                                    <CompassIcon />
+                                </button>
+                                <button onClick={onRequestRewrite} disabled={isLoading || !canRewrite} className="p-2.5 rounded-lg text-neutral-300 transition-all neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] disabled:opacity-50" title="Viết Lại Lượt Này">
+                                    <RewriteIcon />
+                                </button>
+                                <button onClick={onOpenAiControlModal} disabled={isLoading} className="p-2.5 rounded-lg text-neutral-300 transition-all neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] disabled:opacity-50" title="Bảng điều khiển AI">
+                                    <BrainIcon />
+                                </button>
+                            </div>
                        </div>
                     </div>
                 </div>

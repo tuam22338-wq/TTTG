@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Skill } from '../../types';
 import Button from '../ui/Button';
@@ -29,7 +28,7 @@ const SkillAcquisitionModal: React.FC<SkillAcquisitionModalProps> = ({ isOpen, o
         <p className="text-gray-300 italic mb-4">{skill.description}</p>
         
         {skill.abilities && skill.abilities.length > 0 && (
-            <div className="text-left bg-black/20 p-3 rounded-lg mb-6 max-h-48 overflow-y-auto prose-custom">
+            <div className="text-left neumorphic-inset p-3 rounded-lg mb-6 max-h-48 overflow-y-auto prose-custom">
                 <h4 className="font-semibold text-white mb-2">Chiêu thức:</h4>
                 <ul className="space-y-2">
                     {skill.abilities.map(ability => (
@@ -55,18 +54,18 @@ const SkillAcquisitionModal: React.FC<SkillAcquisitionModalProps> = ({ isOpen, o
        <style>{`
         .prose-custom {
             scrollbar-width: thin;
-            scrollbar-color: #555 #171717;
+            scrollbar-color: #555 #1a1a1a;
         }
         .prose-custom::-webkit-scrollbar {
             width: 8px;
         }
         .prose-custom::-webkit-scrollbar-track {
-            background: #171717;
+            background: #1a1a1a;
         }
         .prose-custom::-webkit-scrollbar-thumb {
             background-color: #555;
             border-radius: 10px;
-            border: 2px solid #171717;
+            border: 2px solid #1a1a1a;
         }
       `}</style>
     </Modal>

@@ -108,7 +108,7 @@ const AssistantChatScreen: React.FC<{
         if (!userInput.trim() || isLoading || isPackaging) return;
         const apiClientObject: client.ApiClient = { getApiClient, cycleToNextApiKey, apiStats, onApiKeyInvalid };
         if (!apiClientObject.getApiClient()) {
-            setError("Dịch vụ AI chưa sẵn sàng.");
+            setError("Dịch vụ AI chưa được khởi tạo.");
             onApiKeyInvalid();
             return;
         }

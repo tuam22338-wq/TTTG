@@ -19,12 +19,12 @@ const IntroductoryModal: React.FC<IntroductoryModalProps> = ({ isOpen, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-start p-4 sm:p-6 md:p-8 animate-fade-in-fast overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start p-4 sm:p-6 md:p-8 animate-fade-in-fast overflow-y-auto">
       <div 
-        className="bg-neutral-900 backdrop-blur-xl border-2 border-neutral-700 shadow-2xl rounded-2xl w-full max-w-6xl h-auto md:max-h-[90vh] my-auto flex flex-col"
+        className="glassmorphic neumorphic-convex w-full max-w-6xl h-auto md:max-h-[90vh] my-auto flex flex-col rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex-shrink-0 p-6 text-center border-b-2 border-neutral-800">
+        <header className="flex-shrink-0 p-6 text-center border-b-2 border-white/10">
             <h2 className="text-3xl font-bold text-white font-rajdhani tracking-wider theme-h1">
             Sổ Tay Sáng Thế
             </h2>
@@ -34,7 +34,7 @@ const IntroductoryModal: React.FC<IntroductoryModalProps> = ({ isOpen, onClose, 
           {/* World Description Column */}
           <section className="flex flex-col md:min-h-0">
             <h3 className="text-2xl font-semibold text-white mb-3 flex-shrink-0">Mô Tả Thế Giới</h3>
-            <div className="text-lg leading-relaxed text-neutral-300 md:flex-grow md:overflow-y-auto pr-3 custom-scrollbar">
+            <div className="text-lg leading-relaxed text-neutral-200 md:flex-grow md:overflow-y-auto pr-3 custom-scrollbar neumorphic-inset p-4 rounded-lg">
               {renderTextWithParagraphs(worldContext.description)}
             </div>
           </section>
@@ -42,13 +42,13 @@ const IntroductoryModal: React.FC<IntroductoryModalProps> = ({ isOpen, onClose, 
            {/* Character Bio Column */}
           <section className="flex flex-col md:min-h-0">
             <h3 className="text-2xl font-semibold text-white mb-3 flex-shrink-0">Tiểu Sử: {worldContext.character.name}</h3>
-             <div className="text-lg leading-relaxed text-neutral-300 md:flex-grow md:overflow-y-auto pr-3 custom-scrollbar">
+             <div className="text-lg leading-relaxed text-neutral-200 md:flex-grow md:overflow-y-auto pr-3 custom-scrollbar neumorphic-inset p-4 rounded-lg">
               {renderTextWithParagraphs(worldContext.character.biography)}
             </div>
           </section>
         </main>
 
-        <footer className="p-6 border-t-2 border-neutral-800 flex-shrink-0 bg-black/20">
+        <footer className="p-6 border-t-2 border-white/10 flex-shrink-0">
           <Button onClick={onClose} variant="primary" className="w-full max-w-sm mx-auto flex justify-center">
             {confirmText}
           </Button>
@@ -58,7 +58,7 @@ const IntroductoryModal: React.FC<IntroductoryModalProps> = ({ isOpen, onClose, 
         .theme-h1 { text-shadow: 0 0 12px rgba(255, 255, 255, 0.5); }
         .custom-scrollbar {
             scrollbar-width: thin;
-            scrollbar-color: #555 #171717;
+            scrollbar-color: #555 #1a1a1a;
         }
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;

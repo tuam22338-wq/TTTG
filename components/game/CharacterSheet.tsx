@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
-import { GameState, AttributeType } from '../../types';
+import React, { useMemo, useState } from 'react';
+import { GameState, AttributeType, StatType, CharacterStat, Skill } from '../../types';
 import { getRealmString } from '../../services/CultivationService';
 import { GetIconComponent } from '../icons/AttributeIcons';
-import { AtkIcon, DefIcon, MDefIcon, AgiIcon, CritIcon, CritDmgIcon, CdrIcon } from '../icons/CombatStatIcons';
+import ChevronIcon from '../icons/ChevronIcon';
 
 interface CharacterSheetProps {
   gameState: GameState;
+  onStatClick: (stat: CharacterStat & { name: string }, ownerName: string, ownerType: 'player' | 'npc', ownerId?: string) => void;
 }
 
 const Section: React.FC<{ title: string, children: React.ReactNode, className?: string }> = ({ title, children, className }) => (
@@ -40,9 +41,48 @@ const StatGridItem: React.FC<{ icon: React.ReactNode; label: string; value: stri
     </div>
 );
 
+const getStatTheme = (type: StatType) => {
+    switch (type) {
+        case StatType.GOOD: return { border: 'border-l-green-400', bg: 'bg-green-900/20 hover:bg-green-900/40' };
+        case StatType.BAD: return { border: 'border-l-red-400', bg: 'bg-red-900/20 hover:bg-red-900/40' };
+        case StatType.INJURY: return { border: 'border-l-orange-400', bg: 'bg-orange-900/20 hover:bg-orange-900/40' };
+        case StatType.NSFW: return { border: 'border-l-pink-400', bg: 'bg-pink-900/20 hover:bg-pink-900/40' };
+        case StatType.KNOWLEDGE: return { border: 'border-l-blue-400', bg: 'bg-blue-900/20 hover:bg-blue-900/40' };
+        default: return { border: 'border-l-gray-500', bg: 'bg-gray-900/20 hover:bg-gray-900/40' };
+    }
+};
 
-const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState }) => {
-    const { worldContext, coreStats, cultivation, playerTitle } = gameState;
+const SkillEntry: React.FC<{ skill: Skill }> = ({ skill }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    return (
+        <div className="bg-black/20 rounded-lg border border-neutral-700/50 overflow-hidden">
+            <button onClick={() => setIsExpanded(!isExpanded)} className="w-full flex justify-between items-center p-2.5 text-left hover:bg-white/10 transition-colors duration-200">
+                <div className="flex-grow min-w-0">
+                    <span className="font-bold text-base text-white truncate">{skill.name}</span>
+                    <p className="text-xs text-neutral-400">{`Năng lượng: ${skill.cost} | Hồi chiêu: ${skill.cooldown} lượt`}</p>
+                </div>
+                <ChevronIcon isExpanded={isExpanded} className="h-6 w-6 text-neutral-400 flex-shrink-0 ml-2" />
+            </button>
+            {isExpanded && (
+                <div className="px-3 pb-3 border-t border-neutral-700 animate-fade-in-fast">
+                    <p className="text-sm text-neutral-300 italic my-2">{skill.description}</p>
+                    <div className="space-y-2">
+                    {skill.abilities.map(ability => (
+                        <div key={ability.name} className="p-2 bg-black/20 rounded-md border border-transparent">
+                            <h4 className="font-semibold text-sm text-neutral-200">{ability.name}</h4>
+                            <p className="text-xs text-gray-400 mt-1">{ability.description}</p>
+                        </div>
+                    ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick }) => {
+    const { worldContext, coreStats, cultivation, playerTitle, playerStatOrder, playerStats, playerSkills } = gameState;
     const { character } = worldContext;
 
     const realmString = getRealmString(cultivation.level, worldContext);
@@ -71,43 +111,75 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState }) => {
     };
 
     return (
-        <div className="p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar h-full">
-            <Section title="Nhân Vật">
-                <div className="flex gap-4">
-                    <img src={character.avatarUrl || 'https://via.placeholder.com/80'} alt="Avatar" className="w-20 h-20 rounded-full border-2 border-neutral-600 object-cover flex-shrink-0" />
-                    <div className="flex-grow space-y-1">
-                        <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 font-rajdhani truncate" title={character.name}>{character.name}</h2>
-                        {playerTitle && <p className="text-xs text-yellow-300 font-semibold truncate" title={playerTitle}>{playerTitle}</p>}
-                        <p className="text-xs text-neutral-400">Tuổi: {character.age} | {genderString}</p>
-                        <p className="text-sm"><span className="font-semibold text-neutral-300">Tính cách:</span> {character.personality || 'Chưa xác định'}</p>
+        <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto custom-scrollbar h-full">
+            {/* --- COLUMN 1: CHARACTER INFO & STATS --- */}
+            <div className="flex flex-col gap-4">
+                 <Section title="Nhân Vật">
+                    <div className="flex gap-4">
+                        <img src={character.avatarUrl || 'https://via.placeholder.com/80'} alt="Avatar" className="w-20 h-20 rounded-full border-2 border-neutral-600 object-cover flex-shrink-0" />
+                        <div className="flex-grow space-y-1">
+                            <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 font-rajdhani truncate" title={character.name}>{character.name}</h2>
+                            {playerTitle && <p className="text-xs text-yellow-300 font-semibold truncate" title={playerTitle}>{playerTitle}</p>}
+                            <p className="text-xs text-neutral-400">Tuổi: {character.age} | {genderString}</p>
+                            <p className="text-sm"><span className="font-semibold text-neutral-300">Tính cách:</span> {character.personality || 'Chưa xác định'}</p>
+                        </div>
                     </div>
-                </div>
-            </Section>
+                </Section>
+                <Section title="Tài Nguyên">
+                    <div className="space-y-3">
+                        {vitalAttributes.map(attr => {
+                            const currentStatKey = attr.id.replace('ToiDa', '');
+                            const currentValue = (coreStats as any)[currentStatKey] ?? 0;
+                            const maxValue = (coreStats as any)[attr.id] ?? 0;
+                            return <StatBar key={attr.id} current={currentValue} max={maxValue} barColor={VITAL_BAR_COLORS[attr.id] || VITAL_BAR_COLORS.default} label={attr.name} />;
+                        })}
+                    </div>
+                </Section>
+                <Section title="Tu Luyện">
+                    <p className="text-lg font-bold text-purple-300 text-center">{realmString}</p>
+                    <StatBar current={cultivation.exp} max={cultivation.expToNextLevel} barColor="bg-gradient-to-r from-purple-500 to-pink-500" label="Kinh nghiệm" />
+                </Section>
+                 <Section title="Chỉ Số Cốt Lõi">
+                    <div className="grid grid-cols-2 gap-2">
+                        {[...primaryAttributes, ...informationalAttributes].map(attr => {
+                            const value = (coreStats as any)[attr.id] ?? attr.baseValue;
+                            return <StatGridItem key={attr.id} icon={<GetIconComponent name={attr.icon} className="w-full h-full"/>} label={attr.name} value={formatStatValue(value, attr.id)} title={attr.description}/>
+                        })}
+                    </div>
+                </Section>
+            </div>
+            
+             {/* --- COLUMN 2: STATUSES & SKILLS --- */}
+            <div className="flex flex-col gap-4 min-h-0">
+                <Section title="Trạng Thái Hiện Tại" className="flex-grow flex flex-col">
+                    <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-0">
+                         {playerStatOrder.length > 0 ? playerStatOrder.map(statName => {
+                            const stat = playerStats[statName];
+                            if (!stat) return null;
+                            const theme = getStatTheme(stat.type);
+                            return (
+                                <button key={statName} onClick={() => onStatClick({ ...stat, name: statName }, character.name, 'player')} className={`w-full text-left p-2 rounded-md border-l-4 transition-colors ${theme.border} ${theme.bg}`}>
+                                    <p className="font-bold text-white text-sm">{statName}</p>
+                                    <p className="text-xs text-neutral-400 truncate">{stat.description}</p>
+                                </button>
+                            );
+                         }) : <p className="text-neutral-500 italic text-center text-sm py-4">Không có trạng thái đặc biệt nào.</p>}
+                    </div>
+                </Section>
 
-            <Section title="Tài Nguyên">
-                <div className="space-y-3">
-                    {vitalAttributes.map(attr => {
-                        const currentStatKey = attr.id.replace('ToiDa', '');
-                        const currentValue = (coreStats as any)[currentStatKey] ?? 0;
-                        const maxValue = (coreStats as any)[attr.id] ?? 0;
-                        return <StatBar key={attr.id} current={currentValue} max={maxValue} barColor={VITAL_BAR_COLORS[attr.id] || VITAL_BAR_COLORS.default} label={attr.name} />;
-                    })}
-                </div>
-            </Section>
-
-            <Section title="Tu Luyện">
-                <p className="text-lg font-bold text-purple-300 text-center">{realmString}</p>
-                <StatBar current={cultivation.exp} max={cultivation.expToNextLevel} barColor="bg-gradient-to-r from-purple-500 to-pink-500" label="Kinh nghiệm" />
-            </Section>
-
-            <Section title="Chỉ Số Cốt Lõi">
-                <div className="grid grid-cols-2 gap-2">
-                    {[...primaryAttributes, ...informationalAttributes].map(attr => {
-                        const value = (coreStats as any)[attr.id] ?? attr.baseValue;
-                        return <StatGridItem key={attr.id} icon={<GetIconComponent name={attr.icon} className="w-full h-full"/>} label={attr.name} value={formatStatValue(value, attr.id)} title={attr.description}/>
-                    })}
-                </div>
-            </Section>
+                <Section title="Sổ Tay Kỹ Năng" className="flex-grow flex flex-col">
+                    <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-0">
+                         {playerSkills.length > 0 ? playerSkills.map(skill => (
+                            <SkillEntry key={skill.id} skill={skill} />
+                         )) : <p className="text-neutral-500 italic text-center text-sm py-4">Chưa lĩnh ngộ kỹ năng nào.</p>}
+                    </div>
+                </Section>
+            </div>
+             <style>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #555; border-radius: 10px; }
+            `}</style>
         </div>
     );
 };

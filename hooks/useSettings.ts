@@ -10,7 +10,8 @@ const defaultAiModelSettings: AiModelSettings = {
   temperature: 0.8,
   topK: 40,
   topP: 0.95,
-  maxOutputTokens: 2250,
+  maxOutputTokens: 4096,
+  minOutputWords: 250,
   jsonBuffer: 1000,
   thinkingBudget: 1000,
   autoRotateModels: true,
@@ -30,7 +31,10 @@ const defaultAudioSettings: AudioSettings = {
 };
 
 const defaultSafetySettings: SafetySettings = {
-  level: 'BLOCK_NONE',
+  blockHarassment: true,
+  blockHateSpeech: true,
+  blockSexuallyExplicit: false,
+  blockDangerousContent: true,
 };
 
 const defaultSettings: Settings = {
@@ -42,6 +46,7 @@ const defaultSettings: Settings = {
   aiModelSettings: defaultAiModelSettings,
   deepSeekModelSettings: defaultDeepSeekModelSettings,
   audio: defaultAudioSettings,
+  masterSafetySwitch: true,
   safety: defaultSafetySettings,
   autoHideActionPanel: false,
   narrativePerspective: 'Nhãn Quan Toàn Tri',
@@ -69,8 +74,27 @@ function hydrateSettings(parsed: Partial<Settings>): Settings {
   hydrated.aiModelSettings = { ...defaultAiModelSettings, ...(parsed.aiModelSettings || {}) };
   hydrated.deepSeekModelSettings = { ...defaultDeepSeekModelSettings, ...(parsed.deepSeekModelSettings || {}) };
   hydrated.audio = { ...defaultAudioSettings, ...(parsed.audio || {}) };
-  hydrated.safety = { ...defaultSafetySettings, ...(parsed.safety || {}) };
   
+  // 3. Hydrate safety settings (with migration from old `level` property)
+  if (parsed.safety && (parsed.safety as any).level) {
+      const oldLevel = (parsed.safety as any).level;
+      if (oldLevel === 'BLOCK_NONE') {
+          hydrated.masterSafetySwitch = false;
+          hydrated.safety = {
+              blockHarassment: false,
+              blockHateSpeech: false,
+              blockSexuallyExplicit: false,
+              blockDangerousContent: false,
+          };
+      } else {
+          hydrated.masterSafetySwitch = true;
+          hydrated.safety = { ...defaultSafetySettings };
+      }
+  } else {
+      hydrated.masterSafetySwitch = typeof parsed.masterSafetySwitch === 'boolean' ? parsed.masterSafetySwitch : defaultSettings.masterSafetySwitch;
+      hydrated.safety = { ...defaultSafetySettings, ...(parsed.safety || {}) };
+  }
+
   if (typeof parsed.autoHideActionPanel !== 'boolean') {
     hydrated.autoHideActionPanel = defaultSettings.autoHideActionPanel;
   }

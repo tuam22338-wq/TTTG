@@ -41,7 +41,7 @@ const GameClock: React.FC<GameClockProps> = ({ time }) => {
     const currentTimeOfDay = getTimeOfDay(time.hour);
 
     return (
-        <div className="flex items-center gap-3 text-xs text-neutral-400 bg-black/20 rounded-lg px-3 py-1.5 border border-white/10 whitespace-nowrap" title={`Ngày ${time.day}, ${formattedHour}:${formattedMinute}`}>
+        <div className="flex items-center gap-3 text-xs text-neutral-300 rounded-lg px-3 py-1.5 whitespace-nowrap neumorphic-inset" title={`Ngày ${time.day}, ${formattedHour}:${formattedMinute}`}>
             <div className="flex items-center gap-1.5" title={`Mùa ${currentSeason.name}`}>
                 <currentSeason.Icon />
                 <span className="font-semibold text-white hidden sm:inline">{currentSeason.name}</span>
