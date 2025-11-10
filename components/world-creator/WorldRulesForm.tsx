@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { WorldCreationState, WorldRule } from '../../types';
-import FormSection from './FormSection';
 import InputField from '../ui/InputField';
 import TextareaField from '../ui/TextareaField';
 import ChevronIcon from '../icons/ChevronIcon';
+import { PlusIcon } from '../icons/PlusIcon';
 
 interface WorldRulesFormProps {
     state: WorldCreationState;
     setState: React.Dispatch<React.SetStateAction<WorldCreationState>>;
 }
 
-const TrashIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+const TrashIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-4 w-4"} viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
     </svg>
 );
@@ -45,24 +45,23 @@ const RuleListEditor: React.FC<RuleListEditorProps> = ({ title, description, rul
                 {rules.map(rule => {
                     const isExpanded = expandedIds.has(rule.id);
                     return (
-                        <div key={rule.id} className="neumorphic-convex rounded-lg overflow-hidden transition-all">
-                            <div className="flex items-center p-3">
+                        <div key={rule.id} className="neumorphic-concave rounded-xl overflow-hidden transition-all">
+                             <div className="flex items-center p-3 bg-[var(--grad-concave)]">
                                 <div className="flex-grow min-w-0">
-                                    <InputField value={rule.name} onChange={e => onUpdate(rule.id, 'name', e.target.value)} id={`rule-name-${rule.id}`} placeholder="Tên quy luật" className="!py-1 !px-2 text-base font-semibold" />
+                                    <InputField value={rule.name} onChange={e => onUpdate(rule.id, 'name', e.target.value)} id={`rule-name-${rule.id}`} placeholder="Tên quy luật" className="!py-1 !px-2 text-base font-semibold !neumorphic-inset" />
                                 </div>
-                                <div className="flex items-center gap-1 ml-2">
-                                    <button onClick={() => onRemove(rule.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon /></button>
+                                <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                    <button onClick={() => onRemove(rule.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon className="w-5 h-5" /></button>
                                     <button onClick={() => toggleExpand(rule.id)} className="p-1.5 text-gray-400 hover:text-white rounded-full transition-colors"><ChevronIcon isExpanded={isExpanded} /></button>
                                 </div>
                             </div>
                             {isExpanded && (
                                 <div className="p-3 neumorphic-inset animate-fade-in-fast">
                                     <TextareaField
-                                        label="Nội dung quy luật"
                                         id={`rule-content-${rule.id}`}
                                         value={rule.content}
                                         onChange={e => onUpdate(rule.id, 'content', e.target.value)}
-                                        rows={3}
+                                        rows={4}
                                         placeholder="Mô tả chi tiết quy luật..."
                                     />
                                 </div>
@@ -70,7 +69,10 @@ const RuleListEditor: React.FC<RuleListEditorProps> = ({ title, description, rul
                         </div>
                     );
                 })}
-                <button onClick={onAdd} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-2 text-sm border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-white/5 hover:text-white hover:border-neutral-500 hover:border-solid font-semibold">+ Thêm Quy Luật</button>
+                 <button onClick={onAdd} className="flex items-center justify-center gap-2 w-full rounded-xl transition-all duration-200 ease-in-out py-2.5 text-sm bg-white/5 text-neutral-200 hover:bg-white/10 hover:text-white font-semibold neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020]">
+                    <PlusIcon />
+                    <span>Thêm Quy Luật</span>
+                </button>
             </div>
              <style>{`
                 @keyframes fade-in-fast {
@@ -113,7 +115,7 @@ const WorldRulesForm: React.FC<WorldRulesFormProps> = ({ state, setState }) => {
     };
 
     return (
-        <FormSection title="Quy Luật Thế Giới" description="Thiết lập các định luật và thông tin nền tảng mà AI phải tuân thủ.">
+        <div className="space-y-6">
             <RuleListEditor
                 title="Luật Lệ Đặc Biệt Của Thế Giới"
                 description="Các quy tắc vật lý, phép thuật, xã hội riêng mà AI phải tuân thủ một cách nghiêm ngặt. VD: Không thể sử dụng phép thuật lửa vào ban đêm."
@@ -122,7 +124,7 @@ const WorldRulesForm: React.FC<WorldRulesFormProps> = ({ state, setState }) => {
                 onUpdate={handleUpdateSpecialRule}
                 onRemove={handleRemoveSpecialRule}
             />
-            <div className="mt-6 pt-6 border-t border-white/10">
+            <div className="pt-6 border-t border-white/10">
                 <RuleListEditor
                     title="Luật Lệ/Lore Ban Đầu Của Thế Giới"
                     description="Mô tả các quy tắc, lịch sử, hoặc yếu tố đặc biệt của thế giới game. AI sẽ cố gắng tích hợp những thông tin này vào câu chuyện."
@@ -132,7 +134,7 @@ const WorldRulesForm: React.FC<WorldRulesFormProps> = ({ state, setState }) => {
                     onRemove={handleRemoveInitialLore}
                 />
             </div>
-        </FormSection>
+        </div>
     );
 };
 

@@ -82,14 +82,14 @@ const ApiStatusOverlay: React.FC<ApiStatusOverlayProps> = ({ stats }) => {
 
     if (!isVisible) {
          return (
-             <button onClick={() => setIsVisible(true)} className="fixed top-20 left-4 glassmorphic neumorphic-convex rounded-full p-2 z-50 animate-fade-in-fast" title="Hiển thị Trạng thái API">
+             <button onClick={() => setIsVisible(true)} className="fixed top-20 left-4 neumorphic-convex rounded-full p-2 z-50 animate-fade-in-fast" title="Hiển thị Trạng thái API">
                 <ActiveIcon className="w-5 h-5 text-green-400" />
             </button>
          )
     }
 
     return (
-        <div className="fixed top-20 left-4 glassmorphic neumorphic-convex rounded-lg p-3 w-64 animate-fade-in-fast z-50">
+        <div className="fixed top-20 left-4 neumorphic-convex rounded-lg p-3 w-64 animate-fade-in-fast z-50">
             <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-2">
                 <h4 className="font-rajdhani text-base font-bold text-white">API STATUS</h4>
                 <button onClick={() => setIsVisible(false)} className="text-neutral-500 hover:text-white" title="Ẩn">-</button>

@@ -11,6 +11,7 @@ interface DataTrainerModalProps {
     isOpen: boolean;
     onClose: () => void;
     settingsHook: ReturnType<typeof useSettings>;
+    onApiKeyInvalid: () => void;
 }
 
 const RangeSlider: React.FC<{
@@ -50,7 +51,7 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
 }
 
 
-const DataTrainerModal: React.FC<DataTrainerModalProps> = ({ isOpen, onClose, settingsHook }) => {
+const DataTrainerModal: React.FC<DataTrainerModalProps> = ({ isOpen, onClose, settingsHook, onApiKeyInvalid }) => {
     const [trainingName, setTrainingName] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [chunkSize, setChunkSize] = useState(200);
@@ -60,7 +61,7 @@ const DataTrainerModal: React.FC<DataTrainerModalProps> = ({ isOpen, onClose, se
     const [progressMessage, setProgressMessage] = useState('');
     
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { settings, getApiClient, cycleToNextApiKey, apiStats, onApiKeyInvalid } = settingsHook;
+    const { settings, getApiClient, cycleToNextApiKey, apiStats } = settingsHook;
 
     const apiClient = { getApiClient, cycleToNextApiKey, apiStats, onApiKeyInvalid };
 

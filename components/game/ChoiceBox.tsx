@@ -51,7 +51,7 @@ const ChoiceBox: React.FC<ChoiceBoxProps> = ({
     };
 
     return (
-        <div className="glassmorphic neumorphic-convex rounded-2xl p-4 transition-all duration-300">
+        <div className="neumorphic-convex rounded-2xl p-4 transition-all duration-300">
             {isLoading && (choices.length === 0) ? (
                  <p className="text-center text-lg text-neutral-300 animate-pulse">AI đang suy nghĩ...</p>
             ) : (

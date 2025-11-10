@@ -68,6 +68,7 @@ const defaultWorldCreationState: WorldCreationState = {
     specialRules: [],
     initialLore: [],
     knowledgeBaseIds: [],
+    customScenarios: [],
 };
 
 type CreatorView = 'WORLD' | 'CHARACTER' | 'CULTIVATION' | 'ATTRIBUTES' | 'RULES' | 'ENTITIES';
@@ -83,6 +84,14 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const viewRefs = useRef<Record<CreatorView, HTMLDivElement | null>>({
+    WORLD: null,
+    CHARACTER: null,
+    CULTIVATION: null,
+    ATTRIBUTES: null,
+    RULES: null,
+    ENTITIES: null,
+  });
 
   const { getApiClient, cycleToNextApiKey, apiStats, settings } = settingsHook;
   
@@ -102,19 +111,19 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
 
 
   const handleToggleView = (viewId: CreatorView) => {
-    // FIX: Changed prevId to viewId
-    setExpandedView(prev => (prev === viewId ? null : viewId));
-    if (contentRef.current) {
-        // We delay scroll to allow the element to render and get its position
+    const isOpening = expandedView !== viewId;
+    setExpandedView(isOpening ? viewId : null);
+    
+    if (isOpening && contentRef.current) {
         setTimeout(() => {
-            const element = document.getElementById(`accordion-item-${viewId}`);
-            if (element && contentRef.current) {
-                const topPos = element.offsetTop - contentRef.current.offsetTop;
-                contentRef.current.scrollTo({ top: topPos, behavior: 'smooth' });
+            const element = viewRefs.current[viewId];
+            if (element) {
+                const topPos = element.offsetTop - (contentRef.current?.offsetTop || 0) - 12; // 12px for padding
+                contentRef.current?.scrollTo({ top: topPos, behavior: 'smooth' });
             }
-        }, 100);
+        }, 300); // Wait for accordion to open
     }
-  };
+};
 
 
   const handleCreateWorld = () => {
@@ -163,7 +172,6 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
         try {
             if (!state.knowledgeBaseIds || state.knowledgeBaseIds.length === 0) throw new Error("Knowledge Base ID is missing.");
 
-            // FIX: Added missing settings.masterSafetySwitch argument
             const generatedWorld = await GeminiStorytellerService.generateWorldFromPromptWithKnowledge(
                 idea,
                 state.knowledgeBaseIds,
@@ -196,7 +204,6 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
   const handleQuickAssistSubmit = async (idea: string) => {
     setIsQuickAssistLoading(true);
     try {
-        // FIX: Added missing settings.masterSafetySwitch argument
         const generatedWorld = await GeminiStorytellerService.generateWorldFromPrompt(
             idea,
             state.isNsfw,
@@ -290,7 +297,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
     { id: 'WORLD', label: 'Thế Giới & Cốt Truyện', description: 'Đặt nền móng cho thế giới và câu chuyện của bạn.', Icon: WorldIcon },
     { id: 'CHARACTER', label: 'Thông Tin Nhân Vật', description: 'Kiến tạo linh hồn sẽ khuấy đảo vị diện này.', Icon: UserIcon },
     { id: 'CULTIVATION', label: 'Hệ Thống Cảnh Giới', description: 'Tùy chỉnh hệ thống tu luyện, cấp bậc và sức mạnh.', Icon: CultivationIcon },
-    { id: 'ATTRIBUTES', label: 'Hệ Thống Thuộc Tính', description: 'Định nghĩa các tài nguyên đặc biệt như linh thạch, danh vọng.', Icon: SparklesIcon },
+    { id: 'ATTRIBUTES', label: 'Hệ Thống Thuộc Tính', description: 'Định nghĩa các tài nguyên đặc biệt như linh thạch, danh vọng.', Icon: SparklesIcon as React.FC<{className?: string}> },
     { id: 'RULES', label: 'Quy Luật Thế Giới', description: 'Thiết lập các định luật vật lý, ma pháp và xã hội riêng.', Icon: LawIcon },
     { id: 'ENTITIES', label: 'Thực Thể Ban Đầu', description: 'Xây dựng các thế lực và nhân vật khởi đầu cho thế giới.', Icon: UsersIcon },
   ];
@@ -307,20 +314,27 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
     }
   }
   
-  const CreatorActionButton: React.FC<{onClick: () => void; label: string; Icon: React.FC<{className?: string}>; title: string; disabled?: boolean;}> = ({onClick, label, Icon, title, disabled = false}) => (
+const CreatorActionButton: React.FC<{
+    onClick: () => void;
+    label: string;
+    Icon: React.FC<{className?: string; isLoading?: boolean }>;
+    title: string;
+    disabled?: boolean;
+    isLoading?: boolean;
+}> = ({onClick, label, Icon, title, disabled = false, isLoading = false}) => (
         <button 
             onClick={onClick} 
             title={title}
-            disabled={disabled}
-            className="flex flex-col items-center justify-center gap-2 w-24 h-24 rounded-2xl text-neutral-300 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/80 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0 neumorphic-convex active:shadow-[inset_4px_4px_8px_#141414,_inset_-4px_-4px_8px_#202020] active:brightness-95"
+            disabled={disabled || isLoading}
+            className="flex flex-col items-center justify-center gap-2 w-24 h-24 rounded-2xl text-neutral-300 transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/80 focus:ring-offset-2 focus:ring-offset-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0 neumorphic-convex active:shadow-[inset_4px_4px_8px_#141414,_inset_-4px_-4px_8px_#202020] active:brightness-95"
         >
-            <Icon className="h-7 w-7" />
+            <Icon className="h-7 w-7" isLoading={isLoading} />
             <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
         </button>
     );
 
   return (
-    <div className="flex flex-col items-center justify-center h-full p-4 sm:p-6 md:p-8">
+    <div className="flex flex-col items-center justify-center h-full p-4 sm:p-6 md:p-8 bg-[var(--bg-main)]">
        <style>{`
         @keyframes content-fade-in {
           from { opacity: 0; transform: translateY(-10px); }
@@ -331,8 +345,8 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
         }
        `}</style>
       
-       <div className="relative z-10 w-full max-w-4xl max-h-[90vh] glassmorphic neumorphic-convex rounded-3xl p-4 sm:p-8 flex flex-col">
-          <header className="flex justify-between items-center mb-4 flex-shrink-0">
+       <div className="relative z-10 w-full max-w-4xl max-h-[90vh] glassmorphic neumorphic-convex rounded-3xl p-4 sm:p-6 flex flex-col">
+          <header className="flex-shrink-0 flex justify-between items-center mb-4">
               <button onClick={onBackToMenu} className="p-2 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="Quay lại">
                   <ArrowLeftIcon className="h-6 w-6" />
               </button>
@@ -342,31 +356,35 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
               <div className="w-10 h-10"></div> {/* Spacer to balance layout */}
           </header>
 
-          <div className="flex-shrink-0 flex items-center justify-center gap-2 sm:gap-3 mb-6">
+          <div className="flex-shrink-0 flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-6">
             <CreatorActionButton onClick={handleSavePreset} label="Lưu" Icon={DownloadIcon} title="Lưu thiết lập hiện tại ra file" />
             <CreatorActionButton onClick={triggerFileLoad} label="Tải" Icon={UploadIcon} title="Tải thiết lập từ file" />
             <CreatorActionButton onClick={handleResetPreset} label="Xóa" Icon={TrashIcon} title="Xóa và đặt lại toàn bộ thiết lập"/>
-            <CreatorActionButton onClick={handleQuickAssist} label="AI Hỗ Trợ" Icon={SparklesIcon} title="Sử dụng AI để tạo nhanh thế giới"/>
-            <CreatorActionButton onClick={handleQuickAssistWithKnowledge} label="AI Hỗ trợ (Tri thức)" Icon={BrainIcon} title="Sử dụng AI và kiến thức nền để tạo thế giới" disabled={!state.knowledgeBaseIds || state.knowledgeBaseIds.length === 0} />
+            <CreatorActionButton onClick={handleQuickAssist} label="AI Hỗ Trợ" Icon={SparklesIcon} title="Sử dụng AI để tạo nhanh thế giới" isLoading={isQuickAssistLoading}/>
+            <CreatorActionButton onClick={handleQuickAssistWithKnowledge} label="AI Hỗ trợ (Tri thức)" Icon={BrainIcon} title="Sử dụng AI và kiến thức nền để tạo thế giới" disabled={!state.knowledgeBaseIds || state.knowledgeBaseIds.length === 0 || isQuickAssistLoading} isLoading={isQuickAssistLoading} />
           </div>
         
-          <main ref={contentRef} className="flex-grow min-h-0 overflow-y-auto custom-scrollbar pr-4 -mr-4">
+          <main ref={contentRef} className="flex-grow min-h-0 overflow-y-auto custom-scrollbar pr-2 sm:pr-4 -mr-2 sm:-mr-4">
              <div className="w-full space-y-3">
                     {menuItems.map((item) => {
                         const isExpanded = expandedView === item.id;
                         return (
-                             <div key={item.id} id={`accordion-item-${item.id}`} className="neumorphic-convex rounded-xl overflow-hidden transition-all duration-300">
+                             <div 
+                                key={item.id} 
+                                ref={el => { viewRefs.current[item.id as CreatorView] = el; }}
+                                className="neumorphic-concave rounded-xl overflow-hidden transition-all duration-300"
+                            >
                                 <button 
                                     onClick={() => handleToggleView(item.id as CreatorView)}
-                                    className="w-full flex items-center justify-between p-3 text-left hover:brightness-110 transition-all"
+                                    className="w-full flex items-center justify-between p-3 text-left hover:bg-white/5 transition-all"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg neumorphic-inset">
+                                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg neumorphic-convex">
                                             <item.Icon className="h-6 w-6 text-neutral-300"/>
                                         </div>
                                         <div className="flex-grow text-left">
                                             <p className="font-bold text-lg text-neutral-100">{item.label}</p>
-                                            {!isExpanded && <p className="text-sm text-neutral-400 mt-1">{item.description}</p>}
+                                            {!isExpanded && <p className="text-sm text-neutral-400 mt-1 hidden sm:block">{item.description}</p>}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 text-neutral-500">
@@ -374,7 +392,7 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
                                     </div>
                                 </button>
                                 {isExpanded && (
-                                    <div className="p-4 neumorphic-inset animate-fade-in-fast">
+                                    <div className="p-4 sm:p-6 border-t border-[var(--shadow-color-1)] bg-[var(--bg-main)] animate-fade-in-fast">
                                         {getFormComponent(item.id as CreatorView)}
                                     </div>
                                 )}

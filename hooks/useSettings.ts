@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
-import { Settings, ApiKeySource, AiModelSettings, AudioSettings, SafetySettings, NarrativePerspective, GeminiModel, AiProvider, DeepSeekModelSettings } from '../types';
+import { Settings, ApiKeySource, AiModelSettings, AudioSettings, SafetySettings, NarrativePerspective, GeminiModel, AiProvider, DeepSeekModelSettings, Theme } from '../types';
 import { useApiStats } from './useApiStats';
 import * as StorageService from '../services/StorageService';
 
@@ -51,6 +51,7 @@ const defaultSettings: Settings = {
   autoHideActionPanel: false,
   narrativePerspective: 'Nhãn Quan Toàn Tri',
   zoomLevel: 0.7,
+  theme: 'dark',
 };
 
 function hydrateSettings(parsed: Partial<Settings>): Settings {
@@ -114,6 +115,10 @@ function hydrateSettings(parsed: Partial<Settings>): Settings {
   hydrated.apiKeySource = ApiKeySource.CUSTOM; // Force API Key source to CUSTOM.
   hydrated.customApiKeys = Array.isArray(parsed.customApiKeys) ? parsed.customApiKeys : [];
   hydrated.currentApiKeyIndex = typeof parsed.currentApiKeyIndex === 'number' ? parsed.currentApiKeyIndex : 0;
+  
+  if (!parsed.theme || !['dark', 'sepia', 'abyssal', 'inkwash'].includes(parsed.theme)) {
+    hydrated.theme = defaultSettings.theme;
+  }
 
   return hydrated;
 }

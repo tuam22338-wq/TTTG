@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse, EmbedContentResponse, HarmCategory, HarmBlockThreshold, ContentEmbedding } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse, EmbedContentResponse, HarmCategory, HarmBlockThreshold, ContentEmbedding, FunctionDeclaration } from '@google/genai';
 import { AiModelSettings } from '../../types';
 import { ApiStatsManager } from '../../hooks/useApiStats';
 
@@ -109,7 +109,8 @@ export async function callJsonAI(
     schema: object,
     apiClient: ApiClient,
     modelSettings: AiModelSettings,
-    safetySettings: any
+    safetySettings: any,
+    tools?: { functionDeclarations: FunctionDeclaration[] }[]
 ): Promise<{ parsed: any, response: GenerateContentResponse }> {
     let currentPrompt = prompt;
     const MAX_JSON_RETRIES = 2; // Initial call + 1 retry
@@ -133,15 +134,18 @@ export async function callJsonAI(
                 model: modelSettings.model,
                 contents: currentPrompt,
                 config,
+                tools: tools,
             });
         };
 
         const response = await performApiCall(apiClient, callLogic);
-        const responseText = (response as GenerateContentResponse).text;
+        // FIX: Cast response to GenerateContentResponse to ensure type safety for accessing properties like .text and .functionCalls.
+        const typedResponse = response as GenerateContentResponse;
+        const responseText = typedResponse.text;
 
-        if (!responseText) {
-            const finishReason = (response as GenerateContentResponse).candidates?.[0]?.finishReason;
-            const errorDetails = finishReason || JSON.stringify(response);
+        if (!responseText && !typedResponse.functionCalls) {
+            const finishReason = typedResponse.candidates?.[0]?.finishReason;
+            const errorDetails = finishReason || JSON.stringify(typedResponse);
             console.error("API Error: No text in response. Details:", errorDetails);
             
             let userMessage = `AI không trả về nội dung. Lý do: ${errorDetails}`;
@@ -153,8 +157,8 @@ export async function callJsonAI(
         }
 
         try {
-            const parsed = parseAndValidateJsonResponse(responseText);
-            return { parsed, response }; // Success!
+            const parsed = parseAndValidateJsonResponse(responseText || '{}');
+            return { parsed, response: typedResponse }; // Success!
         } catch (error: any) {
             console.warn(`JSON parsing failed on attempt ${i + 1}. Error: ${error.message}`);
             if (i === MAX_JSON_RETRIES - 1) {
@@ -177,7 +181,8 @@ export async function callJsonAIStream(
     schema: object, 
     apiClient: ApiClient, 
     modelSettings: AiModelSettings,
-    safetySettings: any
+    safetySettings: any,
+    tools?: { functionDeclarations: FunctionDeclaration[] }[]
 ): Promise<AsyncGenerator<GenerateContentResponse>> {
      const callLogic = (geminiService: GoogleGenAI) => {
         const config: any = {
@@ -197,6 +202,7 @@ export async function callJsonAIStream(
             model: modelSettings.model,
             contents: prompt,
             config,
+            tools: tools
         });
     };
      return performApiCall(apiClient, callLogic);

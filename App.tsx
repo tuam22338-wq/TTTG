@@ -24,7 +24,7 @@ type ApiKeyStatus = 'checking' | 'selected' | 'not_selected';
 
 const App: React.FC = () => {
   const settingsHook = useSettings();
-  const { isKeyConfigured } = settingsHook;
+  const { isKeyConfigured, settings } = settingsHook;
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -57,6 +57,10 @@ const App: React.FC = () => {
     });
 
   }, [isKeyConfigured]);
+
+  useEffect(() => {
+    document.body.dataset.theme = settings.theme;
+  }, [settings.theme]);
 
   const handleApiKeyInvalid = useCallback(() => {
     console.warn("API key is invalid or expired. Prompting user to open settings.");
@@ -277,6 +281,7 @@ const App: React.FC = () => {
             isOpen={isDataTrainerOpen}
             onClose={() => setIsDataTrainerOpen(false)}
             settingsHook={settingsHook}
+            onApiKeyInvalid={handleApiKeyInvalid}
           />
           <ContinueGameModal
             isOpen={isContinueModalOpen}

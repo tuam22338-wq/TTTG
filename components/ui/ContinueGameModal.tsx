@@ -30,7 +30,7 @@ const SaveSlotCard: React.FC<{ title: string; saveData: GameState | null; onLoad
     : 'Không rõ';
 
   return (
-    <div className="flex flex-col p-4 glassmorphic neumorphic-convex rounded-lg">
+    <div className="flex flex-col p-4 neumorphic-convex rounded-lg">
       <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mb-3">{title}</h3>
       <div className="space-y-1 text-sm flex-grow">
         <p><span className="font-semibold text-neutral-400">Nhân vật:</span> <span className="text-white font-bold">{saveData.worldContext.character.name}</span></p>

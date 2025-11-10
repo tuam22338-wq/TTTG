@@ -1,5 +1,5 @@
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
-import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather, TrainingDataSet, TrainingDataChunk, ChronicleEntry, ParsedAction, WorldEvent } from '../types';
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold, FunctionDeclaration, Type, FunctionCall } from '@google/genai';
+import { WorldCreationState, GameState, GameTurn, NPCUpdate, CharacterStat, NPC, Skill, LustModeFlavor, NpcMindset, DestinyCompassMode, StatChanges, CharacterStats, EntityTarget, Item, CharacterCoreStats, Combatant, AiModelSettings, SafetySettings, AttributeType, Weather, TrainingDataSet, TrainingDataChunk, ChronicleEntry, ParsedAction, WorldEvent, WorldRule } from '../types';
 import * as schemas from './gemini/schemas';
 import * as client from './gemini/client';
 import * as prompts from './prompt-engineering/corePrompts';
@@ -73,6 +73,27 @@ function findTopKChunks<T extends { embedding?: number[] }>(promptEmbedding: num
     similarities.sort((a, b) => b.similarity - a.similarity);
 
     return similarities.slice(0, k).map(item => item.chunk);
+}
+
+export async function simulateNpcActions(
+    npcs: NPC[],
+    apiClient: client.ApiClient,
+    aiModelSettings: AiModelSettings,
+    masterSafetySwitch: boolean,
+    safety: SafetySettings
+): Promise<{ npcId: string; action: string; newStatus?: string; newLocation?: string; }[]> {
+    const npcsJson = JSON.stringify(npcs.map(({ id, name, personality, goal, currentLocation, status }) => ({ id, name, personality, goal, currentLocation, status })), null, 2);
+    const prompt = prompts.NPC_SIMULATION_PROMPT.replace('{NPCS_JSON_PLACEHOLDER}', npcsJson);
+
+    const { parsed } = await client.callJsonAI(
+        prompt,
+        schemas.npcSimulationUpdateSchema,
+        apiClient,
+        { ...aiModelSettings, temperature: 0.5 }, // Slightly creative for simulation
+        getSafetySettings(masterSafetySwitch, safety)
+    );
+
+    return parsed;
 }
 
 
@@ -333,6 +354,30 @@ export async function generateSkillFromStat(
     return skill as Skill;
 }
 
+export async function generateCodexEntries(
+    terms: string[],
+    storyContext: string,
+    apiClient: client.ApiClient,
+    aiModelSettings: AiModelSettings
+): Promise<Omit<WorldRule, 'id'>[]> {
+    const prompt = prompts.CODEX_ENTRY_GENERATOR_PROMPT
+        .replace('{STORY_CONTEXT_PLACEHOLDER}', storyContext)
+        .replace('{TERMS_LIST_PLACEHOLDER}', terms.map(t => `- ${t}`).join('\n'));
+
+    const codexModelSettings: AiModelSettings = {
+        ...aiModelSettings,
+        model: 'gemini-2.5-flash',
+        temperature: 0.2, // Be factual
+        maxOutputTokens: 1024,
+        jsonBuffer: 500,
+        thinkingBudget: 0,
+    };
+    
+    const { parsed } = await client.callJsonAI(prompt, schemas.codexEntrySchema, apiClient, codexModelSettings, []);
+    return parsed as Omit<WorldRule, 'id'>[];
+}
+
+
 export async function initializeStory(
     worldState: WorldCreationState, 
     apiClient: client.ApiClient,
@@ -461,10 +506,9 @@ export async function continueStory(
     playerStatChanges: StatChanges;
     npcUpdates: NPCUpdate[];
     newlyAcquiredSkill: Skill | null;
-    newPlotChronicle: string;
     presentNpcIds: string[];
     summaryText: string;
-    itemsReceived: string[]; // Changed from Item[]
+    itemsReceived: string[];
     playerTitle: string | null;
     timeElapsed: number;
     nsfwSceneStateChange: 'ENTER' | 'EXIT' | 'NONE';
@@ -475,21 +519,20 @@ export async function continueStory(
     combatantNpcIds: string[];
     totalTokens: number;
     playerSkills: Skill[] | null;
+    functionCalls: FunctionCall[] | null;
 }> {
-    const { worldContext, playerStats, npcs, playerSkills, plotChronicle, history, presentNpcIds, inventory, equipment, chronicle } = gameState;
+    const { worldContext, playerStats, npcs, playerSkills, history, presentNpcIds, inventory, equipment, chronicle } = gameState;
 
     // --- Start: RAG - Memory Retrieval ---
     const lastTurnText = history.length > 0 ? history[history.length - 1].storyText : "";
     const retrievalQuery = `${choice}\n${lastTurnText.slice(-200)}`;
     const queryEmbedding = await client.callEmbeddingModel(retrievalQuery, apiClient);
 
-    // 1. Retrieve Episodic Memory (from Chronicle)
     const relevantMemories = findTopKChunks(queryEmbedding, chronicle, 3);
     const episodicMemoryContext = relevantMemories.length > 0 
         ? relevantMemories.map(m => `- (Lượt ${m.turnNumber}): ${m.summary}`).join('\n')
         : "Không có ký ức tình tiết nào liên quan.";
 
-    // 2. Retrieve World Knowledge (from Knowledge Base)
     let knowledgeContext = "Không có kiến thức nền nào liên quan.";
     if (worldContext.knowledgeBaseIds && worldContext.knowledgeBaseIds.length > 0) {
         const allKnowledgeChunks: TrainingDataChunk[] = [];
@@ -518,7 +561,7 @@ ${knowledgeContext}
     // --- End: RAG ---
 
 
-    const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
+    const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.customGender : worldContext.character.gender;
 
     const informationalAttributes = worldContext.customAttributes.filter(attr => attr.type === AttributeType.INFORMATIONAL || attr.type === AttributeType.HIDDEN);
     const customAttributesString = informationalAttributes.length > 0
@@ -568,6 +611,13 @@ ${logicResultSummary}
 ---
 ` : '';
 
+    const equipmentSummary = Object.entries(equipment).reduce((acc, [slot, item]) => {
+        (acc as any)[slot] = item ? { id: item.id, name: item.name } : null;
+        return acc;
+    }, {});
+        
+    const inventorySummary = inventory.items.map(i => ({ id: i.id, name: i.name }));
+
     const userPrompt = `
 ### BẢN TÓM TẮT NHẬN THỨC (COGNITIVE SNAPSHOT) ###
 Đây là toàn bộ thông tin bạn cần để đưa ra quyết định cho lượt truyện này.
@@ -578,7 +628,6 @@ ${ragContextPrompt}
 - **Nền tảng Thế giới:** Thể loại: ${worldContext.genre || "Không có"}, Bối cảnh: ${worldContext.description}
 - **Thông tin Nhân vật chính:** Tên: ${worldContext.character.name}, Giới tính: ${charGender}, Tính cách: ${worldContext.character.personality}, Tiểu sử: ${worldContext.character.biography}
 - **Hệ thống Thuộc tính Tùy chỉnh:** ${customAttributesString}
-- **Biên niên sử Cốt truyện:** ${plotChronicle || "Chưa có sự kiện nào đáng chú ý."}
 
 **4.2. TẦNG KÝ ỨC NGẮN HẠN (BỐI CẢNH GẦN NHẤT):**
 - **Lượt truyện cuối:** ${history.length > 0 ? history[history.length - 1].storyText : "Đây là lượt đầu tiên."}
@@ -587,8 +636,8 @@ ${ragContextPrompt}
 - **Kỹ năng Người chơi:** ${playerSkills.length > 0 ? JSON.stringify(playerSkills, null, 2) : "Chưa có kỹ năng nào."}
 
 **4.3. TRẠNG THÁI HIỆN TẠI (SỰ THẬT TUYỆT ĐỐI):**
-- **Trang bị đang mặc:** ${JSON.stringify(equipment, null, 2)}
-- **Vật phẩm trong túi đồ:** ${JSON.stringify(inventory.items.map(i => i.name), null, 2)}
+- **Trang bị đang mặc (id, name):** ${JSON.stringify(equipmentSummary, null, 2)}
+- **Vật phẩm trong túi đồ (id, name):** ${JSON.stringify(inventorySummary, null, 2)}
 - **Trạng thái Người chơi (Chiến đấu & Cảnh giới):** ${JSON.stringify({ ...finalCoreStats, cultivation: gameState.cultivation }, null, 2)}
 - **Trạng thái Người chơi (Hiệu ứng & Thuộc tính):** ${JSON.stringify(playerStats, null, 2)}
 - **Danh sách Vật phẩm Tham khảo:** ${itemListString}
@@ -602,29 +651,50 @@ ${choice}
     let fullPrompt = systemPrompt + '\n\n' + userPrompt;
     const MAX_JSON_RETRIES = 2;
 
+    const triggerCustomScenarioTool: FunctionDeclaration = {
+        name: 'triggerCustomScenario',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                scenarioId: { type: Type.STRING },
+            },
+            required: ['scenarioId'],
+        },
+    };
+
     for (let attempt = 0; attempt < MAX_JSON_RETRIES; attempt++) {
         let fullResponseText = '';
         let totalTokens = 0;
+        let functionCalls: FunctionCall[] | null = null;
         
         try {
-            const stream = await client.callJsonAIStream(fullPrompt, schemas.coreLogicSchema, apiClient, aiModelSettings, getSafetySettings(masterSafetySwitch, safety));
+            const stream = await client.callJsonAIStream(
+                fullPrompt, 
+                schemas.coreLogicSchema, 
+                apiClient, 
+                aiModelSettings, 
+                getSafetySettings(masterSafetySwitch, safety),
+                [{ functionDeclarations: [triggerCustomScenarioTool] }]
+            );
 
             for await (const chunk of stream) {
-                const chunkText = chunk.text;
-                if (chunkText) {
-                    fullResponseText += chunkText;
-                    onChunk(chunkText);
+                if (chunk.text) {
+                    fullResponseText += chunk.text;
+                    onChunk(chunk.text);
+                }
+                if (chunk.functionCalls) {
+                    functionCalls = (functionCalls || []).concat(chunk.functionCalls);
                 }
                 if (chunk.candidates?.[0]?.tokenCount) {
                    totalTokens = chunk.candidates[0].tokenCount;
                 }
             }
             
-            if (!fullResponseText.trim()) {
+            if (!fullResponseText.trim() && !functionCalls) {
                  throw new Error(`AI không trả về nội dung sau khi streaming. Có thể đã bị chặn vì lý do an toàn.`);
             }
 
-            const logicAiResponse = client.parseAndValidateJsonResponse(fullResponseText);
+            const logicAiResponse = client.parseAndValidateJsonResponse(fullResponseText || '{}'); // Send empty object if only function call
 
             const presentNpcsForCreative = npcs.filter(npc => logicAiResponse.presentNpcIds?.includes(npc.id));
             if (presentNpcsForCreative.length > 0) {
@@ -642,35 +712,29 @@ ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt c�
                     if ((update.action === 'UPDATE' || update.action === 'CREATE') && creativeData.has(update.id)) {
                         const creative = creativeData.get(update.id)!;
                         if (!update.payload) { 
-                            // @ts-ignore
                             update.payload = {};
                          }
-                        // @ts-ignore
                         update.payload.status = creative.status;
-                        // @ts-ignore
                         update.payload.lastInteractionSummary = creative.lastInteractionSummary;
                     }
                     return update;
                 });
             }
 
-            const newPlotChronicle = isRewrite ? plotChronicle : (plotChronicle + '\n- ' + logicAiResponse.summaryText);
-
             return {
                 newTurn: {
                     playerAction: choice,
-                    storyText: logicAiResponse.storyText,
+                    storyText: logicAiResponse.storyText || "",
                     statusNarration: logicAiResponse.statusNarration,
-                    choices: logicAiResponse.choices,
+                    choices: logicAiResponse.choices || [],
                     tokenCount: totalTokens,
                     omniscientInterlude: logicAiResponse.omniscientInterlude
                 },
                 playerStatChanges: logicAiResponse.playerStatChanges || { statsToUpdate: [], statsToDelete: [] },
                 npcUpdates: logicAiResponse.npcUpdates || [],
                 newlyAcquiredSkill: logicAiResponse.newlyAcquiredSkill || null,
-                newPlotChronicle: newPlotChronicle,
                 presentNpcIds: logicAiResponse.presentNpcIds || [],
-                summaryText: logicAiResponse.summaryText,
+                summaryText: logicAiResponse.summaryText || "",
                 itemsReceived: logicAiResponse.itemsReceived || [],
                 playerTitle: logicAiResponse.playerTitle || null,
                 timeElapsed: logicAiResponse.timeElapsed || 10,
@@ -682,6 +746,7 @@ ${presentNpcsForCreative.map(npc => `- ${npc.name} (id: ${npc.id}, tóm tắt c�
                 combatantNpcIds: logicAiResponse.combatantNpcIds || [],
                 totalTokens: totalTokens,
                 playerSkills: logicAiResponse.playerSkills || null,
+                functionCalls: functionCalls,
             };
 
         } catch (error: any) {
@@ -705,8 +770,8 @@ export async function generateDefeatStory(
     masterSafetySwitch: boolean,
     safety: SafetySettings
 ): Promise<{ newTurn: GameTurn; }> {
-    const { worldContext, plotChronicle, history } = gameState;
-    const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.gender : worldContext.character.gender;
+    const { worldContext, history } = gameState;
+    const charGender = worldContext.character.gender === 'Tự định nghĩa' ? worldContext.character.customGender : worldContext.character.gender;
 
     const userPrompt = `
 ---
@@ -714,10 +779,7 @@ export async function generateDefeatStory(
 **Bối cảnh:** ${worldContext.description}
 **Nhân vật chính:** Tên: ${worldContext.character.name}, Giới tính: ${charGender}, Tính cách: ${worldContext.character.personality}, Tiểu sử: ${worldContext.character.biography}
 ---
-**TẦNG 2: BIÊN NIÊN SỬ CỐT TRUYỆN**
-${plotChronicle || "Chưa có sự kiện nào đáng chú ý."}
----
-**TẦNG 3: BỐI CẢNH GẦN NHẤT**
+**TẦNG 2: BỐI CẢNH GẦN NHẤT**
 **Lượt truyện cuối:**
 ${history.length > 0 ? history[history.length - 1].storyText : "Đây là lượt đầu tiên."}
 **Trạng thái Người chơi (Chỉ số chiến đấu & Cảnh giới):**
@@ -781,7 +843,6 @@ export async function reconstructEntity(
     
     const prompt = prompts.ENTITY_RECONSTRUCTION_SYSTEM_PROMPT
         .replace('{ENTITY_CORE_INFO_PLACEHOLDER}', coreInfo)
-        .replace('{PLOT_CHRONICLE_PLACEHOLDER}', gameState.plotChronicle)
         .replace('{OLD_STATS_LIST_PLACEHOLDER}', JSON.stringify(Object.keys(oldStats), null, 2))
         .replace('{USER_DIRECTIVE_PLACEHOLDER}', directive || 'Không có.');
 
@@ -799,12 +860,10 @@ export async function sanitizeGameState(
 ): Promise<{
     playerStatChanges: StatChanges;
     npcUpdates: { id: string; statsChanges: StatChanges }[];
-    sanitizedPlotChronicle: string;
 }> {
     const dataToSanitize = {
         playerStats: gameState.playerStats,
         npcs: gameState.npcs.map(npc => ({ id: npc.id, stats: npc.stats })),
-        plotChronicle: gameState.plotChronicle,
     };
 
     const prompt = prompts.GAME_STATE_SANITIZATION_PROMPT

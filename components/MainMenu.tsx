@@ -117,13 +117,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
        <div className={`text-center mb-12 transition-all duration-700 ease-out ${isReady ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-5'}`}>
           <div className="inline-flex items-center justify-center flex-row gap-6">
               <GameLogoIcon className="h-20 w-20 sm:h-24 sm:w-24" />
-              <h1 className="font-title text-5xl sm:text-6xl font-bold text-white" style={{textShadow: "0 0 10px rgba(255, 255, 255, 0.4), 0 0 25px rgba(255, 255, 255, 0.2)"}}>
+              <h1 className="font-title text-5xl sm:text-6xl font-bold" style={{
+                color: 'var(--text-main)',
+                textShadow: "0 0 10px var(--title-glow-color-soft), 0 0 25px var(--title-glow-color-faint)"
+              }}>
                   Tam Thiên Thế Giới
               </h1>
           </div>
        </div>
 
-       <div className={`main-panel ${isReady ? 'ready' : ''} relative z-10 w-full max-w-2xl glassmorphic neumorphic-convex rounded-3xl flex flex-col`}>
+       <div className={`main-panel ${isReady ? 'ready' : ''} relative z-10 w-full max-w-2xl neumorphic-convex rounded-3xl flex flex-col`}>
             <div className="p-8">
                 <div className="w-full space-y-3">
                     {menuItems.map((item, index) => (
@@ -135,7 +138,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                             style={{ transitionDelay: `${100 + index * 50}ms` }}
                         >
                             <div className="flex items-center gap-4">
-                                <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center glassmorphic rounded-lg neumorphic-convex group-hover:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] transition-shadow duration-300">
+                                <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg neumorphic-convex group-hover:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] transition-shadow duration-300">
                                     <item.Icon className="h-6 w-6 text-neutral-300 group-hover:text-white transition-colors"/>
                                 </div>
                                 <div className="flex-grow text-left">

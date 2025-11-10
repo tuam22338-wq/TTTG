@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGameEngine } from '../../hooks/useGameEngine';
 import { useSettings } from '../../hooks/useSettings';
-import { GameState, WorldCreationState, ViewMode, Skill, CharacterStat, Ability, SpecialItem, Equipment, EquipmentSlot, NPC } from '../../types';
+import { GameState, WorldCreationState, ViewMode, Skill, CharacterStat, CharacterStats, Ability, SpecialItem, Equipment, EquipmentSlot, NPC } from '../../types';
 import StoryLog from '../game/StoryLog';
 import ChoiceBox from '../game/ChoiceBox';
 import CharacterPanel from '../game/CharacterPanel';
@@ -28,6 +28,9 @@ import * as GeminiStorytellerService from '../../services/GeminiStorytellerServi
 import CodexPanel from '../game/CodexPanel';
 import { BookIcon } from '../icons/BookIcon';
 import ApiStatusOverlay from '../game/ApiStatusOverlay';
+import { TriggerIcon } from '../icons/TriggerIcon';
+import NotificationToast from '../ui/NotificationToast';
+import TriggerPanel from '../game/triggers/TriggerPanel';
 
 
 interface GameScreenProps {
@@ -48,7 +51,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         onApiKeyInvalid
     }), [getApiClient, cycleToNextApiKey, apiStats, onApiKeyInvalid]);
 
-    // FIX: Pass the entire settings object to useGameEngine and destructure addNarrativeEvent.
     const { 
         gameState, isLoading, error, processTurn, 
         updateAiSettings, newlyAcquiredSkill, handleAcknowledgeSkill, 
@@ -63,11 +65,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     const [isCharPanelOpen, setIsCharPanelOpen] = useState(false);
     const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
     const [isCodexOpen, setIsCodexOpen] = useState(false);
+    const [isAutomationPanelOpen, setIsAutomationPanelOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isStatDetailModalOpen, setIsStatDetailModalOpen] = useState(false);
     const [isCreateStatModalOpen, setIsCreateStatModalOpen] = useState(false);
     const [isAbilityEditModalOpen, setIsAbilityEditModalOpen] = useState(false);
     const [isAchievementModalOpen, setIsAchievementModalOpen] = useState(false);
+    const [notifications, setNotifications] = useState<Array<{id: number, message: string}>>([]);
 
     const [statDetailData, setStatDetailData] = useState<{ stat: CharacterStat & { name: string }; ownerName: string; ownerType: 'player' | 'npc'; ownerId?: string } | null>(null);
     const [abilityEditData, setAbilityEditData] = useState<{ skillName: string; ability: Ability } | null>(null);
@@ -82,14 +86,16 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     );
 
     useEffect(() => {
-        // Set a specific background for the game screen to ensure it fills the viewport under zoom
-        document.body.style.backgroundColor = '#171717'; // Tailwind's neutral-900
-        
-        // Cleanup function to reset the background when the component unmounts
-        return () => {
-            document.body.style.backgroundColor = '#0a0a0a'; // Original body color from index.html
-        };
-    }, []);
+        if (gameState?.pendingNotifications && gameState.pendingNotifications.length > 0) {
+            const newNotifications = gameState.pendingNotifications.map(msg => ({ id: Date.now() + Math.random(), message: msg }));
+            setNotifications(prev => [...prev, ...newNotifications]);
+            setGameState(prev => prev ? ({ ...prev, pendingNotifications: [] }) : null);
+        }
+    }, [gameState?.pendingNotifications, setGameState]);
+
+    const dismissNotification = (id: number) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    };
 
     useEffect(() => {
         if (gameState && gameState.history.length > 0 && !isLoading) {
@@ -153,6 +159,75 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         setIsStatDetailModalOpen(true);
     };
 
+    const handleSaveStat = (oldStatName: string, newStatData: CharacterStat & { name: string }, ownerType: 'player' | 'npc', ownerId?: string) => {
+        setGameState(prev => {
+            if (!prev) return null;
+            let newState = { ...prev };
+    
+            const updateStats = (stats: CharacterStats, order: string[]): { newStats: CharacterStats, newOrder: string[] } => {
+                const newStats = { ...stats };
+                delete newStats[oldStatName];
+                // Strip name from the stat object before saving
+                const { name, ...restOfStatData } = newStatData;
+                newStats[name] = restOfStatData;
+                
+                const newOrder = order.map(n => n === oldStatName ? name : n);
+                // If it was a rename of an existing stat, it's already in the order.
+                // If it's a new stat conceptually (name changed), we might need to add it if it's not there.
+                if (!newOrder.includes(name)) {
+                     const oldIndex = order.indexOf(oldStatName);
+                     if (oldIndex > -1) {
+                         newOrder.splice(oldIndex, 0, name);
+                     } else {
+                         newOrder.push(name);
+                     }
+                }
+    
+                return { newStats, newOrder };
+            };
+    
+            if (ownerType === 'player') {
+                const { newStats, newOrder } = updateStats(newState.playerStats, newState.playerStatOrder);
+                newState.playerStats = newStats;
+                newState.playerStatOrder = newOrder;
+            } else if (ownerType === 'npc' && ownerId) {
+                const npcIndex = newState.npcs.findIndex(n => n.id === ownerId);
+                if (npcIndex !== -1) {
+                    // NPC stat order is not managed client-side, so we don't need the newOrder
+                    const { newStats } = updateStats(newState.npcs[npcIndex].stats, []);
+                    newState.npcs[npcIndex] = { ...newState.npcs[npcIndex], stats: newStats };
+                }
+            }
+            return newState;
+        });
+        addNarrativeEvent(`Tác giả đã chỉnh sửa trạng thái '${oldStatName}' thành '${newStatData.name}' cho ${ownerType === 'player' ? 'người chơi' : `NPC ${statDetailData?.ownerName}`}.`);
+        setIsStatDetailModalOpen(false);
+    };
+    
+    const handleDeleteStat = (statName: string, ownerType: 'player' | 'npc', ownerId?: string) => {
+        setGameState(prev => {
+            if (!prev) return null;
+            let newState = { ...prev };
+    
+            if (ownerType === 'player') {
+                const newStats = { ...newState.playerStats };
+                delete newStats[statName];
+                newState.playerStats = newStats;
+                newState.playerStatOrder = newState.playerStatOrder.filter(name => name !== statName);
+            } else if (ownerType === 'npc' && ownerId) {
+                const npcIndex = newState.npcs.findIndex(n => n.id === ownerId);
+                if (npcIndex !== -1) {
+                    const newStats = { ...newState.npcs[npcIndex].stats };
+                    delete newStats[statName];
+                    newState.npcs[npcIndex] = { ...newState.npcs[npcIndex], stats: newStats };
+                }
+            }
+            return newState;
+        });
+        addNarrativeEvent(`Tác giả đã xóa trạng thái '${statName}' khỏi ${ownerType === 'player' ? 'người chơi' : `NPC ${statDetailData?.ownerName}`}.`);
+        setIsStatDetailModalOpen(false);
+    };
+
     const handleOptimizeGame = async () => {
         if (!gameState) {
             alert("Không có dữ liệu game để tối ưu hóa.");
@@ -191,8 +266,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
 
     if (error) {
         return (
-            <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm text-white p-8">
-                <div className="w-full max-w-3xl bg-neutral-900 border border-red-500/50 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-red-900/50 flex flex-col">
+            <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center p-8">
+                <div className="w-full max-w-3xl neumorphic-convex border border-red-500/50 rounded-2xl p-6 sm:p-8 flex flex-col">
                     <h2 className="text-2xl sm:text-3xl font-bold text-red-300 mb-4 text-center">Đã xảy ra lỗi nghiêm trọng</h2>
                     <pre className="bg-black/50 p-4 rounded-md text-red-200 whitespace-pre-wrap w-full max-h-[40vh] sm:max-h-[50vh] overflow-y-auto custom-scrollbar">{error}</pre>
                     <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
@@ -233,7 +308,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         <>
             <ApiStatusOverlay stats={apiStats} />
             <div className="h-full text-neutral-300 flex flex-col overflow-hidden">
-                <header className="flex-shrink-0 bg-black/30 backdrop-blur-sm p-2 flex items-center border-b border-white/10 z-20">
+                <header className="flex-shrink-0 bg-[var(--bg-panel)] p-2 flex items-center border-b border-white/10 z-20">
                     <div className="flex-1 flex justify-start items-center gap-2">
                         <button onClick={() => setIsGameMenuOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở menu">
                             <MenuIcon />
@@ -246,8 +321,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                         <TokenCounter lastTurn={lastTurn.tokenCount || 0} total={gameState.totalTokens} />
                         <RequestCounter count={gameState.requestCount} />
                         <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} disabled={isLoading} />
-                         <button onClick={() => setIsCodexOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở sổ tay">
+                         <button onClick={() => setIsCodexOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở Bách Khoa">
                             <BookIcon className="h-6 w-6"/>
+                        </button>
+                        <button onClick={() => setIsAutomationPanelOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở Vận Mệnh & Thiên Cơ">
+                            <TriggerIcon className="h-6 w-6"/>
                         </button>
                         <button onClick={() => setIsCharPanelOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở bảng nhân vật">
                             <UserIcon className="h-6 w-6"/>
@@ -261,7 +339,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                     </div>
                 </main>
 
-                <footer className="flex-shrink-0 p-4 bg-black/30 z-10">
+                <footer className="flex-shrink-0 p-4 bg-[var(--bg-panel)] z-10 border-t border-white/10">
                     <div className="max-w-7xl mx-auto space-y-2">
                        {gameState.history.length > 0 && (
                             <PaginationControls
@@ -287,6 +365,16 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                         />
                     </div>
                 </footer>
+            </div>
+
+            <div className="fixed top-24 right-4 z-50 space-y-2">
+                {notifications.map(n => (
+                    <NotificationToast 
+                        key={n.id}
+                        message={n.message}
+                        onDismiss={() => dismissNotification(n.id)}
+                    />
+                ))}
             </div>
             
              <IntroductoryModal 
@@ -318,8 +406,10 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 onClose={() => setIsStatDetailModalOpen(false)}
                 stat={statDetailData?.stat || null}
                 ownerName={statDetailData?.ownerName || ''}
-                onSave={() => {}} // Placeholder
-                onDelete={() => {}} // Placeholder
+                onSave={handleSaveStat}
+                onDelete={handleDeleteStat}
+                ownerType={statDetailData?.ownerType}
+                ownerId={statDetailData?.ownerId}
             />
             
             <StatCreationModal 
@@ -371,6 +461,15 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 onUpdateRule={()=>{}}
                 onAddRule={()=>{}}
                 onDeleteRule={()=>{}}
+                onStatClick={handleStatClick}
+            />
+
+            <TriggerPanel 
+                isOpen={isAutomationPanelOpen}
+                onClose={() => setIsAutomationPanelOpen(false)}
+                gameState={gameState}
+                onUpdateTriggers={(newTriggers) => setGameState(prev => prev ? ({...prev, triggers: newTriggers}) : null)}
+                onUpdateScenarios={(newScenarios) => setGameState(prev => prev ? ({ ...prev, customScenarios: newScenarios }) : null)}
             />
         </>
     );

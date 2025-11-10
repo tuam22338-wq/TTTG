@@ -167,7 +167,6 @@ export const coreLogicSchema = {
             nullable: true
         },
         newlyAcquiredSkill: { ...skillSchema, nullable: true },
-        plotChronicle: { type: Type.STRING, nullable: true },
         presentNpcIds: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
@@ -261,6 +260,32 @@ export const sanitizedGameStateSchema = {
         sanitizedPlotChronicle: { type: Type.STRING }
     },
     required: ['playerStatChanges', 'npcUpdates', 'sanitizedPlotChronicle']
+};
+
+export const npcSimulationUpdateSchema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            npcId: { type: Type.STRING },
+            action: { type: Type.STRING },
+            newStatus: { type: Type.STRING, nullable: true },
+            newLocation: { type: Type.STRING, nullable: true },
+        },
+        required: ['npcId', 'action']
+    }
+};
+
+export const codexEntrySchema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            name: { type: Type.STRING },
+            content: { type: Type.STRING }
+        },
+        required: ['name', 'content']
+    }
 };
 
 const quickAssistCharacterSkillSchema = {

@@ -10,8 +10,8 @@ interface CharacterSheetProps {
 }
 
 const Section: React.FC<{ title: string, children: React.ReactNode, className?: string }> = ({ title, children, className }) => (
-    <div className={`bg-black/20 p-3 rounded-xl border border-white/10 ${className}`}>
-        <h3 className="text-md font-bold text-white mb-3 font-rajdhani uppercase tracking-wider">{title}</h3>
+    <div className={`bg-black/20 p-4 rounded-xl border border-neutral-800 ${className}`}>
+        <h3 className="text-lg font-bold text-white mb-3 font-rajdhani uppercase tracking-wider">{title}</h3>
         {children}
     </div>
 );
@@ -19,7 +19,7 @@ const Section: React.FC<{ title: string, children: React.ReactNode, className?: 
 const StatBar: React.FC<{ current: number; max: number; barColor: string; label: string }> = ({ current, max, barColor, label }) => {
     const percentage = max > 0 ? (current / max) * 100 : 0;
     return (
-        <div>
+        <div className="flex-grow min-w-[150px] sm:min-w-[180px]">
             <div className="flex justify-between text-xs mb-1 font-semibold">
                 <span className="text-neutral-300">{label}</span>
                 <span className="font-mono">{`${Math.floor(current)}/${max}`}</span>
@@ -32,14 +32,17 @@ const StatBar: React.FC<{ current: number; max: number; barColor: string; label:
 };
 
 const StatGridItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number; title: string }> = ({ icon, label, value, title }) => (
-    <div className="flex items-center gap-2 bg-black/30 p-1.5 rounded-lg border border-transparent hover:border-neutral-600 transition-colors" title={title}>
-        <div className="w-6 h-6 flex-shrink-0 text-neutral-300 bg-black/30 rounded p-1">{icon}</div>
+    <div className="flex items-center gap-3 p-2 rounded-lg bg-black/30" title={title}>
+        <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center text-cyan-300 bg-cyan-900/30 rounded-lg border border-cyan-500/30">
+            {icon}
+        </div>
         <div className="flex-grow min-w-0">
-            <p className="text-xs font-semibold text-white truncate">{label}</p>
-            <p className="text-sm font-bold text-cyan-300 font-mono">{value}</p>
+            <p className="text-xs font-semibold text-neutral-300 truncate">{label}</p>
+            <p className="text-base font-bold text-white font-mono">{value}</p>
         </div>
     </div>
 );
+
 
 const getStatTheme = (type: StatType) => {
     switch (type) {
@@ -111,74 +114,91 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ gameState, onStatClick 
     };
 
     return (
-        <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto custom-scrollbar h-full">
-            {/* --- COLUMN 1: CHARACTER INFO & STATS --- */}
-            <div className="flex flex-col gap-4">
-                 <Section title="Nhân Vật">
-                    <div className="flex gap-4">
-                        <img src={character.avatarUrl || 'https://via.placeholder.com/80'} alt="Avatar" className="w-20 h-20 rounded-full border-2 border-neutral-600 object-cover flex-shrink-0" />
-                        <div className="flex-grow space-y-1">
-                            <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 font-rajdhani truncate" title={character.name}>{character.name}</h2>
-                            {playerTitle && <p className="text-xs text-yellow-300 font-semibold truncate" title={playerTitle}>{playerTitle}</p>}
-                            <p className="text-xs text-neutral-400">Tuổi: {character.age} | {genderString}</p>
-                            <p className="text-sm"><span className="font-semibold text-neutral-300">Tính cách:</span> {character.personality || 'Chưa xác định'}</p>
+        <div className="p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar h-full">
+            {/* --- Section 1: Character Info --- */}
+            <Section title="Đặc Điểm" className="flex-shrink-0">
+                <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
+                    <img src={character.avatarUrl || 'https://via.placeholder.com/96'} alt="Avatar" className="w-24 h-24 rounded-full border-2 border-neutral-600 object-cover flex-shrink-0" />
+                    <div className="flex-grow space-y-1 text-center sm:text-left">
+                        <h2 className="text-3xl font-title text-white truncate" title={character.name} style={{textShadow: '0 0 8px rgba(255,255,255,0.4)'}}>{character.name}</h2>
+                        {playerTitle && <p className="text-xs text-yellow-300 font-semibold truncate" title={playerTitle}>{playerTitle}</p>}
+                        <div className="flex gap-4 justify-center sm:justify-start flex-wrap text-sm text-neutral-400">
+                            <span>Tuổi: <span className="text-white font-semibold">{character.age}</span></span>
+                            <span>Giới tính: <span className="text-white font-semibold">{genderString}</span></span>
                         </div>
+                        <p className="text-sm"><span className="font-semibold text-neutral-300">Tính cách:</span> {character.personality || 'Chưa xác định'}</p>
                     </div>
-                </Section>
-                <Section title="Tài Nguyên">
-                    <div className="space-y-3">
-                        {vitalAttributes.map(attr => {
-                            const currentStatKey = attr.id.replace('ToiDa', '');
-                            const currentValue = (coreStats as any)[currentStatKey] ?? 0;
-                            const maxValue = (coreStats as any)[attr.id] ?? 0;
-                            return <StatBar key={attr.id} current={currentValue} max={maxValue} barColor={VITAL_BAR_COLORS[attr.id] || VITAL_BAR_COLORS.default} label={attr.name} />;
-                        })}
-                    </div>
-                </Section>
-                <Section title="Tu Luyện">
-                    <p className="text-lg font-bold text-purple-300 text-center">{realmString}</p>
-                    <StatBar current={cultivation.exp} max={cultivation.expToNextLevel} barColor="bg-gradient-to-r from-purple-500 to-pink-500" label="Kinh nghiệm" />
-                </Section>
-                 <Section title="Chỉ Số Cốt Lõi">
-                    <div className="grid grid-cols-2 gap-2">
-                        {[...primaryAttributes, ...informationalAttributes].map(attr => {
-                            const value = (coreStats as any)[attr.id] ?? attr.baseValue;
-                            return <StatGridItem key={attr.id} icon={<GetIconComponent name={attr.icon} className="w-full h-full"/>} label={attr.name} value={formatStatValue(value, attr.id)} title={attr.description}/>
-                        })}
-                    </div>
-                </Section>
-            </div>
+                </div>
+            </Section>
             
-             {/* --- COLUMN 2: STATUSES & SKILLS --- */}
-            <div className="flex flex-col gap-4 min-h-0">
-                <Section title="Trạng Thái Hiện Tại" className="flex-grow flex flex-col">
-                    <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-0">
-                         {playerStatOrder.length > 0 ? playerStatOrder.map(statName => {
-                            const stat = playerStats[statName];
-                            if (!stat) return null;
-                            const theme = getStatTheme(stat.type);
-                            return (
-                                <button key={statName} onClick={() => onStatClick({ ...stat, name: statName }, character.name, 'player')} className={`w-full text-left p-2 rounded-md border-l-4 transition-colors ${theme.border} ${theme.bg}`}>
-                                    <p className="font-bold text-white text-sm">{statName}</p>
-                                    <p className="text-xs text-neutral-400 truncate">{stat.description}</p>
-                                </button>
-                            );
-                         }) : <p className="text-neutral-500 italic text-center text-sm py-4">Không có trạng thái đặc biệt nào.</p>}
+            {/* --- Section 2: Vitals --- */}
+            <Section title="Tài Nguyên Cốt Lõi">
+                <div className="flex flex-wrap gap-x-6 gap-y-4">
+                    {vitalAttributes.map(attr => {
+                        const currentStatKey = attr.id.replace('ToiDa', '');
+                        const currentValue = (coreStats as any)[currentStatKey] ?? 0;
+                        const maxValue = (coreStats as any)[attr.id] ?? 0;
+                        return <StatBar key={attr.id} current={currentValue} max={maxValue} barColor={VITAL_BAR_COLORS[attr.id] || VITAL_BAR_COLORS.default} label={attr.name} />;
+                    })}
+                </div>
+            </Section>
+            
+            <Section title="Chỉ Số Cốt Lõi">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[...primaryAttributes, ...informationalAttributes].map(attr => {
+                        const value = (coreStats as any)[attr.id] ?? attr.baseValue;
+                        return <StatGridItem key={attr.id} icon={<GetIconComponent name={attr.icon} className="w-5 h-5"/>} label={attr.name} value={formatStatValue(value, attr.id)} title={attr.description}/>
+                    })}
+                </div>
+            </Section>
+            <Section title="Tu Luyện">
+                <p className="text-xl font-bold text-purple-300 text-center mb-2">{realmString}</p>
+                <div className="flex-grow min-w-[150px] sm:min-w-[180px]">
+                    <div className="flex justify-between text-xs mb-1 font-semibold">
+                        <span className="text-neutral-300">Kinh nghiệm</span>
+                        <span className="font-mono">{`${Math.floor(cultivation.exp)}/${cultivation.expToNextLevel}`}</span>
                     </div>
-                </Section>
+                    <div className="h-4 w-full bg-black/40 rounded-full overflow-hidden border border-black/50">
+                        <div className={`h-full rounded-full transition-all duration-300 bg-gradient-to-r from-purple-500 to-pink-500`} style={{ width: `${(cultivation.exp / cultivation.expToNextLevel) * 100}%` }}></div>
+                    </div>
+                </div>
+            </Section>
+            
+            <Section title="Trạng Thái Hiện Tại" className="flex flex-col">
+                <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                     {playerStatOrder.length > 0 ? playerStatOrder.map(statName => {
+                        const stat = playerStats[statName];
+                        if (!stat) return null;
+                        const theme = getStatTheme(stat.type);
+                        return (
+                            <button key={statName} onClick={() => onStatClick({ ...stat, name: statName }, character.name, 'player')} className={`w-full text-left p-2 rounded-md border-l-4 transition-colors ${theme.border} ${theme.bg}`}>
+                                <p className="font-bold text-white text-sm">{statName}</p>
+                                <p className="text-xs text-neutral-400 truncate">{stat.description}</p>
+                            </button>
+                        );
+                     }) : <p className="text-neutral-500 italic text-center text-sm py-4">Không có trạng thái đặc biệt nào.</p>}
+                </div>
+            </Section>
 
-                <Section title="Sổ Tay Kỹ Năng" className="flex-grow flex flex-col">
-                    <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-grow min-h-0">
-                         {playerSkills.length > 0 ? playerSkills.map(skill => (
-                            <SkillEntry key={skill.id} skill={skill} />
-                         )) : <p className="text-neutral-500 italic text-center text-sm py-4">Chưa lĩnh ngộ kỹ năng nào.</p>}
-                    </div>
-                </Section>
-            </div>
+            <Section title="Sổ Tay Kỹ Năng" className="flex flex-col">
+                <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                     {playerSkills.length > 0 ? playerSkills.map(skill => (
+                        <SkillEntry key={skill.id} skill={skill} />
+                     )) : <p className="text-neutral-500 italic text-center text-sm py-4">Chưa lĩnh ngộ kỹ năng nào.</p>}
+                </div>
+            </Section>
+
              <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #555; border-radius: 10px; }
+                @keyframes fade-in-fast {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .animate-fade-in-fast {
+                    animation: fade-in-fast 0.3s ease-out forwards;
+                }
             `}</style>
         </div>
     );

@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import { WorldCreationState, InitialFaction, InitialNpc } from '../../types';
-import FormSection from './FormSection';
 import InputField from '../ui/InputField';
 import TextareaField from '../ui/TextareaField';
-import Button from '../ui/Button';
 import ChevronIcon from '../icons/ChevronIcon';
+import { PlusIcon } from '../icons/PlusIcon';
 
 interface InitialEntitiesFormProps {
     state: WorldCreationState;
     setState: React.Dispatch<React.SetStateAction<WorldCreationState>>;
 }
 
-const TrashIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+const TrashIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-4 w-4"} viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
     </svg>
 );
@@ -78,7 +77,7 @@ const InitialEntitiesForm: React.FC<InitialEntitiesFormProps> = ({ state, setSta
     const selectClass = "w-full px-4 py-3 bg-transparent border-none rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/80 transition-all neumorphic-concave";
 
     return (
-        <FormSection title="Tạo Thực Thể Ban Đầu" description="Xây dựng các thế lực và nhân vật quan trọng để làm thế giới thêm sống động.">
+        <div className="space-y-5">
             {/* Factions Section */}
             <div>
                 <h3 className="text-xl font-bold text-neutral-100 mb-3">Thế lực khởi đầu</h3>
@@ -86,13 +85,13 @@ const InitialEntitiesForm: React.FC<InitialEntitiesFormProps> = ({ state, setSta
                     {state.initialFactions.map(faction => {
                         const isExpanded = expandedIds.has(faction.id);
                         return (
-                            <div key={faction.id} className="neumorphic-convex rounded-lg overflow-hidden transition-all">
-                                <div className="flex items-center p-3">
+                            <div key={faction.id} className="neumorphic-concave rounded-xl overflow-hidden transition-all">
+                                <div className="flex items-center p-3 bg-[var(--grad-concave)]">
                                     <div className="flex-grow min-w-0">
-                                        <InputField value={faction.name} onChange={e => handleFactionChange(faction.id, 'name', e.target.value)} id={`faction-name-${faction.id}`} placeholder="Tên thế lực" className="!py-1 !px-2 text-base font-semibold" />
+                                        <InputField value={faction.name} onChange={e => handleFactionChange(faction.id, 'name', e.target.value)} id={`faction-name-${faction.id}`} placeholder="Tên thế lực" className="!py-1 !px-2 text-base font-semibold !neumorphic-inset" />
                                     </div>
-                                    <div className="flex items-center gap-1 ml-2">
-                                        <button onClick={() => handleRemoveFaction(faction.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon /></button>
+                                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                        <button onClick={() => handleRemoveFaction(faction.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon className="w-5 h-5"/></button>
                                         <button onClick={() => toggleExpand(faction.id)} className="p-1.5 text-gray-400 hover:text-white rounded-full transition-colors"><ChevronIcon isExpanded={isExpanded} /></button>
                                     </div>
                                 </div>
@@ -135,7 +134,10 @@ const InitialEntitiesForm: React.FC<InitialEntitiesFormProps> = ({ state, setSta
                             </div>
                         );
                     })}
-                    <button onClick={handleAddFaction} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-2 text-sm border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-white/5 hover:text-white hover:border-neutral-500 hover:border-solid font-semibold">+ Thêm Thế lực</button>
+                     <button onClick={handleAddFaction} className="flex items-center justify-center gap-2 w-full rounded-xl transition-all duration-200 ease-in-out py-2.5 text-sm bg-white/5 text-neutral-200 hover:bg-white/10 hover:text-white font-semibold neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020]">
+                        <PlusIcon />
+                        <span>Thêm Thế lực</span>
+                    </button>
                 </div>
             </div>
 
@@ -146,13 +148,13 @@ const InitialEntitiesForm: React.FC<InitialEntitiesFormProps> = ({ state, setSta
                      {state.initialNpcs.map(npc => {
                         const isExpanded = expandedIds.has(npc.id);
                         return (
-                            <div key={npc.id} className="neumorphic-convex rounded-lg overflow-hidden transition-all">
-                                <div className="flex items-center p-3">
+                            <div key={npc.id} className="neumorphic-concave rounded-xl overflow-hidden transition-all">
+                                <div className="flex items-center p-3 bg-[var(--grad-concave)]">
                                     <div className="flex-grow min-w-0">
-                                        <InputField value={npc.name} onChange={e => handleNpcChange(npc.id, 'name', e.target.value)} id={`npc-name-${npc.id}`} placeholder="Tên NPC" className="!py-1 !px-2 text-base font-semibold" />
+                                        <InputField value={npc.name} onChange={e => handleNpcChange(npc.id, 'name', e.target.value)} id={`npc-name-${npc.id}`} placeholder="Tên NPC" className="!py-1 !px-2 text-base font-semibold !neumorphic-inset" />
                                     </div>
-                                    <div className="flex items-center gap-1 ml-2">
-                                        <button onClick={() => handleRemoveNpc(npc.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon /></button>
+                                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                        <button onClick={() => handleRemoveNpc(npc.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon className="w-5 h-5"/></button>
                                         <button onClick={() => toggleExpand(npc.id)} className="p-1.5 text-gray-400 hover:text-white rounded-full transition-colors"><ChevronIcon isExpanded={isExpanded} /></button>
                                     </div>
                                 </div>
@@ -181,7 +183,10 @@ const InitialEntitiesForm: React.FC<InitialEntitiesFormProps> = ({ state, setSta
                             </div>
                         );
                     })}
-                    <button onClick={handleAddNpc} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-2 text-sm border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-white/5 hover:text-white hover:border-neutral-500 hover:border-solid font-semibold">+ Thêm NPC</button>
+                     <button onClick={handleAddNpc} className="flex items-center justify-center gap-2 w-full rounded-xl transition-all duration-200 ease-in-out py-2.5 text-sm bg-white/5 text-neutral-200 hover:bg-white/10 hover:text-white font-semibold neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020]">
+                        <PlusIcon />
+                        <span>Thêm NPC</span>
+                    </button>
                 </div>
             </div>
              <style>{`
@@ -193,7 +198,7 @@ const InitialEntitiesForm: React.FC<InitialEntitiesFormProps> = ({ state, setSta
                     animation: fade-in-fast 0.3s ease-out forwards;
                 }
             `}</style>
-        </FormSection>
+        </div>
     );
 };
 

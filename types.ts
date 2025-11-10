@@ -1,4 +1,4 @@
-import { Type } from '@google/genai';
+import { FunctionCall, Type } from '@google/genai';
 
 export type GeminiModel =
   | 'gemini-2.5-flash'
@@ -51,6 +51,7 @@ export interface SafetySettings {
 }
 
 export type NarrativePerspective = 'Nhãn Quan Toàn Tri' | 'Ngôi thứ ba Giới hạn' | 'Ngôi thứ hai' | 'Ngôi thứ ba Toàn tri';
+export type Theme = 'dark' | 'sepia' | 'abyssal' | 'inkwash';
 
 export interface Settings {
   aiProvider: AiProvider;
@@ -66,6 +67,7 @@ export interface Settings {
   autoHideActionPanel: boolean;
   narrativePerspective: NarrativePerspective;
   zoomLevel: number;
+  theme: Theme;
 }
 
 export interface ChatMessage {
@@ -196,6 +198,38 @@ export interface WorldRule {
   tags?: string[];
 }
 
+export type ScenarioActionType = 'GIVE_ITEM' | 'UPDATE_PLAYER_STAT' | 'UPDATE_NPC_STAT' | 'SHOW_NOTIFICATION' | 'UPDATE_CORE_STAT';
+export type ScenarioConditionType = 'PLAYER_HAS_ITEM' | 'PLAYER_STAT_EXISTS' | 'NPC_STAT_EXISTS' | 'TURN_COUNT_GREATER_THAN';
+
+export interface ScenarioAction {
+    type: ScenarioActionType;
+    payload: {
+        itemId?: string;
+        statName?: string;
+        stat?: CharacterStat;
+        npcId?: string;
+        message?: string;
+        coreStatChanges?: Partial<CharacterCoreStats>;
+    };
+}
+
+export interface ScenarioCondition {
+    type: ScenarioConditionType;
+    payload: {
+        itemId?: string;
+        statName?: string;
+        npcId?: string;
+        turnCount?: number;
+    };
+}
+
+export interface CustomScenario {
+    id: string;
+    name: string;
+    conditions: ScenarioCondition[];
+    actions: ScenarioAction[];
+}
+
 export interface WorldCreationState {
   genre: string;
   description: string;
@@ -221,6 +255,7 @@ export interface WorldCreationState {
   specialRules: WorldRule[];
   initialLore: WorldRule[];
   knowledgeBaseIds: string[];
+  customScenarios: CustomScenario[];
 }
 
 export enum StatType {
@@ -535,6 +570,28 @@ export type WorldEvent = {
     relatedEntityId?: string; // e.g., an NPC id
 };
 
+export type TriggerActionType = 'NOTIFY' | 'ADD_STAT' | 'GET_ITEM';
+
+export interface TriggerAction {
+    type: TriggerActionType;
+    payload: {
+        message?: string;
+        stat?: CharacterStat & { name: string };
+        itemId?: string;
+    };
+}
+
+export interface Trigger {
+  id: string;
+  name: string;
+  condition: string;
+  isRegex: boolean;
+  action: TriggerAction;
+  isEnabled: boolean;
+  isOneTime: boolean;
+  hasFired?: boolean;
+}
+
 export interface GameState {
     worldContext: WorldCreationState;
     history: GameTurn[];
@@ -560,6 +617,9 @@ export interface GameState {
     pendingNarrativeEvents: string[];
     worldTickCounter: number;
     pendingWorldEvents: WorldEvent[];
+    triggers: Trigger[];
+    pendingNotifications: string[];
+    customScenarios: CustomScenario[];
 }
 
 export type ViewMode = 'desktop' | 'mobile';
@@ -576,4 +636,34 @@ export interface NovelWriterSettings {
   allowAiTimeskip: boolean;
   writingRules: NovelWritingRule[];
   chapterLength: number; // in words
+}
+
+export interface InitializeStoryResponse {
+    initialTurn: GameTurn;
+    initialPlayerStatChanges: StatChanges;
+    initialNpcUpdates: NPCUpdate[];
+    initialPlayerSkills: Skill[];
+    summaryText: string;
+    initialInventory: string[];
+}
+
+export interface ContinueStoryResponse {
+    newTurn: GameTurn;
+    playerStatChanges: StatChanges;
+    npcUpdates: NPCUpdate[];
+    newlyAcquiredSkill: Skill | null;
+    presentNpcIds: string[];
+    summaryText: string;
+    itemsReceived: string[];
+    playerTitle: string | null;
+    timeElapsed: number;
+    nsfwSceneStateChange: 'ENTER' | 'EXIT' | 'NONE';
+    expGained: number;
+    coreStatsChanges: Partial<CharacterCoreStats> | null;
+    weatherChange: Weather | null;
+    isInCombat: boolean;
+    combatantNpcIds: string[];
+    totalTokens: number;
+    playerSkills: Skill[] | null;
+    functionCalls: FunctionCall[] | null;
 }

@@ -63,7 +63,7 @@ const StoryLog: React.FC<StoryLogProps> = ({ turn }) => {
             </div>
 
             {statusNarration && (
-                <div className="glassmorphic border-l-4 border-white/50 p-4 rounded-r-lg animate-fade-in-fast" style={{animationDelay: '150ms'}}>
+                <div className="neumorphic-concave p-4 rounded-lg animate-fade-in-fast" style={{animationDelay: '150ms'}}>
                     <p className="flex items-center text-lg italic text-neutral-200">
                         <StatusNarrationIcon />
                         <span>{renderTextWithHighlighting(statusNarration)}</span>
@@ -72,7 +72,7 @@ const StoryLog: React.FC<StoryLogProps> = ({ turn }) => {
             )}
 
             {omniscientInterlude && (
-                <div className="glassmorphic neumorphic-convex p-4 rounded-xl animate-fade-in-fast" style={{animationDelay: '200ms'}}>
+                <div className="neumorphic-convex p-4 rounded-xl animate-fade-in-fast" style={{animationDelay: '200ms'}}>
                     <h3 className="flex items-center text-xl font-bold text-white mb-2">
                         <EyeIcon />
                         {omniscientInterlude.title}

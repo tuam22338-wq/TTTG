@@ -26,12 +26,17 @@ import {
     ParsedAction,
     WorldEvent,
     Settings,
+    CustomScenario,
+    ScenarioActionType,
+    ScenarioConditionType,
+    WorldRule,
 } from '../types';
 import * as GeminiStorytellerService from '../services/GeminiStorytellerService';
 import * as GameSaveService from '../services/GameSaveService';
 import { GoogleGenAI } from '@google/genai';
 import { ApiClient } from '../services/gemini/client';
 import * as client from '../services/gemini/client';
+import { allPredefinedItems } from '../services/predefinedItems';
 
 const INITIAL_AI_SETTINGS: AiSettings = {
     isLogicModeOn: true,
@@ -104,8 +109,6 @@ export function useGameEngine(
                 initialPlayerStatChanges,
                 initialNpcUpdates,
                 initialPlayerSkills,
-                plotChronicle,
-                presentNpcIds,
                 summaryText,
                 initialInventory,
             } = await GeminiStorytellerService.initializeStory(worldState, apiClient, aiModelSettings, masterSafetySwitch, safety);
@@ -129,8 +132,8 @@ export function useGameEngine(
                 playerTitle: '',
                 npcs: [],
                 playerSkills: initialPlayerSkills || [],
-                plotChronicle,
-                presentNpcIds,
+                plotChronicle: '',
+                presentNpcIds: [],
                 totalTokens: initialTurn.tokenCount || 0,
                 requestCount: 1,
                 aiSettings: INITIAL_AI_SETTINGS,
@@ -146,6 +149,9 @@ export function useGameEngine(
                 pendingNarrativeEvents: [],
                 worldTickCounter: 0,
                 pendingWorldEvents: [],
+                triggers: [],
+                pendingNotifications: [],
+                customScenarios: worldState.customScenarios || [],
             };
 
             // Apply initial updates
@@ -292,26 +298,141 @@ export function useGameEngine(
         return { ...currentState, npcs: newNpcs };
     };
 
-    const runWorldTick = (currentState: GameState): GameState => {
-        let newPendingEvents: WorldEvent[] = [...currentState.pendingWorldEvents];
-    
-        // Simple simulation: an NPC with a goal might "achieve" it.
-        currentState.npcs.forEach(npc => {
-            if (npc.goal && Math.random() < 0.1) { // 10% chance per tick for an NPC to do something
-                const newEvent: WorldEvent = {
-                    id: `event_${Date.now()}_${npc.id}`,
-                    type: 'WORLD_NARRATIVE',
-                    description: `Có tin tức về ${npc.name}: ${npc.goal}`,
-                    relatedEntityId: npc.id,
-                };
-                newPendingEvents.push(newEvent);
-                // In a more complex simulation, we'd update the NPC's state here
-                // For now, we just clear the goal to prevent repeated events
-                // This state change should be applied with the game state update
+    const runWorldTick = async (currentState: GameState): Promise<GameState> => {
+        const npcsWithGoals = currentState.npcs.filter(npc => npc.goal);
+        if (npcsWithGoals.length === 0) {
+            return currentState; // No one to simulate
+        }
+
+        try {
+            console.log("Simulating NPC actions...");
+            const simulatedActions = await GeminiStorytellerService.simulateNpcActions(
+                npcsWithGoals,
+                apiClient,
+                aiModelSettings,
+                masterSafetySwitch,
+                safety
+            );
+
+            let newNpcs = [...currentState.npcs];
+            let newPendingEvents: WorldEvent[] = [...currentState.pendingWorldEvents];
+
+            simulatedActions.forEach(action => {
+                const npcIndex = newNpcs.findIndex(n => n.id === action.npcId);
+                if (npcIndex !== -1) {
+                    // Update NPC state
+                    if (action.newLocation) newNpcs[npcIndex].currentLocation = action.newLocation;
+                    if (action.newStatus) newNpcs[npcIndex].status = action.newStatus;
+                    
+                    // Create a world event from the simulation
+                    const newEvent: WorldEvent = {
+                        id: `event_${Date.now()}_${action.npcId}`,
+                        type: 'WORLD_NARRATIVE',
+                        description: `Có tin tức về ${newNpcs[npcIndex].name}: ${action.action}`,
+                        relatedEntityId: action.npcId,
+                    };
+                    newPendingEvents.push(newEvent);
+                }
+            });
+
+            console.log("NPC simulation complete. New events:", newPendingEvents);
+            return { ...currentState, npcs: newNpcs, pendingWorldEvents: newPendingEvents };
+
+        } catch (error) {
+            console.error("Failed to run world tick simulation:", error);
+            return currentState; // Return original state on error
+        }
+    };
+
+    const executeScenario = (scenarioId: string) => {
+        setGameState(prevState => {
+            if (!prevState) return null;
+            const scenario = prevState.customScenarios.find(s => s.id === scenarioId);
+            if (!scenario) {
+                console.warn(`Attempted to execute non-existent scenario: ${scenarioId}`);
+                return prevState;
             }
+
+            console.log(`Executing scenario: ${scenario.name}`);
+            let newState = { ...prevState };
+
+            // 1. Check Conditions
+            for (const condition of scenario.conditions) {
+                let conditionMet = false;
+                switch (condition.type) {
+                    case 'PLAYER_HAS_ITEM':
+                        if (condition.payload.itemId) {
+                            conditionMet = newState.inventory.items.some(i => i.id === condition.payload.itemId);
+                        }
+                        break;
+                    // ... other condition types
+                }
+                if (!conditionMet) {
+                    console.log(`Scenario '${scenario.name}' failed condition check: ${condition.type}`);
+                    return prevState; // Abort if any condition fails
+                }
+            }
+
+            // 2. Execute Actions
+            for (const action of scenario.actions) {
+                switch (action.type) {
+                    case 'SHOW_NOTIFICATION':
+                        if (action.payload.message) {
+                            newState.pendingNotifications = [...newState.pendingNotifications, action.payload.message];
+                        }
+                        break;
+                    case 'GIVE_ITEM':
+                        if (action.payload.itemId) {
+                            const itemToAdd = allPredefinedItems.find(i => i.id === action.payload.itemId);
+                            if (itemToAdd) {
+                                newState.inventory.items = [...newState.inventory.items, itemToAdd];
+                            }
+                        }
+                        break;
+                    // ... other action types
+                }
+            }
+            console.log(`Scenario '${scenario.name}' executed successfully.`);
+            return newState;
         });
+    };
     
-        return { ...currentState, pendingWorldEvents: newPendingEvents };
+    const processCodexEntries = async (storyText: string, currentState: GameState): Promise<WorldRule[]> => {
+        const codexRegex = /\[HN\](.*?)\[\/HN\]/g;
+        const newTerms = new Set<string>();
+        let match;
+        while ((match = codexRegex.exec(storyText)) !== null) {
+            const term = match[1].trim();
+            if (term) {
+                const isExisting = currentState.codex.some(entry => entry.name.toLowerCase() === term.toLowerCase()) ||
+                                   currentState.worldContext.initialLore.some(entry => entry.name.toLowerCase() === term.toLowerCase());
+                if (!isExisting) {
+                    newTerms.add(term);
+                }
+            }
+        }
+    
+        if (newTerms.size === 0) {
+            return [];
+        }
+    
+        try {
+            const storyContext = currentState.history.slice(-5).map(t => t.storyText).join('\n');
+            const newEntriesData = await GeminiStorytellerService.generateCodexEntries(
+                Array.from(newTerms),
+                storyContext,
+                apiClient,
+                aiModelSettings
+            );
+    
+            return newEntriesData.map(entry => ({
+                id: `codex_${Date.now()}_${entry.name.replace(/\s+/g, '_')}`,
+                ...entry
+            }));
+        } catch (error) {
+            console.error("Failed to generate codex entries:", error);
+            return []; // Return empty array on failure to not break the game flow
+        }
     };
 
     const processTurn = async (choice: string, isRewrite: boolean = false, isCorrection: boolean = false) => {
@@ -332,7 +453,7 @@ export function useGameEngine(
         if (tickInterval !== null && tickInterval > 0 && !isRewrite && !isCorrection) {
             const newTickCounter = tempState.worldTickCounter + 1;
             if (newTickCounter >= tickInterval) {
-                tempState = runWorldTick(tempState);
+                tempState = await runWorldTick(tempState); // now async
                 tempState.worldTickCounter = 0; // Reset counter
             } else {
                 tempState.worldTickCounter = newTickCounter;
@@ -370,20 +491,23 @@ export function useGameEngine(
                 fullResponseJsonString += chunk;
 
                 // Fragile parsing of streaming JSON to get storyText for UI updates
-                const storyTextMatch = fullResponseJsonString.match(/"storyText"\s*:\s*"((?:[^"\\]|\\.)*)/);
-                const currentStoryText = storyTextMatch && storyTextMatch[1] 
-                    ? JSON.parse(`"${storyTextMatch[1]}"`) 
-                    : '...';
-
-                setGameState(prevState => {
-                    if (!prevState) return null;
-                    const newHistory = [...prevState.history];
-                    const lastTurn = newHistory[newHistory.length - 1];
-                    if (lastTurn) {
-                        lastTurn.storyText = currentStoryText;
+                try {
+                    const storyTextMatch = fullResponseJsonString.match(/"storyText"\s*:\s*"((?:[^"\\]|\\.)*)/);
+                    if (storyTextMatch && storyTextMatch[1]) {
+                        const currentStoryText = JSON.parse(`"${storyTextMatch[1]}"`);
+                        setGameState(prevState => {
+                            if (!prevState) return null;
+                            const newHistory = [...prevState.history];
+                            const lastTurn = newHistory[newHistory.length - 1];
+                            if (lastTurn) {
+                                lastTurn.storyText = currentStoryText;
+                            }
+                            return { ...prevState, history: newHistory };
+                        });
                     }
-                    return { ...prevState, history: newHistory };
-                });
+                } catch (e) {
+                    // Ignore parsing errors during streaming, they will be handled at the end.
+                }
             };
 
             const response = await GeminiStorytellerService.continueStory(
@@ -396,6 +520,18 @@ export function useGameEngine(
                 aiModelSettings, masterSafetySwitch, safety, onChunk, eventToProcess
             );
             
+            // --- Post-Response Processing ---
+            if (response.functionCalls && response.functionCalls.length > 0) {
+                response.functionCalls.forEach(call => {
+                    if (call.name === 'triggerCustomScenario' && call.args.scenarioId) {
+                        executeScenario(call.args.scenarioId as string);
+                    }
+                });
+            }
+
+            const newCodexEntries = await processCodexEntries(response.newTurn.storyText, gameState);
+
+
             const summaryEmbedding = (isRewrite || !response.summaryText) 
                 ? null 
                 : await client.callEmbeddingModel(response.summaryText, apiClient);
@@ -414,7 +550,7 @@ export function useGameEngine(
                  finalHistory[finalHistory.length - 1] = response.newTurn;
                  newState.history = finalHistory;
 
-                 if (!isRewrite && summaryEmbedding) {
+                 if (!isRewrite && summaryEmbedding && response.summaryText) {
                      newState.chronicle = [...prevState.chronicle, { 
                          turnNumber: prevState.history.length, 
                          summary: response.summaryText, 
@@ -423,9 +559,12 @@ export function useGameEngine(
                          embedding: summaryEmbedding
                      }];
                  }
+
+                 if (newCodexEntries.length > 0) {
+                    newState.codex = [...newState.codex, ...newCodexEntries];
+                 }
                  
                  // 3. Update core state
-                 newState.plotChronicle = response.newPlotChronicle;
                  newState.playerTitle = response.playerTitle || prevState.playerTitle;
                  newState.presentNpcIds = response.presentNpcIds;
                  newState.totalTokens += response.totalTokens || 0;
@@ -572,11 +711,11 @@ export function useGameEngine(
         try {
             if (action === 'SANITIZE') {
                 console.log("Sanitizing game state...");
-                const { playerStatChanges, npcUpdates, sanitizedPlotChronicle } = await GeminiStorytellerService.sanitizeGameState(gameState, apiClient, aiModelSettings, masterSafetySwitch, safety);
+                const { playerStatChanges, npcUpdates } = await GeminiStorytellerService.sanitizeGameState(gameState, apiClient, aiModelSettings, masterSafetySwitch, safety);
 
                 setGameState(prevState => {
                     if (!prevState) return null;
-                    let newState = { ...prevState, plotChronicle: sanitizedPlotChronicle };
+                    let newState = { ...prevState };
                     newState = applyStatChanges(newState, playerStatChanges, 'PLAYER');
                     npcUpdates.forEach(npcUpdate => {
                         newState = applyStatChanges(newState, npcUpdate.statsChanges, npcUpdate.id);

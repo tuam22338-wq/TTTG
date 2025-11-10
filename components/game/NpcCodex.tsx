@@ -1,18 +1,28 @@
-
-
 import React, { useState, useMemo } from 'react';
-import { NPC } from '../../types';
+import { NPC, StatType, CharacterStat } from '../../types';
 import InputField from '../ui/InputField';
 import { SearchIcon } from '../icons/SearchIcon';
 import { UserIcon } from '../icons/UserIcon';
 
 interface NpcCodexProps {
   npcs: NPC[];
+  onStatClick: (stat: CharacterStat & { name: string }, ownerName: string, ownerType: 'npc', ownerId?: string) => void;
 }
 
-const NpcCodex: React.FC<NpcCodexProps> = ({ npcs }) => {
+const getStatTheme = (type: StatType) => {
+    switch (type) {
+        case StatType.GOOD: return { border: 'border-l-green-400', bg: 'bg-green-900/20 hover:bg-green-900/40' };
+        case StatType.BAD: return { border: 'border-l-red-400', bg: 'bg-red-900/20 hover:bg-red-900/40' };
+        case StatType.INJURY: return { border: 'border-l-orange-400', bg: 'bg-orange-900/20 hover:bg-orange-900/40' };
+        case StatType.NSFW: return { border: 'border-l-pink-400', bg: 'bg-pink-900/20 hover:bg-pink-900/40' };
+        case StatType.KNOWLEDGE: return { border: 'border-l-blue-400', bg: 'bg-blue-900/20 hover:bg-blue-900/40' };
+        default: return { border: 'border-l-gray-500', bg: 'bg-gray-900/20 hover:bg-gray-900/40' };
+    }
+};
+
+const NpcCodex: React.FC<NpcCodexProps> = ({ npcs, onStatClick }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedNpc, setSelectedNpc] = useState<NPC | null>(null);
+    const [selectedNpc, setSelectedNpc] = useState<NPC | null>(npcs.length > 0 ? npcs[0] : null);
 
     const filteredNpcs = useMemo(() =>
         npcs.filter(npc =>
@@ -58,7 +68,7 @@ const NpcCodex: React.FC<NpcCodexProps> = ({ npcs }) => {
             </aside>
 
             {/* Detail View */}
-            <main className="flex-grow p-8 overflow-y-auto custom-scrollbar">
+            <main className="flex-grow p-6 overflow-y-auto custom-scrollbar">
                 {selectedNpc ? (
                     <div className="space-y-6 animate-fade-in-fast">
                          <div className="flex items-start gap-6">
@@ -66,12 +76,16 @@ const NpcCodex: React.FC<NpcCodexProps> = ({ npcs }) => {
                             <div className="flex-grow">
                                 <h2 className="text-4xl font-bold font-rajdhani text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">{selectedNpc.name}</h2>
                                 <p className="text-lg text-neutral-300 mt-1">{selectedNpc.personality}</p>
-                                <p className="text-md text-cyan-400 font-semibold mt-2">Quan hệ: {selectedNpc.relationship}</p>
-                                {selectedNpc.goal && <p className="text-md text-yellow-400 font-semibold mt-2">Mục tiêu: {selectedNpc.goal}</p>}
-                                <p className="text-md text-neutral-400 mt-2">Vị trí: {selectedNpc.currentLocation}</p>
-                                <p className="text-md font-semibold mt-2" style={{ color: selectedNpc.affinity > 70 ? '#4ade80' : selectedNpc.affinity < 30 ? '#f87171' : '#60a5fa' }}>
-                                    Thiện cảm: {selectedNpc.affinity}
-                                </p>
+                                <div className="mt-2 space-y-1 text-md">
+                                    <p><span className="font-semibold text-cyan-400">Quan hệ:</span> {selectedNpc.relationship}</p>
+                                    {selectedNpc.goal && <p><span className="font-semibold text-yellow-400">Mục tiêu:</span> {selectedNpc.goal}</p>}
+                                    <p><span className="font-semibold text-neutral-400">Vị trí:</span> {selectedNpc.currentLocation}</p>
+                                    <p><span className="font-semibold text-neutral-400">Trạng thái:</span> {selectedNpc.status}</p>
+                                    <p><span className="font-semibold text-neutral-400">Cấp độ:</span> {selectedNpc.level}</p>
+                                    <p className="font-semibold" style={{ color: selectedNpc.affinity > 70 ? '#4ade80' : selectedNpc.affinity < 30 ? '#f87171' : '#60a5fa' }}>
+                                        Thiện cảm: {selectedNpc.affinity}
+                                    </p>
+                                </div>
                             </div>
                          </div>
                         <div className="prose prose-invert max-w-none text-neutral-300 leading-relaxed text-base space-y-4">
@@ -82,6 +96,29 @@ const NpcCodex: React.FC<NpcCodexProps> = ({ npcs }) => {
                              <div>
                                 <h3 className="font-semibold text-neutral-400 uppercase text-sm tracking-wider">Tiểu sử</h3>
                                 <p>{selectedNpc.backstory}</p>
+                            </div>
+                            {selectedNpc.lastInteractionSummary && (
+                                 <div>
+                                    <h3 className="font-semibold text-neutral-400 uppercase text-sm tracking-wider">Tóm Tắt Tương Tác Gần Nhất</h3>
+                                    <p className="italic">"{selectedNpc.lastInteractionSummary}"</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <h3 className="font-semibold text-neutral-400 uppercase text-sm tracking-wider mb-2">Trạng Thái</h3>
+                            <div className="space-y-2">
+                                {Object.entries(selectedNpc.stats).length > 0 ? Object.entries(selectedNpc.stats).map(([statName, stat]) => {
+                                    // FIX: Explicitly cast `stat` to CharacterStat. The type inference from Object.entries seems to be failing in this environment, causing `stat` to be treated as `unknown`. This fixes property access and spread syntax errors.
+                                    const typedStat = stat as CharacterStat;
+                                    const theme = getStatTheme(typedStat.type);
+                                    return (
+                                        <button key={statName} onClick={() => onStatClick({ ...typedStat, name: statName }, selectedNpc.name, 'npc', selectedNpc.id)} className={`w-full text-left p-2 rounded-md border-l-4 transition-colors ${theme.border} ${theme.bg}`}>
+                                            <p className="font-bold text-white text-sm">{statName}</p>
+                                            <p className="text-xs text-neutral-400 truncate">{typedStat.description}</p>
+                                        </button>
+                                    );
+                                }) : <p className="text-neutral-500 italic text-sm">Không có trạng thái đặc biệt nào.</p>}
                             </div>
                         </div>
                     </div>
@@ -96,6 +133,13 @@ const NpcCodex: React.FC<NpcCodexProps> = ({ npcs }) => {
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #555; border-radius: 10px; }
+                 @keyframes fade-in-fast {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .animate-fade-in-fast {
+                    animation: fade-in-fast 0.3s ease-out forwards;
+                }
             `}</style>
         </div>
     );

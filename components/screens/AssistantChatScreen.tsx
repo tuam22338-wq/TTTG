@@ -197,9 +197,9 @@ const AssistantChatScreen: React.FC<{
     };
 
     return (
-        <div className="flex flex-col h-full bg-neutral-900 text-white">
-            <header className="flex-shrink-0 p-4 flex justify-between items-center border-b border-neutral-700 bg-neutral-800/50 z-10">
-                <button onClick={onBackToMenu} className="p-2 rounded-full text-neutral-400 hover:bg-neutral-700 hover:text-white transition-colors" aria-label="Quay lại">
+        <div className="flex flex-col h-full bg-[var(--bg-main)] text-[var(--text-main)]">
+            <header className="flex-shrink-0 p-4 flex justify-between items-center border-b border-white/10 bg-black/20 z-10">
+                <button onClick={onBackToMenu} className="p-2 rounded-full text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-main)] transition-colors" aria-label="Quay lại">
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
                 <h1 className="text-xl font-bold text-white font-rajdhani">Huấn Luyện Chat</h1>
@@ -225,7 +225,7 @@ const AssistantChatScreen: React.FC<{
                         <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div
                                 className={`p-4 rounded-2xl max-w-2xl prose prose-invert prose-lg leading-relaxed ${
-                                    msg.role === 'user' ? 'bg-pink-600/80 text-white rounded-br-lg' : 'bg-neutral-700/80 text-neutral-200 rounded-bl-lg'
+                                    msg.role === 'user' ? 'bg-pink-600/80 text-[var(--btn-primary-text)] rounded-br-lg' : 'neumorphic-concave rounded-bl-lg'
                                 }`}
                                 dangerouslySetInnerHTML={{ __html: marked.parse(msg.text) as string }}
                             ></div>
@@ -233,7 +233,7 @@ const AssistantChatScreen: React.FC<{
                     ))}
                     {isLoading && (
                          <div className="flex justify-start">
-                            <div className="p-4 rounded-2xl max-w-2xl bg-neutral-700/80 text-neutral-200 rounded-bl-lg">
+                            <div className="p-4 rounded-2xl max-w-2xl neumorphic-concave rounded-bl-lg">
                                <Spinner />
                             </div>
                         </div>
@@ -246,7 +246,7 @@ const AssistantChatScreen: React.FC<{
                 </div>
             </main>
 
-            <footer className="flex-shrink-0 p-4 bg-neutral-800/50 border-t border-neutral-700">
+            <footer className="flex-shrink-0 p-4 bg-black/20 border-t border-white/10">
                 <div className="max-w-3xl mx-auto relative">
                     <TextareaField
                         id="assistant-input"
@@ -260,7 +260,7 @@ const AssistantChatScreen: React.FC<{
                         }}
                         placeholder={isLoading || isPackaging ? "AI đang làm việc..." : "Nhập ý tưởng hoặc câu hỏi của bạn..."}
                         disabled={isLoading || isPackaging}
-                        className="flex-grow bg-neutral-900/50 border border-neutral-600 rounded-2xl focus:ring-pink-500 resize-none py-3 pl-4 pr-16 w-full"
+                        className="flex-grow rounded-2xl focus:ring-pink-500 resize-none py-3 pl-4 pr-16 w-full"
                         rows={1}
                     />
                      <Button

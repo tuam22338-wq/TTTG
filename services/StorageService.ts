@@ -1,4 +1,4 @@
-import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage, NovelSession, TrainingDataSet, AssistantSession } from '../types';
+import { GameState, Settings, AiSettings, GameTime, CultivationState, ChatMessage, NovelSession, TrainingDataSet, AssistantSession, CustomScenario } from '../types';
 
 const DB_NAME = 'BMS_TamThienTheGioi';
 const DB_VERSION = 5;
@@ -352,6 +352,9 @@ export function validateAndHydrateGameState(parsedState: any): GameState | null 
     hydratedState.pendingNarrativeEvents = Array.isArray(parsedState.pendingNarrativeEvents) ? parsedState.pendingNarrativeEvents : [];
     hydratedState.worldTickCounter = typeof parsedState.worldTickCounter === 'number' ? parsedState.worldTickCounter : 0;
     hydratedState.pendingWorldEvents = Array.isArray(parsedState.pendingWorldEvents) ? parsedState.pendingWorldEvents : [];
+    hydratedState.triggers = Array.isArray(parsedState.triggers) ? parsedState.triggers : [];
+    hydratedState.pendingNotifications = Array.isArray(parsedState.pendingNotifications) ? parsedState.pendingNotifications : [];
+    hydratedState.customScenarios = Array.isArray(parsedState.customScenarios) ? parsedState.customScenarios : [];
 
 
     // AI Settings
@@ -387,6 +390,7 @@ export function validateAndHydrateGameState(parsedState: any): GameState | null 
 
     // World Context sub-properties
     if (hydratedState.worldContext) {
+        hydratedState.worldContext.customScenarios = Array.isArray(hydratedState.worldContext.customScenarios) ? hydratedState.worldContext.customScenarios : [];
         hydratedState.worldContext.initialFactions = Array.isArray(hydratedState.worldContext.initialFactions) ? hydratedState.worldContext.initialFactions : [];
         hydratedState.worldContext.initialNpcs = Array.isArray(hydratedState.worldContext.initialNpcs) ? hydratedState.worldContext.initialNpcs : [];
         

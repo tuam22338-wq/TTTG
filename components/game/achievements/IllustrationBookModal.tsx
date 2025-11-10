@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { SpecialItem } from '../../../types';
 import Button from '../../ui/Button';
@@ -42,7 +43,7 @@ const IllustrationBookModal: React.FC<IllustrationBookModalProps> = ({ isOpen, o
 
             {/* Lore Box */}
             <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 w-11/12 max-w-4xl transition-all duration-500 ease-in-out ${isLoreVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-                <div className="bg-black/70 backdrop-blur-md p-6 rounded-xl border border-white/20 shadow-lg">
+                <div className="neumorphic-convex p-6 rounded-xl">
                     <h2 className="text-3xl font-bold text-amber-300 font-rajdhani mb-2" style={{textShadow: '0 0 8px rgba(251, 191, 36, 0.6)'}}>
                         {item.name}
                     </h2>

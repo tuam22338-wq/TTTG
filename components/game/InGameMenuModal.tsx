@@ -38,7 +38,7 @@ const InGameMenuModal: React.FC<InGameMenuModalProps> = ({
       onClick={onClose}
     >
         <div 
-            className="w-full max-w-sm glassmorphic neumorphic-convex rounded-2xl animate-scale-in"
+            className="w-full max-w-sm neumorphic-convex rounded-2xl animate-scale-in"
             onClick={(e) => e.stopPropagation()}
         >
             <div className="p-6">
@@ -51,7 +51,7 @@ const InGameMenuModal: React.FC<InGameMenuModalProps> = ({
                             className="w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200 group hover:bg-white/5"
                         >
                             <div className="flex items-center gap-4">
-                                <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center glassmorphic rounded-lg neumorphic-convex group-hover:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] transition-shadow duration-300">
+                                <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg neumorphic-convex group-hover:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020] transition-shadow duration-300">
                                     <item.Icon className="h-5 w-5 text-neutral-300 group-hover:text-white transition-colors"/>
                                 </div>
                                 <div className="flex-grow text-left">

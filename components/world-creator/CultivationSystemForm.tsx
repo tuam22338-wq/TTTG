@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { WorldCreationState } from '../../types';
-import FormSection from './FormSection';
+import React, { useState, useRef } from 'react';
+import { WorldCreationState, CultivationSystemSettings } from '../../types';
 import ToggleSwitch from '../ui/ToggleSwitch';
 import Button from '../ui/Button';
 import CultivationEditorModal from './CultivationEditorModal';
+import * as PresetFileService from '../../services/PresetFileService';
+import { DownloadIcon } from '../icons/DownloadIcon';
+import { UploadIcon } from '../icons/UploadIcon';
 
 interface CultivationSystemFormProps {
     state: WorldCreationState;
@@ -12,9 +14,37 @@ interface CultivationSystemFormProps {
 
 const CultivationSystemForm: React.FC<CultivationSystemFormProps> = ({ state, setState }) => {
     const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleExport = () => {
+        PresetFileService.saveDataToFile(state.cultivationSystem, 'BMS_TG_Cultivation_Preset.json');
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            try {
+                const system = await PresetFileService.loadDataFromFile(
+                    file, 
+                    PresetFileService.isCultivationSystem,
+                    "File không phải là một mẫu hệ thống cảnh giới hợp lệ."
+                );
+                setState(s => ({ ...s, cultivationSystem: system }));
+            } catch (error: any) {
+                alert(error.message);
+            } finally {
+                 if (fileInputRef.current) fileInputRef.current.value = "";
+            }
+        }
+    };
     
     return (
-        <FormSection title="Hệ Thống Cảnh Giới" description="Kích hoạt và tùy chỉnh hệ thống tu luyện, cảnh giới cho thế giới của bạn.">
+        <div className="space-y-4">
+             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
             <ToggleSwitch
                 label="Kích hoạt Hệ thống Cảnh giới"
                 id="cultivation-toggle"
@@ -22,13 +52,22 @@ const CultivationSystemForm: React.FC<CultivationSystemFormProps> = ({ state, se
                 setEnabled={enabled => setState(s => ({ ...s, isCultivationEnabled: enabled }))}
                 description="Khi kích hoạt, nhân vật và NPC sẽ có hệ thống cấp độ và cảnh giới."
             />
-            <Button 
-                variant="secondary" 
-                onClick={() => setIsEditorOpen(true)}
-                disabled={!state.isCultivationEnabled}
-            >
-                Mở Trình Chỉnh Sửa Cảnh Giới
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Button 
+                    variant="secondary" 
+                    onClick={() => setIsEditorOpen(true)}
+                    disabled={!state.isCultivationEnabled}
+                    className="sm:col-span-1"
+                >
+                    Mở Trình Chỉnh Sửa
+                </Button>
+                <Button onClick={handleExport} variant="secondary" disabled={!state.isCultivationEnabled} className="flex items-center justify-center gap-2">
+                    <DownloadIcon className="h-5 w-5" /> Xuất Mẫu
+                </Button>
+                 <Button onClick={handleImportClick} variant="secondary" disabled={!state.isCultivationEnabled} className="flex items-center justify-center gap-2">
+                    <UploadIcon className="h-5 w-5" /> Nhập Mẫu
+                </Button>
+            </div>
 
             <CultivationEditorModal
                 isOpen={isEditorOpen}
@@ -36,7 +75,7 @@ const CultivationSystemForm: React.FC<CultivationSystemFormProps> = ({ state, se
                 state={state}
                 setState={setState}
             />
-        </FormSection>
+        </div>
     );
 };
 

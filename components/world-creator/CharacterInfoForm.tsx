@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { WorldCreationState, Skill, Settings, SkillTarget, SkillEffect, SkillEffectType, StatType, CharacterStat } from '../../types';
-import FormSection from './FormSection';
 import InputField from '../ui/InputField';
 import TextareaField from '../ui/TextareaField';
 import { SparklesIcon } from '../icons/SparklesIcon';
@@ -9,6 +8,7 @@ import ChevronIcon from '../icons/ChevronIcon';
 import { ApiClient } from '../../services/gemini/client';
 import * as schemas from '../../services/gemini/schemas';
 import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
+import { PlusIcon } from '../icons/PlusIcon';
 
 interface CharacterInfoFormProps {
     state: WorldCreationState;
@@ -17,8 +17,8 @@ interface CharacterInfoFormProps {
     settings: Settings;
 }
 
-const TrashIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+const TrashIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-4 w-4"} viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
     </svg>
 );
@@ -42,7 +42,6 @@ const CharacterInfoForm: React.FC<CharacterInfoFormProps> = ({ state, setState, 
         setIsLoading(prev => ({ ...prev, appearance: true }));
 
         try {
-            // FIX: Pass the correct arguments (including masterSafetySwitch) to the service function.
             const generatedAppearance = await GeminiStorytellerService.generateCharacterAppearance(state, apiClient, settings.aiModelSettings, settings.masterSafetySwitch, settings.safety);
             handleCharacterChange('appearance', generatedAppearance);
         } catch (error) {
@@ -226,7 +225,7 @@ ${state.description || "Một thế giới chưa được mô tả."}
     };
 
     return (
-        <FormSection title="Thông Tin Nhân Vật" description="Kiến tạo linh hồn sẽ khuấy đảo vị diện này.">
+        <div className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <InputField
                     label="Tên Nhân Vật"
@@ -264,7 +263,7 @@ ${state.description || "Một thế giới chưa được mô tả."}
                                 value={g}
                                 checked={state.character.gender === g}
                                 onChange={() => handleCharacterChange('gender', g)}
-                                className="h-4 w-4 text-white bg-transparent border-neutral-700 focus:ring-white focus:ring-offset-[#1a1a1a]"
+                                className="h-4 w-4 text-white bg-transparent border-neutral-700 focus:ring-white focus:ring-offset-[var(--bg-main)]"
                             />
                             <span className="ml-2 text-sm text-white">{g}</span>
                         </label>
@@ -346,20 +345,20 @@ ${state.description || "Một thế giới chưa được mô tả."}
                     {state.character.skills.map((skill) => {
                         const isExpanded = expandedSkills.has(skill.id);
                         return (
-                            <div key={skill.id} className="neumorphic-convex rounded-lg overflow-hidden transition-all">
-                                <div className="flex items-center p-3">
+                            <div key={skill.id} className="neumorphic-concave rounded-xl overflow-hidden transition-all">
+                                <div className="flex items-center p-3 bg-[var(--grad-concave)]">
                                     <div className="flex-grow min-w-0">
                                         <InputField
                                             id={`skill-name-${skill.id}`}
                                             placeholder="Tên kỹ năng"
                                             value={skill.name}
                                             onChange={e => handleSkillChange(skill.id, 'name', e.target.value)}
-                                            className="!py-1 !px-2 text-base font-semibold"
+                                            className="!py-1 !px-2 text-base font-semibold !neumorphic-inset"
                                         />
                                     </div>
-                                    <div className="flex items-center gap-1 ml-2">
+                                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                                         <button onClick={() => handleGenerateSkill(skill.id)} className="p-1.5 text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 rounded-full transition-colors" title="AI Hỗ trợ tạo chi tiết kỹ năng"><SparklesIcon isLoading={!!isLoading[`skill-${skill.id}`]} /></button>
-                                        <button onClick={() => handleRemoveSkill(skill.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon /></button>
+                                        <button onClick={() => handleRemoveSkill(skill.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"><TrashIcon className="w-5 h-5"/></button>
                                         <button onClick={() => toggleExpandSkill(skill.id)} className="p-1.5 text-gray-400 hover:text-white rounded-full transition-colors"><ChevronIcon isExpanded={isExpanded} /></button>
                                     </div>
                                 </div>
@@ -378,13 +377,15 @@ ${state.description || "Một thế giới chưa được mô tả."}
                                                 </select>
                                             </div>
                                         </div>
-                                        {/* TODO: Add effects editor UI here */}
                                     </div>
                                 )}
                             </div>
                         )
                     })}
-                    <button onClick={handleAddSkill} className="w-full rounded-lg transition-colors duration-200 ease-in-out py-2 text-sm border-2 border-dashed border-neutral-600 text-neutral-400 hover:bg-white/5 hover:text-white hover:border-neutral-500 hover:border-solid font-semibold">+ Thêm Kỹ Năng</button>
+                    <button onClick={handleAddSkill} className="flex items-center justify-center gap-2 w-full rounded-xl transition-all duration-200 ease-in-out py-2.5 text-sm bg-white/5 text-neutral-200 hover:bg-white/10 hover:text-white font-semibold neumorphic-convex active:shadow-[inset_2px_2px_4px_#141414,_inset_-2px_-2px_4px_#202020]">
+                        <PlusIcon />
+                        <span>Thêm Kỹ Năng</span>
+                    </button>
                 </div>
             </div>
             <style>{`
@@ -396,7 +397,7 @@ ${state.description || "Một thế giới chưa được mô tả."}
                     animation: fade-in-fast 0.3s ease-out forwards;
                 }
             `}</style>
-        </FormSection>
+        </div>
     )
 }
 

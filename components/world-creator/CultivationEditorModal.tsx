@@ -7,6 +7,7 @@ import StatBonusModal from './StatBonusModal';
 import { STAT_BONUS_OPTIONS } from './StatBonusModal';
 import ChevronIcon from '../icons/ChevronIcon';
 import { allCultivationTemplates } from '../../services/cultivationTemplates';
+import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
 
 
 interface CultivationEditorModalProps {
@@ -201,19 +202,22 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
 
     return (
         <>
-            <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-start p-4 sm:p-6 md:p-8 animate-fade-in-fast overflow-y-auto">
+            <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-start p-4 sm:p-6 md:p-8 animate-fade-in-fast" onClick={onClose}>
                 <div 
-                    className="bg-neutral-900 backdrop-blur-xl border-2 border-neutral-700 shadow-2xl rounded-2xl w-full max-w-4xl h-auto md:max-h-[90vh] my-auto flex flex-col"
+                    className="neumorphic-convex w-full max-w-4xl max-h-[90vh] my-auto flex flex-col rounded-2xl"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <header className="flex-shrink-0 p-6 text-center border-b-2 border-neutral-800">
+                    <header className="relative flex-shrink-0 p-6 text-center border-b-2 border-white/10">
+                         <button onClick={onClose} className="absolute left-4 sm:left-6 p-2 rounded-full text-neutral-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="Quay lại">
+                            <ArrowLeftIcon className="h-6 w-6" />
+                        </button>
                         <h2 className="text-3xl font-bold text-white font-rajdhani tracking-wider" style={{textShadow: '0 0 12px rgba(255,255,255,0.5)'}}>
                             Chỉnh Sửa Hệ Thống Cảnh Giới
                         </h2>
                     </header>
                     
                     <main className="flex-grow min-h-0 p-6 space-y-6 overflow-y-auto custom-scrollbar">
-                        <section className="bg-neutral-800/50 p-4 rounded-lg">
+                        <section className="bg-neutral-800/50 p-4 rounded-lg neumorphic-inset">
                              <h3 className="text-xl font-bold text-neutral-100 mb-3">Thông Tin Hệ Thống</h3>
                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
@@ -237,7 +241,7 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
                              </div>
                         </section>
 
-                        <section className="bg-neutral-800/50 p-4 rounded-lg">
+                        <section className="bg-neutral-800/50 p-4 rounded-lg neumorphic-inset">
                             <h3 className="text-xl font-bold text-neutral-100 mb-3">Các Cấp Bậc</h3>
                              <div className="space-y-3">
                                 {state.cultivationSystem.mainTiers.map(tier => (
@@ -305,12 +309,6 @@ const CultivationEditorModal: React.FC<CultivationEditorModalProps> = ({ isOpen,
                              </div>
                         </section>
                     </main>
-
-                    <footer className="p-6 border-t-2 border-neutral-800 flex-shrink-0 bg-black/20">
-                    <Button onClick={onClose} variant="secondary" className="w-full max-w-sm mx-auto flex justify-center">
-                        Lưu và Đóng
-                    </Button>
-                    </footer>
                 </div>
             </div>
              <style>{`

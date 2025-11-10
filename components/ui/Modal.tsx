@@ -24,7 +24,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
       onClick={onClose}
     >
       <div 
-        className={`glassmorphic neumorphic-convex w-full ${sizeClass} mx-auto my-auto rounded-2xl transform transition-all duration-300 ease-out scale-95 animate-scale-in`}
+        className={`neumorphic-convex w-full ${sizeClass} mx-auto my-auto rounded-2xl transform transition-all duration-300 ease-out scale-95 animate-scale-in`}
         onClick={(e) => e.stopPropagation()}
       >
         {!hideHeader && (

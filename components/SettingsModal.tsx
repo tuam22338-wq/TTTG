@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, GeminiModel, NarrativePerspective, AiProvider, DeepSeekModelSettings } from '../types';
+import { Settings, GeminiModel, NarrativePerspective, AiProvider, DeepSeekModelSettings, Theme } from '../types';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import ToggleSwitch from './ui/ToggleSwitch';
@@ -227,17 +227,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                         </div>
                                     </div>
                                 </SettingsSection>
-                                <SettingsSection title="Giao Diện (Sắp có)">
+                                <SettingsSection title="Giao Diện">
                                     <div>
                                         <label htmlFor="theme-select" className="block text-sm font-medium text-neutral-300 mb-2">Chủ đề</label>
-                                        <select id="theme-select" disabled className={`${selectClass} disabled:opacity-50`}>
-                                            <option>Tối (Mặc định)</option>
+                                        <select id="theme-select" value={settings.theme} onChange={e => setSettings({ ...settings, theme: e.target.value as Theme })} className={selectClass}>
+                                            <option value="dark">Tối (Mặc định)</option>
+                                            <option value="sepia">Cổ Tịch</option>
+                                            <option value="abyssal" disabled>Hắc Ám (Sắp có)</option>
+                                            <option value="inkwash" disabled>Thủy Mặc (Sắp có)</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label htmlFor="font-select" className="block text-sm font-medium text-neutral-300 mb-2">Font chữ</label>
                                         <select id="font-select" disabled className={`${selectClass} disabled:opacity-50`}>
-                                            <option>Inter (Mặc định)</option>
+                                            <option>Mặc định</option>
                                         </select>
                                     </div>
                                 </SettingsSection>
