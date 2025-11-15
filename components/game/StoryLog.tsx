@@ -18,6 +18,40 @@ const StatusNarrationIcon = () => (
     </svg>
 );
 
+/**
+ * Processes a block of prose text, handling paragraphs, dialogue tags, and markdown.
+ * @returns A single HTML string with <p> tags.
+ */
+function formatAndRenderText(text: string): string {
+    if (!text) return '';
+
+    return text
+        .split('\n')
+        .filter(p => p.trim() !== '')
+        .map(paragraph => {
+            let processedParagraph = paragraph.trim();
+
+            const isDialogue = processedParagraph.startsWith('[D]') && processedParagraph.endsWith('[/D]');
+            if (isDialogue) {
+                processedParagraph = processedParagraph.substring(3, processedParagraph.length - 4).trim();
+            }
+
+            // Convert custom tags and markdown to HTML.
+            // WARNING: Assumes AI output does not contain malicious HTML. We only transform our own syntax.
+            processedParagraph = processedParagraph
+                .replace(/\[HN\](.*?)\[\/HN\]/g, '<strong class="text-yellow-300 font-bold">$1</strong>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            if (isDialogue) {
+                return `<p class="dialogue-text">${processedParagraph}</p>`;
+            } else {
+                return `<p>${processedParagraph}</p>`;
+            }
+        })
+        .join('');
+}
+
 
 const StoryLog: React.FC<StoryLogProps> = ({ turn }) => {
     const logEndRef = useRef<HTMLDivElement>(null);
@@ -26,7 +60,8 @@ const StoryLog: React.FC<StoryLogProps> = ({ turn }) => {
         logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [turn]);
 
-    const renderTextWithHighlighting = (text: string) => {
+    // Simpler function for single lines that aren't prose, returning React nodes
+    const renderSimpleHighlights = (text: string) => {
         const parts = text.split(/(\[HN\].*?\[\/HN\])/g);
         return parts.map((part, index) => {
             if (part.startsWith('[HN]')) {
@@ -52,21 +87,22 @@ const StoryLog: React.FC<StoryLogProps> = ({ turn }) => {
         <div className="space-y-6">
             {playerAction && (
                 <div className="p-4 rounded-xl italic animate-fade-in-fast neumorphic-concave">
-                    <p className="text-lg text-neutral-300 font-semibold">{'> '}{renderTextWithHighlighting(playerAction)}</p>
+                    <p className="text-lg text-neutral-300 font-semibold">{'> '}{renderSimpleHighlights(playerAction)}</p>
                 </div>
             )}
             
-            <div className="prose prose-invert prose-lg max-w-none leading-relaxed text-neutral-200 animate-fade-in-fast" style={{animationDelay: '100ms'}}>
-                 {storyText.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
-                    <p key={index}>{renderTextWithHighlighting(paragraph)}</p>
-                ))}
+            <div 
+                className="prose prose-invert prose-lg max-w-none leading-relaxed text-neutral-200 animate-fade-in-fast" 
+                style={{animationDelay: '100ms'}}
+                dangerouslySetInnerHTML={{ __html: formatAndRenderText(storyText) }}
+            >
             </div>
 
             {statusNarration && (
                 <div className="neumorphic-concave p-4 rounded-lg animate-fade-in-fast" style={{animationDelay: '150ms'}}>
                     <p className="flex items-center text-lg italic text-neutral-200">
                         <StatusNarrationIcon />
-                        <span>{renderTextWithHighlighting(statusNarration)}</span>
+                        <span>{renderSimpleHighlights(statusNarration)}</span>
                     </p>
                 </div>
             )}
@@ -77,10 +113,10 @@ const StoryLog: React.FC<StoryLogProps> = ({ turn }) => {
                         <EyeIcon />
                         {omniscientInterlude.title}
                     </h3>
-                    <div className="prose prose-invert prose-base max-w-none text-neutral-200/90 italic">
-                        {omniscientInterlude.text.split('\n').filter(p => p.trim() !== '').map((paragraph, index) => (
-                            <p key={index}>{renderTextWithHighlighting(paragraph)}</p>
-                        ))}
+                    <div 
+                        className="prose prose-invert prose-base max-w-none text-neutral-200/90 italic"
+                        dangerouslySetInnerHTML={{ __html: formatAndRenderText(omniscientInterlude.text) }}
+                    >
                     </div>
                 </div>
             )}

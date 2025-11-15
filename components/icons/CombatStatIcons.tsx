@@ -1,44 +1,44 @@
 import React from 'react';
 
-export const AtkIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+export const AtkIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}>
       <path fillRule="evenodd" d="M11.233 2.155a.75.75 0 00-1.06-.33l-7.5 3.75a.75.75 0 00.187 1.353l4.42 1.106-2.233 6.7a.75.75 0 001.298.75l7.5-10.5a.75.75 0 00-1.298-.75l-2.733 3.826 2.658-.664a.75.75 0 00.33-1.06l-3.75-7.5z" clipRule="evenodd" />
     </svg>
 );
 
-export const DefIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+export const DefIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}>
       <path fillRule="evenodd" d="M9.661 2.237a.75.75 0 01.678 0l6.25 3.333a.75.75 0 01.411.667v5.431c0 3.821-2.925 7.15-6.75 7.91a.75.75 0 01-.5 0c-3.825-.76-6.75-4.089-6.75-7.91V6.237a.75.75 0 01.41-.667l6.25-3.333zM10 4.137L4.75 6.737v4.931c0 3.033 2.343 5.92 5.25 6.621 2.907-.7 5.25-3.588 5.25-6.621V6.737L10 4.137z" clipRule="evenodd" />
     </svg>
 );
 
-export const MDefIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+export const MDefIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}>
         <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.25a.75.75 0 001.5 0V2.75z" />
         <path d="M10 18a7 7 0 100-14 7 7 0 000 14zM10 5.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z" />
     </svg>
 );
 
-export const AgiIcon: React.FC = () => (
-     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+export const AgiIcon: React.FC<{className?: string}> = ({className}) => (
+     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}>
         <path d="M6.25 2.872a.75.75 0 011.06 0l2.5 2.5a.75.75 0 01-1.06 1.06L7.22 4.902a2.986 2.986 0 00-4.132.843.75.75 0 01-1.24-.593A4.486 4.486 0 016.25 2.872zM3.828 8.78a.75.75 0 01-1.06-1.06l2.5-2.5a.75.75 0 011.06 1.06L4.8 7.72a2.986 2.986 0 00-.843 4.132.75.75 0 01.593 1.24A4.486 4.486 0 013.828 8.78zM14.22 3.828a.75.75 0 011.06-1.06l2.5 2.5a.75.75 0 01-1.06 1.06L15.28 4.8a2.986 2.986 0 00-4.132-.843.75.75 0 01.593-1.24A4.486 4.486 0 0114.22 3.828zM16.172 11.22a.75.75 0 01-1.24-.593A2.986 2.986 0 0010.8 8.78l-1.53 1.53a.75.75 0 01-1.06-1.06l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 01-1.06 1.06L12.28 8.8a4.486 4.486 0 014.485 5.074.75.75 0 01-1.24-.593A2.986 2.986 0 0012.3 9.148l.97-.97.001.002.002-.001.001-.002-.002.001.002.001-.97.97z" />
     </svg>
 );
 
-export const CritIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+export const CritIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}>
         <path fillRule="evenodd" d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM16.03 3.97a.75.75 0 011.06 0l1.06 1.06a.75.75 0 010 1.06l-1.06 1.06a.75.75 0 01-1.06-1.06L16.03 4.5v-.53zm-13.06 0a.75.75 0 010 1.06L3.97 6.03a.75.75 0 01-1.06 0L2.91 4.97a.75.75 0 010-1.06l1.06-1.06a.75.75 0 011.06 0zM17 10a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0117 10zM3 10a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 013 10zM10 17a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5a.75.75 0 01.75-.75zM16.03 16.03a.75.75 0 010-1.06l-1.06-1.06a.75.75 0 01-1.06 1.06l1.06 1.06a.75.75 0 011.06 0zm-13.06 0a.75.75 0 01-1.06 0l-1.06-1.06a.75.75 0 111.06-1.06l1.06 1.06a.75.75 0 010 1.06z" clipRule="evenodd" />
     </svg>
 );
 
-export const CritDmgIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+export const CritDmgIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}>
         <path d="M11.983 1.904a1.25 1.25 0 00-1.966 0L2.83 9.48a1.25 1.25 0 001.08 1.92h3.34L6.08 18.096a1.25 1.25 0 001.966 0l7.187-7.596a1.25 1.25 0 00-1.08-1.92h-3.34L11.983 1.904z" />
     </svg>
 );
 
-export const CdrIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+export const CdrIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}>
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
     </svg>
 );

@@ -60,7 +60,7 @@ const defaultWorldCreationState: WorldCreationState = {
       skills: [],
       initialRealm: '',
     },
-    isCultivationEnabled: true,
+    isCultivationEnabled: false,
     cultivationSystem: defaultCultivationSystem,
     customAttributes: genericDefaultTemplate.attributes,
     initialFactions: [],
@@ -181,15 +181,23 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
                 settings.masterSafetySwitch,
                 settings.safety
             );
-
-            setState(prevState => ({
-                ...defaultWorldCreationState,
-                narrativePerspective: prevState.narrativePerspective,
-                isNsfw: prevState.isNsfw,
-                knowledgeBaseIds: prevState.knowledgeBaseIds, // Preserve the selected knowledge base
-                ...generatedWorld,
-            }));
             
+            const newState = {
+                ...defaultWorldCreationState,
+                narrativePerspective: state.narrativePerspective,
+                isNsfw: state.isNsfw,
+                knowledgeBaseIds: state.knowledgeBaseIds,
+                ...generatedWorld,
+            };
+
+            if (generatedWorld.customAttributes && generatedWorld.customAttributes.length > 0) {
+                 newState.customAttributes = generatedWorld.customAttributes.map(attr => ({ ...attr, isDefault: false, links: [] }));
+            }
+            if (generatedWorld.specialRules && generatedWorld.specialRules.length > 0) {
+                newState.specialRules = generatedWorld.specialRules.map((rule, index) => ({ ...rule, id: `srule_${Date.now()}_${index}` }));
+            }
+
+            setState(newState);
             setExpandedView(null);
             setIsKnowledgeAssistModalOpen(false);
 
@@ -213,13 +221,21 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
             settings.safety
         );
 
-        setState(prevState => ({
+        const newState = {
             ...defaultWorldCreationState,
-            narrativePerspective: prevState.narrativePerspective,
-            isNsfw: prevState.isNsfw,
+            narrativePerspective: state.narrativePerspective,
+            isNsfw: state.isNsfw,
             ...generatedWorld,
-        }));
+        };
+
+        if (generatedWorld.customAttributes && generatedWorld.customAttributes.length > 0) {
+             newState.customAttributes = generatedWorld.customAttributes.map(attr => ({ ...attr, isDefault: false, links: [] }));
+        }
+        if (generatedWorld.specialRules && generatedWorld.specialRules.length > 0) {
+            newState.specialRules = generatedWorld.specialRules.map((rule, index) => ({ ...rule, id: `srule_${Date.now()}_${index}` }));
+        }
         
+        setState(newState);
         setExpandedView(null);
         setIsQuickAssistModalOpen(false);
 
@@ -238,7 +254,6 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
       try {
         const preset = await WorldPresetService.loadPresetFromFile(file);
         
-        // --- Start Migration & Hydration for older presets ---
         if ((preset as any).cultivationDifficulty) {
           delete (preset as any).cultivationDifficulty;
         }
@@ -279,10 +294,9 @@ const WorldCreatorScreen: React.FC<WorldCreatorScreenProps> = ({ onBackToMenu, o
         if (preset.character && !preset.character.initialRealm) {
             preset.character.initialRealm = '';
         }
-        // --- End Migration ---
 
         setState(preset);
-        setExpandedView(null); // Collapse all sections after loading
+        setExpandedView(null);
       } catch (error: any) {
         alert(error.message || "Không thể tải file thiết lập.");
       } finally {

@@ -312,6 +312,7 @@ export interface AiSettings {
     flowOfDestinyInterval: number | null;
     authorsMandate: string[];
     isTurnBasedCombat: boolean;
+    writingStyle: 'descriptive' | 'action-packed';
 }
 
 export interface NPC {
@@ -330,6 +331,8 @@ export interface NPC {
     goal: string | null;
     currentLocation: string;
     affinity: number;
+    memory: string;
+    hiddenMotive: string | null;
 }
 
 export type NPCUpdateAction = 'CREATE' | 'UPDATE' | 'DELETE';
@@ -620,6 +623,7 @@ export interface GameState {
     triggers: Trigger[];
     pendingNotifications: string[];
     customScenarios: CustomScenario[];
+    truthLedger: string[];
 }
 
 export type ViewMode = 'desktop' | 'mobile';
@@ -666,4 +670,5 @@ export interface ContinueStoryResponse {
     totalTokens: number;
     playerSkills: Skill[] | null;
     functionCalls: FunctionCall[] | null;
+    factsToRecord: string[] | null;
 }

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGameEngine } from '../../hooks/useGameEngine';
 import { useSettings } from '../../hooks/useSettings';
-import { GameState, WorldCreationState, ViewMode, Skill, CharacterStat, CharacterStats, Ability, SpecialItem, Equipment, EquipmentSlot, NPC } from '../../types';
+import { GameState, WorldCreationState, ViewMode } from '../../types';
 import StoryLog from '../game/StoryLog';
 import ChoiceBox from '../game/ChoiceBox';
-import CharacterPanel from '../game/CharacterPanel';
 import AiControlModal from '../game/AiControlModal';
 import GameClock from '../game/GameClock';
 import TokenCounter from '../game/TokenCounter';
@@ -24,13 +23,17 @@ import StatDetailModal from '../game/StatDetailModal';
 import StatCreationModal from '../game/StatCreationModal';
 import AbilityEditModal from '../game/AbilityEditModal';
 import IllustrationBookModal from '../game/achievements/IllustrationBookModal';
-import * as GeminiStorytellerService from '../../services/GeminiStorytellerService';
 import CodexPanel from '../game/CodexPanel';
 import { BookIcon } from '../icons/BookIcon';
 import ApiStatusOverlay from '../game/ApiStatusOverlay';
 import { TriggerIcon } from '../icons/TriggerIcon';
 import NotificationToast from '../ui/NotificationToast';
 import TriggerPanel from '../game/triggers/TriggerPanel';
+import FeedbackButtons from '../game/FeedbackButtons';
+import CharacterSheet from '../game/CharacterSheet';
+import EquipmentAndInventoryPanel from '../game/EquipmentAndInventoryPanel';
+import ChevronIcon from '../icons/ChevronIcon';
+import { PackageIcon } from '../icons/PackageIcon';
 
 
 interface GameScreenProps {
@@ -62,7 +65,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     const [viewMode, setViewMode] = useLocalStorage<ViewMode>('gameViewMode', 'desktop');
     const [customAction, setCustomAction] = useState('');
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-    const [isCharPanelOpen, setIsCharPanelOpen] = useState(false);
     const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
     const [isCodexOpen, setIsCodexOpen] = useState(false);
     const [isAutomationPanelOpen, setIsAutomationPanelOpen] = useState(false);
@@ -72,18 +74,37 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     const [isAbilityEditModalOpen, setIsAbilityEditModalOpen] = useState(false);
     const [isAchievementModalOpen, setIsAchievementModalOpen] = useState(false);
     const [notifications, setNotifications] = useState<Array<{id: number, message: string}>>([]);
+    
+    const [isCharacterSectionOpen, setIsCharacterSectionOpen] = useState(false);
+    const [isInventorySectionOpen, setIsInventorySectionOpen] = useState(false);
 
-    const [statDetailData, setStatDetailData] = useState<{ stat: CharacterStat & { name: string }; ownerName: string; ownerType: 'player' | 'npc'; ownerId?: string } | null>(null);
-    const [abilityEditData, setAbilityEditData] = useState<{ skillName: string; ability: Ability } | null>(null);
-    const [achievementData, setAchievementData] = useState<SpecialItem | null>(null);
+    const [statDetailData, setStatDetailData] = useState<any>(null);
+    const [abilityEditData, setAbilityEditData] = useState<any>(null);
+    const [achievementData, setAchievementData] = useState<any>(null);
 
     const [usedOneTimeEffectSources, setUsedOneTimeEffectSources] = useState<string[]>([]);
     
     const mainContentRef = useRef<HTMLElement>(null);
+    const characterSectionRef = useRef<HTMLDivElement>(null);
+    const inventorySectionRef = useRef<HTMLDivElement>(null);
+
 
     const [currentPage, setCurrentPage] = useState(() => 
       'history' in initialData && initialData.history.length > 0 ? initialData.history.length : 1
     );
+    
+     const handleToggleSection = (
+        setOpen: React.Dispatch<React.SetStateAction<boolean>>,
+        ref: React.RefObject<HTMLDivElement>
+    ) => {
+        setOpen(prev => {
+            const isOpen = !prev;
+            if (isOpen && ref.current) {
+                setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+            }
+            return isOpen;
+        });
+    };
 
     useEffect(() => {
         if (gameState?.pendingNotifications && gameState.pendingNotifications.length > 0) {
@@ -154,26 +175,23 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         onBackToMenu();
     };
     
-    const handleStatClick = (stat: CharacterStat & { name: string }, ownerName: string, ownerType: 'player' | 'npc', ownerId?: string) => {
+    const handleStatClick = (stat: any, ownerName: string, ownerType: 'player' | 'npc', ownerId?: string) => {
         setStatDetailData({ stat, ownerName, ownerType, ownerId });
         setIsStatDetailModalOpen(true);
     };
 
-    const handleSaveStat = (oldStatName: string, newStatData: CharacterStat & { name: string }, ownerType: 'player' | 'npc', ownerId?: string) => {
+    const handleSaveStat = (oldStatName: string, newStatData: any, ownerType: 'player' | 'npc', ownerId?: string) => {
         setGameState(prev => {
             if (!prev) return null;
             let newState = { ...prev };
     
-            const updateStats = (stats: CharacterStats, order: string[]): { newStats: CharacterStats, newOrder: string[] } => {
+            const updateStats = (stats: any, order: string[]): { newStats: any, newOrder: string[] } => {
                 const newStats = { ...stats };
                 delete newStats[oldStatName];
-                // Strip name from the stat object before saving
                 const { name, ...restOfStatData } = newStatData;
                 newStats[name] = restOfStatData;
                 
                 const newOrder = order.map(n => n === oldStatName ? name : n);
-                // If it was a rename of an existing stat, it's already in the order.
-                // If it's a new stat conceptually (name changed), we might need to add it if it's not there.
                 if (!newOrder.includes(name)) {
                      const oldIndex = order.indexOf(oldStatName);
                      if (oldIndex > -1) {
@@ -193,7 +211,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
             } else if (ownerType === 'npc' && ownerId) {
                 const npcIndex = newState.npcs.findIndex(n => n.id === ownerId);
                 if (npcIndex !== -1) {
-                    // NPC stat order is not managed client-side, so we don't need the newOrder
                     const { newStats } = updateStats(newState.npcs[npcIndex].stats, []);
                     newState.npcs[npcIndex] = { ...newState.npcs[npcIndex], stats: newStats };
                 }
@@ -240,7 +257,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
     
     const endCombat = (result: 'win' | 'loss' | 'flee', turns: number, finalCombatants: any[]) => {
         if (!gameState) return;
-        // This is a simplified end combat logic. A full implementation would update player/NPC stats based on `finalCombatants`.
         setGameState(prev => {
             if (!prev) return null;
             return {
@@ -327,8 +343,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                         <button onClick={() => setIsAutomationPanelOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở Vận Mệnh & Thiên Cơ">
                             <TriggerIcon className="h-6 w-6"/>
                         </button>
-                        <button onClick={() => setIsCharPanelOpen(true)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở bảng nhân vật">
+                        <button onClick={() => handleToggleSection(setIsCharacterSectionOpen, characterSectionRef)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở bảng nhân vật">
                             <UserIcon className="h-6 w-6"/>
+                        </button>
+                         <button onClick={() => handleToggleSection(setIsInventorySectionOpen, inventorySectionRef)} className="p-2 text-neutral-300 hover:bg-white/10 rounded-full transition-colors" aria-label="Mở túi đồ">
+                            <PackageIcon className="h-6 w-6"/>
                         </button>
                     </div>
                 </header>
@@ -336,6 +355,42 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 <main ref={mainContentRef} className="flex-grow flex flex-col p-4 overflow-y-auto custom-scrollbar">
                     <div className="max-w-7xl mx-auto w-full">
                        <StoryLog turn={currentTurnForView} />
+                       {currentPage === totalPages && !isLoading && (
+                            <div className="mt-6 animate-fade-in-fast" style={{animationDelay: '500ms'}}>
+                               <FeedbackButtons onFeedback={(type) => console.log('Feedback:', type)} />
+                               <div className="mt-4 space-y-4">
+                                    <div ref={characterSectionRef} className="neumorphic-concave rounded-xl overflow-hidden transition-all duration-300">
+                                        <button onClick={() => setIsCharacterSectionOpen(!isCharacterSectionOpen)} className="w-full flex items-center justify-between p-3 text-left hover:bg-white/5 transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <UserIcon className="h-6 w-6 text-neutral-300"/>
+                                                <h3 className="font-bold text-lg text-neutral-100">Bảng Nhân Vật</h3>
+                                            </div>
+                                            <ChevronIcon isExpanded={isCharacterSectionOpen} className="h-8 w-8 text-neutral-500" />
+                                        </button>
+                                        {isCharacterSectionOpen && <div className="p-4 sm:p-6 border-t border-[var(--shadow-color-1)] bg-[var(--bg-main)] animate-fade-in-fast"><CharacterSheet gameState={gameState} onStatClick={handleStatClick}/></div>}
+                                    </div>
+                                     <div ref={inventorySectionRef} className="neumorphic-concave rounded-xl overflow-hidden transition-all duration-300">
+                                        <button onClick={() => setIsInventorySectionOpen(!isInventorySectionOpen)} className="w-full flex items-center justify-between p-3 text-left hover:bg-white/5 transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <PackageIcon className="h-6 w-6 text-neutral-300"/>
+                                                <h3 className="font-bold text-lg text-neutral-100">Túi Đồ & Trang Bị</h3>
+                                            </div>
+                                            <ChevronIcon isExpanded={isInventorySectionOpen} className="h-8 w-8 text-neutral-500" />
+                                        </button>
+                                        {isInventorySectionOpen && <div className="p-4 sm:p-6 border-t border-[var(--shadow-color-1)] bg-[var(--bg-main)] animate-fade-in-fast">
+                                            <EquipmentAndInventoryPanel 
+                                                gameState={gameState} 
+                                                onEquip={(item) => addNarrativeEvent(`Người chơi đã trang bị ${item.name}.`)}
+                                                onUnequip={(slot) => addNarrativeEvent(`Người chơi đã tháo ${gameState.equipment[slot]?.name}.`)}
+                                                onShowAchievement={(item) => { setAchievementData(item); setIsAchievementModalOpen(true); }}
+                                                setGameState={setGameState} 
+                                                addNarrativeEvent={addNarrativeEvent}
+                                            />
+                                        </div>}
+                                    </div>
+                               </div>
+                            </div>
+                       )}
                     </div>
                 </main>
 
@@ -389,16 +444,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                 skill={newlyAcquiredSkill}
                 onConfirm={handleAcknowledgeSkill}
                 onDecline={handleDeclineSkill}
-            />
-
-            <CharacterPanel 
-                isOpen={isCharPanelOpen}
-                onClose={() => setIsCharPanelOpen(false)}
-                gameState={gameState}
-                onStatClick={handleStatClick}
-                onShowAchievement={(item) => { setAchievementData(item); setIsAchievementModalOpen(true); }}
-                setGameState={setGameState}
-                addNarrativeEvent={addNarrativeEvent}
             />
             
             <StatDetailModal

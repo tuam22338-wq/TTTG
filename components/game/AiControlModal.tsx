@@ -7,6 +7,7 @@ import { CrownIcon, IntertwinedHeartsIcon, CollarIcon, MaskIcon, LightningIcon, 
 import { ConscienceIcon } from '../icons/ConscienceIcon';
 import TextareaField from '../ui/TextareaField';
 import InputField from '../ui/InputField';
+import RangeSlider from '../ui/RangeSlider';
 
 interface AiControlModalProps {
   isOpen: boolean;
@@ -246,6 +247,22 @@ const AiControlModal: React.FC<AiControlModalProps> = ({ isOpen, onClose, aiSett
                                 + Thêm Quy Tắc
                             </Button>
                             <p className="text-xs text-[#a08cb6] -mt-2">Các quy tắc này được lưu lại và có độ ưu tiên cao, buộc AI phải tuân thủ. Chia nhỏ các quy tắc sẽ giúp AI hiểu rõ hơn.</p>
+                        </ControlSection>
+
+                        <ControlSection title="Phong Cách Viết">
+                             <div className="flex gap-1 rounded-lg bg-black/30 p-1">
+                                <button onClick={() => onSettingsChange({ writingStyle: 'descriptive' })} className={`flex-1 py-2 text-xs rounded-md font-semibold capitalize transition-colors ${aiSettings.writingStyle === 'descriptive' ? 'bg-cyan-600 text-white' : 'hover:bg-white/10 text-neutral-300'}`}>
+                                    Thiên về Mô tả
+                                </button>
+                                <button onClick={() => onSettingsChange({ writingStyle: 'action-packed' })} className={`flex-1 py-2 text-xs rounded-md font-semibold capitalize transition-colors ${aiSettings.writingStyle === 'action-packed' ? 'bg-amber-600 text-white' : 'hover:bg-white/10 text-neutral-300'}`}>
+                                    Thiên về Hành động
+                                </button>
+                            </div>
+                            <p className="text-center text-xs text-[#a08cb6] -mt-2">
+                                {aiSettings.writingStyle === 'descriptive' 
+                                ? "AI sẽ tập trung vào chi tiết, nội tâm và mô tả giác quan." 
+                                : "AI sẽ đẩy nhanh nhịp độ, tập trung vào diễn biến và hành động."}
+                            </p>
                         </ControlSection>
 
                         <ControlSection title="La Bàn Định Mệnh">

@@ -1,4 +1,4 @@
-import { LustModeFlavor, NpcMindset } from '../../types';
+import { AiSettings, LustModeFlavor, NpcMindset } from '../../types';
 import { NSFW_CORE_RULES } from './corePrompts';
 import { getNpcMindsetInstructions } from './npcMindsetRules';
 
@@ -46,14 +46,19 @@ Khi một trận chiến xảy ra, bạn BẮT BUỘC phải tuân thủ các qu
 
 export function getSituationalRules(
     choice: string,
-    isConscienceModeOn: boolean,
-    lustModeFlavor: LustModeFlavor | null,
-    isStrictInterpretationOn: boolean,
-    isLogicModeOn: boolean,
-    npcMindset: NpcMindset,
-    isCorrection: boolean,
-    authorsMandate: string[]
+    aiSettings: AiSettings,
+    isCorrection: boolean
 ): string {
+    const { 
+        isConscienceModeOn, 
+        lustModeFlavor, 
+        isStrictInterpretationOn, 
+        isLogicModeOn, 
+        npcMindset, 
+        authorsMandate,
+        writingStyle 
+    } = aiSettings;
+    
     const ruleModules: string[] = [];
     const isMetaCommand = choice.trim().startsWith('*') && choice.trim().endsWith('*');
     const isExplicitlyNSFW = !isMetaCommand && (
@@ -100,6 +105,26 @@ ${formattedMandates}
 ---
 `);
         }
+        
+        // --- Writing Style ---
+        if (writingStyle === 'descriptive') {
+            ruleModules.push(`
+**MODULE PHONG CÁCH: MÔ TẢ SÂU.**
+Ưu tiên hàng đầu của bạn là sự chi tiết và chiều sâu. Hãy tập trung vào:
+- **Chi tiết Giác quan:** Mô tả những gì nhân vật nhìn, nghe, ngửi, và cảm nhận.
+- **Nội tâm Phức tạp:** Đi sâu vào suy nghĩ, cảm xúc, và ký ức của nhân vật.
+- **Nhịp độ Chậm rãi:** Sử dụng câu văn dài, phức tạp hơn để tạo không khí và xây dựng bối cảnh.
+`);
+        } else if (writingStyle === 'action-packed') {
+            ruleModules.push(`
+**MODULE PHONG CÁCH: HÀNH ĐỘNG DỒN DẬP.**
+Ưu tiên hàng đầu của bạn là nhịp độ và sự kịch tính. Hãy tập trung vào:
+- **Hành động & Diễn biến:** Mô tả những gì đang xảy ra một cách trực tiếp.
+- **Nội tâm Tối giản:** Chỉ thể hiện nội tâm qua hành động hoặc những suy nghĩ ngắn gọn.
+- **Nhịp độ Nhanh:** Sử dụng câu văn ngắn, gọn, và nhiều động từ mạnh. Cắt bỏ các mô tả không cần thiết.
+`);
+        }
+
 
         // --- IMPLICIT ACTION DETECTION ---
         // This module MUST come before other behavioral modules like Lust Mode or Strict Interpretation

@@ -48,6 +48,7 @@ const INITIAL_AI_SETTINGS: AiSettings = {
     flowOfDestinyInterval: 3,
     authorsMandate: [],
     isTurnBasedCombat: true,
+    writingStyle: 'descriptive',
 };
 
 function getInitialCoreStats(worldState: WorldCreationState): CharacterCoreStats {
@@ -152,6 +153,7 @@ export function useGameEngine(
                 triggers: [],
                 pendingNotifications: [],
                 customScenarios: worldState.customScenarios || [],
+                truthLedger: [],
             };
 
             // Apply initial updates
@@ -258,6 +260,8 @@ export function useGameEngine(
                             goal: null,
                             currentLocation: 'Unknown',
                             affinity: 50,
+                            memory: '',
+                            hiddenMotive: null,
                             ...restOfPayload,
                             id: update.id,
                             stats: initialStats
@@ -512,11 +516,8 @@ export function useGameEngine(
 
             const response = await GeminiStorytellerService.continueStory(
                 tempState, choice, logicResultSummary, apiClient,
-                tempState.aiSettings.isLogicModeOn, tempState.aiSettings.lustModeFlavor,
-                tempState.aiSettings.npcMindset, tempState.aiSettings.isConscienceModeOn,
-                tempState.aiSettings.isStrictInterpretationOn, tempState.aiSettings.destinyCompassMode,
+                tempState.aiSettings,
                 isRewrite, shouldTriggerWorldTurn, isCorrection, tempState.coreStats,
-                tempState.aiSettings.authorsMandate, tempState.aiSettings.isTurnBasedCombat,
                 aiModelSettings, masterSafetySwitch, safety, onChunk, eventToProcess
             );
             
@@ -570,6 +571,10 @@ export function useGameEngine(
                  newState.totalTokens += response.totalTokens || 0;
                  newState.requestCount += 1;
                  
+                if (response.factsToRecord && response.factsToRecord.length > 0) {
+                    newState.truthLedger = [...new Set([...newState.truthLedger, ...response.factsToRecord])];
+                }
+
                  // 4. Handle Experience and Leveling
                 if (response.expGained > 0) {
                     let newExp = newState.cultivation.exp + response.expGained;
@@ -711,6 +716,7 @@ export function useGameEngine(
         try {
             if (action === 'SANITIZE') {
                 console.log("Sanitizing game state...");
+                // FIX: Added await to the GeminiStorytellerService call. The function is async.
                 const { playerStatChanges, npcUpdates } = await GeminiStorytellerService.sanitizeGameState(gameState, apiClient, aiModelSettings, masterSafetySwitch, safety);
 
                 setGameState(prevState => {

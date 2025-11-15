@@ -1,4 +1,4 @@
-import { Type } from '@google/genai';
+import { Type, FunctionDeclaration } from '@google/genai';
 
 const statSchema = {
     type: Type.OBJECT,
@@ -157,7 +157,10 @@ export const coreLogicSchema = {
                                 type: Type.ARRAY,
                                 items: skillSchema,
                                 nullable: true,
-                            }
+                            },
+                            goal: { type: Type.STRING, nullable: true },
+                            memory: { type: Type.STRING, nullable: true },
+                            hiddenMotive: { type: Type.STRING, nullable: true },
                         }, 
                         nullable: true 
                     }
@@ -215,6 +218,12 @@ export const coreLogicSchema = {
             type: Type.STRING,
             enum: ['Quang đãng', 'Nhiều mây', 'Mưa', 'Bão', 'Tuyết'],
             nullable: true
+        },
+        factsToRecord: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            nullable: true,
+            description: 'Một danh sách các sự thật mới, bất biến được thiết lập trong lượt này và cần được ghi nhớ.'
         },
     },
     required: ['storyText', 'choices', 'summaryText']
@@ -282,7 +291,12 @@ export const codexEntrySchema = {
         type: Type.OBJECT,
         properties: {
             name: { type: Type.STRING },
-            content: { type: Type.STRING }
+            content: { type: Type.STRING },
+            tags: { 
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                nullable: true
+            }
         },
         required: ['name', 'content']
     }
@@ -306,7 +320,7 @@ const quickAssistCharacterSchema = {
         biography: { type: Type.STRING },
         skills: {
             type: Type.ARRAY,
-            items: skillSchema, // Use the full skill schema
+            items: quickAssistCharacterSkillSchema,
         }
     },
     required: ['name', 'gender', 'personality', 'biography', 'skills']
@@ -344,6 +358,28 @@ const quickAssistNpcSchema = {
     required: ['name', 'gender', 'personality', 'initialRealm', 'appearance', 'backstory', 'factionId', 'playerRelation', 'specialSetting']
 };
 
+const quickAssistAttributeSchema = {
+    type: Type.OBJECT,
+    properties: {
+        id: { type: Type.STRING, description: "A unique, lowercase_snake_case ID for the attribute. Must not be a default combat stat like 'congKich'." },
+        name: { type: Type.STRING },
+        description: { type: Type.STRING },
+        type: { type: Type.STRING, enum: ['VITAL', 'PRIMARY', 'INFORMATIONAL', 'HIDDEN'] },
+        icon: { type: Type.STRING, description: "A fitting icon name from the list: question, heart, droplet, lightning, food, water_bottle, sword, shield, etc." },
+        baseValue: { type: Type.NUMBER },
+    },
+    required: ['id', 'name', 'description', 'type', 'icon', 'baseValue']
+};
+
+const quickAssistRuleSchema = {
+     type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        content: { type: Type.STRING }
+    },
+    required: ['name', 'content']
+}
+
 export const quickAssistSchema = {
     type: Type.OBJECT,
     properties: {
@@ -357,7 +393,32 @@ export const quickAssistSchema = {
         initialNpcs: {
             type: Type.ARRAY,
             items: quickAssistNpcSchema
+        },
+        customAttributes: {
+            type: Type.ARRAY,
+            items: quickAssistAttributeSchema,
+            nullable: true,
+        },
+        specialRules: {
+            type: Type.ARRAY,
+            items: quickAssistRuleSchema,
+            nullable: true
         }
     },
     required: ['genre', 'description', 'character', 'initialFactions', 'initialNpcs']
+};
+
+export const triggerCustomScenarioFunction: FunctionDeclaration = {
+  name: 'triggerCustomScenario',
+  description: 'Kích hoạt một kịch bản tùy chỉnh đã được định nghĩa trước bởi người chơi/Tác Giả.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      scenarioId: {
+        type: Type.STRING,
+        description: 'ID duy nhất của kịch bản cần kích hoạt.'
+      }
+    },
+    required: ['scenarioId']
+  }
 };

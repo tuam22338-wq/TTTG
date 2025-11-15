@@ -12,39 +12,42 @@ interface EquipmentAndInventoryPanelProps {
     onEquip: (item: Equipment) => void;
     onUnequip: (slot: EquipmentSlot) => void;
     onShowAchievement: (item: SpecialItem) => void;
+    setGameState: React.Dispatch<React.SetStateAction<GameState | null>>;
+    addNarrativeEvent: (event: string) => void;
 }
 
 // --- SUB-COMPONENTS ---
-const EquipmentSlotComponent: React.FC<{
+const EquippedItemRow: React.FC<{
     slot: EquipmentSlot;
     item: Equipment | null;
     onClick: () => void;
-    gridArea: string;
     Icon: React.FC<{className?: string}>;
-}> = ({ slot, item, onClick, gridArea, Icon }) => {
+}> = ({ slot, item, onClick, Icon }) => {
     const [isHovered, setIsHovered] = useState(false);
     
     return (
-        <div className="relative group" style={{ gridArea }}
+        <div 
+            className="relative"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
              <button
                 onClick={onClick}
-                className={`w-16 h-16 rounded-full border-2 flex items-center justify-center transition-all duration-200 p-1
+                className={`w-full flex items-center gap-3 p-2 rounded-lg border-2 transition-all duration-200 
                     ${
                         item 
                             ? 'bg-black/50 border-neutral-600 hover:border-yellow-400 hover:bg-yellow-900/50 cursor-pointer' 
                             : 'bg-black/20 border-dashed border-neutral-700'
                     }`
                 }
-                title={item ? item.name : slot}
             >
-                {item ? (
-                     <span className="text-white text-xs font-bold text-center leading-tight truncate">{item.name}</span>
-                ) : (
-                    <div className="w-8 h-8 text-neutral-600 group-hover:text-neutral-500 transition-colors"><Icon /></div>
-                )}
+                <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-md bg-black/30">
+                    <Icon className={`h-6 w-6 ${item ? 'text-white' : 'text-neutral-600'}`} />
+                </div>
+                <div className="flex-grow text-left min-w-0">
+                    <p className="text-xs text-neutral-400">{slot}</p>
+                    <p className={`font-semibold truncate ${item ? 'text-white' : 'text-neutral-500'}`}>{item ? item.name : 'Trống'}</p>
+                </div>
             </button>
             {isHovered && item && (
                 <div className="absolute top-1/2 -translate-y-1/2 left-full ml-4 z-20 w-64 pointer-events-none animate-fade-in-fast">
@@ -120,20 +123,20 @@ const SelectedItemDetails: React.FC<{
 type InventoryFilter = 'ALL' | ItemType;
 
 // --- MAIN COMPONENT ---
-const EquipmentAndInventoryPanel: React.FC<EquipmentAndInventoryPanelProps> = ({ gameState, onEquip, onUnequip, onShowAchievement }) => {
+const EquipmentAndInventoryPanel: React.FC<EquipmentAndInventoryPanelProps> = ({ gameState, onEquip, onUnequip, onShowAchievement, setGameState, addNarrativeEvent }) => {
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<InventoryFilter>('ALL');
     
-    const { equipment, inventory, worldContext } = gameState;
+    const { equipment, inventory } = gameState;
 
-    const slotConfig: { slot: EquipmentSlot; gridArea: string, Icon: React.FC<{className?:string}> }[] = [
-        { slot: EquipmentSlot.HEAD, gridArea: 'head', Icon: HeadIcon },
-        { slot: EquipmentSlot.CHEST, gridArea: 'chest', Icon: ChestIcon },
-        { slot: EquipmentSlot.LEGS, gridArea: 'legs', Icon: LegsIcon },
-        { slot: EquipmentSlot.HANDS, gridArea: 'hands', Icon: HandsIcon },
-        { slot: EquipmentSlot.FEET, gridArea: 'feet', Icon: FeetIcon },
-        { slot: EquipmentSlot.WEAPON, gridArea: 'weapon', Icon: WeaponIcon },
+    const slotConfig: { slot: EquipmentSlot; Icon: React.FC<{className?:string}> }[] = [
+        { slot: EquipmentSlot.WEAPON, Icon: WeaponIcon },
+        { slot: EquipmentSlot.HEAD, Icon: HeadIcon },
+        { slot: EquipmentSlot.CHEST, Icon: ChestIcon },
+        { slot: EquipmentSlot.LEGS, Icon: LegsIcon },
+        { slot: EquipmentSlot.HANDS, Icon: HandsIcon },
+        { slot: EquipmentSlot.FEET, Icon: FeetIcon },
     ];
     
     const filteredInventory = useMemo(() => {
@@ -165,6 +168,16 @@ const EquipmentAndInventoryPanel: React.FC<EquipmentAndInventoryPanelProps> = ({
             setSelectedItem(item);
         }
     };
+    
+    const handleEquipItem = (itemToEquip: Equipment) => {
+        setSelectedItem(null); // Deselect after action
+        onEquip(itemToEquip);
+    };
+
+    const handleUnequipItem = (slot: EquipmentSlot) => {
+        setSelectedItem(null); // Deselect after action
+        onUnequip(slot);
+    };
 
     const isSelectedItemEquipped = useMemo(() => {
         if (!selectedItem || selectedItem.type !== ItemType.EQUIPMENT) return false;
@@ -173,46 +186,29 @@ const EquipmentAndInventoryPanel: React.FC<EquipmentAndInventoryPanelProps> = ({
     }, [selectedItem, equipment]);
 
     return (
-        <div className="p-4 h-full grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden">
-            {/* Left Column: Equipment (Paper Doll) */}
-            <div className="bg-black/20 p-4 rounded-xl border border-white/10 flex flex-col items-center">
-                 <h3 className="text-2xl font-title text-white mb-6" style={{textShadow: '0 0 8px rgba(255,255,255,0.4)'}}>Trang Bị Nhân Vật</h3>
-                 <div 
-                    className="relative w-full max-w-sm mx-auto flex-grow grid place-items-center"
-                    style={{
-                        gridTemplateColumns: 'repeat(5, 1fr)',
-                        gridTemplateRows: 'repeat(5, 1fr)',
-                        gridTemplateAreas: `
-                            '. . head . .'
-                            'weapon . avatar . hands'
-                            '. . chest . .'
-                            '. legs . feet .'
-                            '. . . . .'
-                        `,
-                    }}
-                >
-                    <div style={{ gridArea: 'avatar' }} className="flex items-center justify-center neumorphic-inset rounded-full w-32 h-32 aspect-square">
-                         <img src={worldContext.character.avatarUrl || 'https://via.placeholder.com/120'} alt="Avatar" className="w-full h-full rounded-full object-cover" />
-                    </div>
+        <div className="h-[70vh] grid grid-cols-1 lg:grid-cols-5 gap-4 overflow-hidden">
+            {/* Left Column: Equipped Items List (lg:col-span-2) */}
+            <div className="lg:col-span-2 bg-black/20 p-3 rounded-xl border border-white/10 flex flex-col">
+                 <h3 className="text-xl font-title text-white mb-4 text-center" style={{textShadow: '0 0 8px rgba(255,255,255,0.4)'}}>Trang Bị</h3>
+                 <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 -mr-2">
                     {slotConfig.map(config => (
-                        <EquipmentSlotComponent
+                        <EquippedItemRow
                             key={config.slot}
                             slot={config.slot}
                             item={equipment[config.slot]}
                             onClick={() => handleEquipmentClick(config.slot)}
-                            gridArea={config.gridArea}
                             Icon={config.Icon}
                         />
                     ))}
                 </div>
             </div>
 
-            {/* Right Column: Inventory & Details */}
-            <div className="bg-black/20 p-3 rounded-xl border border-white/10 flex flex-col min-h-0">
+            {/* Right Column: Inventory & Details (lg:col-span-3) */}
+            <div className="lg:col-span-3 bg-black/20 p-3 rounded-xl border border-white/10 flex flex-col min-h-0">
                  <div className="flex-grow grid grid-cols-1 md:grid-cols-5 gap-3 min-h-0">
                     <div className="md:col-span-3 flex flex-col">
                         <div className="flex-shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3 mb-3">
-                             <h3 className="text-2xl font-title text-white" style={{textShadow: '0 0 8px rgba(255,255,255,0.4)'}}>Túi Đồ</h3>
+                             <h3 className="text-xl font-title text-white" style={{textShadow: '0 0 8px rgba(255,255,255,0.4)'}}>Túi Đồ</h3>
                              <div className="relative flex-grow sm:flex-grow-0 sm:w-48">
                                  <InputField id="inventory-search" placeholder="Tìm..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-8 !py-2 !rounded-md text-sm w-full"/>
                                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none"><SearchIcon /></div>
@@ -246,8 +242,8 @@ const EquipmentAndInventoryPanel: React.FC<EquipmentAndInventoryPanelProps> = ({
                     <div className="md:col-span-2 bg-black/20 rounded-lg border border-neutral-700/50">
                         <SelectedItemDetails
                             item={selectedItem}
-                            onEquip={onEquip}
-                            onUnequip={onUnequip}
+                            onEquip={handleEquipItem}
+                            onUnequip={handleUnequipItem}
                             onShowAchievement={onShowAchievement}
                             isEquipped={isSelectedItemEquipped}
                         />

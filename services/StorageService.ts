@@ -26,6 +26,7 @@ const DEFAULT_AI_SETTINGS: AiSettings = {
     flowOfDestinyInterval: 3,
     authorsMandate: [],
     isTurnBasedCombat: true,
+    writingStyle: 'descriptive',
 };
 const DEFAULT_TIME: GameTime = { day: 1, hour: 8, minute: 0, season: 'Xuân', weather: 'Quang đãng' };
 const DEFAULT_CULTIVATION: CultivationState = { level: 1, exp: 0, expToNextLevel: 100 };
@@ -355,11 +356,13 @@ export function validateAndHydrateGameState(parsedState: any): GameState | null 
     hydratedState.triggers = Array.isArray(parsedState.triggers) ? parsedState.triggers : [];
     hydratedState.pendingNotifications = Array.isArray(parsedState.pendingNotifications) ? parsedState.pendingNotifications : [];
     hydratedState.customScenarios = Array.isArray(parsedState.customScenarios) ? parsedState.customScenarios : [];
+    hydratedState.truthLedger = Array.isArray(parsedState.truthLedger) ? parsedState.truthLedger : [];
 
 
     // AI Settings
     hydratedState.aiSettings = { ...DEFAULT_AI_SETTINGS, ...(parsedState.aiSettings || {}) };
     hydratedState.aiSettings.authorsMandate = Array.isArray(hydratedState.aiSettings.authorsMandate) ? hydratedState.aiSettings.authorsMandate : [];
+    hydratedState.aiSettings.writingStyle = hydratedState.aiSettings.writingStyle || 'descriptive';
 
     // Time
     hydratedState.time = { ...DEFAULT_TIME, ...(parsedState.time || {}) };
@@ -386,6 +389,8 @@ export function validateAndHydrateGameState(parsedState: any): GameState | null 
         goal: typeof npc.goal === 'string' ? npc.goal : null,
         currentLocation: typeof npc.currentLocation === 'string' ? npc.currentLocation : 'Không xác định',
         affinity: typeof npc.affinity === 'number' ? npc.affinity : 0,
+        memory: npc.memory || '',
+        hiddenMotive: npc.hiddenMotive || null,
     }));
 
     // World Context sub-properties

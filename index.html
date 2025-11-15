@@ -51,6 +51,7 @@
         --logo-glow-filter-color: #ffffff;
 
         --bg-panel: #262626; /* Panel background */
+        --dialogue-color: #9cdcfe; /* Dialogue text color for dark theme */
       }
       [data-theme="sepia"] {
         --bg-main: #f5eeda;
@@ -94,6 +95,7 @@
         --logo-glow-filter-color: var(--text-main);
         
         --bg-panel: #ede0c2; /* Panel background */
+        --dialogue-color: #4a6984; /* Dialogue text color for sepia theme */
       }
 
       html, body, #root {
@@ -208,6 +210,10 @@
       }
 
       /* GameScreen specific prose overrides */
+      .prose .dialogue-text {
+        color: var(--dialogue-color);
+      }
+      
       [data-theme="sepia"] .prose-invert {
         --tw-prose-body: var(--text-main);
         --tw-prose-headings: var(--text-main);
