@@ -30,6 +30,7 @@ import {
     ScenarioActionType,
     ScenarioConditionType,
     WorldRule,
+    ConsumableItem,
 } from '../types';
 import * as GeminiStorytellerService from '../services/GeminiStorytellerService';
 import * as GameSaveService from '../services/GameSaveService';
@@ -639,6 +640,20 @@ export function useGameEngine(
                     newState.playerSkills = response.playerSkills;
                 }
 
+                // 8. Handle items received
+                if (response.itemsReceived && response.itemsReceived.length > 0) {
+                    const itemsToAdd = response.itemsReceived
+                        .map(itemId => allPredefinedItems.find(item => item.id === itemId))
+                        // FIX: The original type predicate `item is Item` was invalid because `Item` is a supertype, not a subtype.
+                        // The type predicate must narrow the type. The correct narrowed type is the union of specific item types.
+                        .filter((item): item is Equipment | SpecialItem | ConsumableItem => item !== undefined);
+
+                    if (itemsToAdd.length > 0) {
+                        newState.inventory.items = [...newState.inventory.items, ...itemsToAdd];
+                        const itemNames = itemsToAdd.map(i => i.name).join(', ');
+                        newState.pendingNotifications = [...(newState.pendingNotifications || []), `Bạn nhận được: ${itemNames}`];
+                    }
+                }
 
                  GameSaveService.saveAutoSave(newState);
                  

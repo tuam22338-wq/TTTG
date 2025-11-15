@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGameEngine } from '../../hooks/useGameEngine';
 import { useSettings } from '../../hooks/useSettings';
-import { GameState, WorldCreationState, ViewMode } from '../../types';
+import { GameState, WorldCreationState, ViewMode, Skill, CharacterStat, Ability, SpecialItem, Equipment, EquipmentSlot, NPC } from '../../types';
 import StoryLog from '../game/StoryLog';
 import ChoiceBox from '../game/ChoiceBox';
 import AiControlModal from '../game/AiControlModal';
@@ -245,6 +245,51 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
         setIsStatDetailModalOpen(false);
     };
 
+    const handleEquipItem = (itemToEquip: Equipment) => {
+        setGameState(prev => {
+            if (!prev) return null;
+
+            const currentEquippedItem = prev.equipment[itemToEquip.slot];
+            const newInventoryItems = prev.inventory.items.filter(i => i.id !== itemToEquip.id);
+            
+            if (currentEquippedItem) {
+                newInventoryItems.push(currentEquippedItem);
+            }
+
+            const newEquipment = { ...prev.equipment, [itemToEquip.slot]: itemToEquip };
+
+            return { 
+                ...prev, 
+                inventory: { ...prev.inventory, items: newInventoryItems },
+                equipment: newEquipment 
+            };
+        });
+        addNarrativeEvent(`Người chơi đã trang bị ${itemToEquip.name}.`);
+    };
+
+    const handleUnequipItem = (slot: EquipmentSlot) => {
+        if (!gameState) return;
+        const itemToUnequip = gameState.equipment[slot];
+        if (!itemToUnequip) return;
+
+        setGameState(prev => {
+            if (!prev) return null;
+            
+            const itemToUnequip = prev.equipment[slot];
+            if (!itemToUnequip) return prev;
+
+            const newInventoryItems = [...prev.inventory.items, itemToUnequip];
+            const newEquipment = { ...prev.equipment, [slot]: null };
+
+            return {
+                ...prev,
+                inventory: { ...prev.inventory, items: newInventoryItems },
+                equipment: newEquipment,
+            };
+        });
+        addNarrativeEvent(`Người chơi đã tháo trang bị ${itemToUnequip.name}.`);
+    };
+
     const handleOptimizeGame = async () => {
         if (!gameState) {
             alert("Không có dữ liệu game để tối ưu hóa.");
@@ -380,8 +425,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onBackToMenu, initialData, sett
                                         {isInventorySectionOpen && <div className="p-4 sm:p-6 border-t border-[var(--shadow-color-1)] bg-[var(--bg-main)] animate-fade-in-fast">
                                             <EquipmentAndInventoryPanel 
                                                 gameState={gameState} 
-                                                onEquip={(item) => addNarrativeEvent(`Người chơi đã trang bị ${item.name}.`)}
-                                                onUnequip={(slot) => addNarrativeEvent(`Người chơi đã tháo ${gameState.equipment[slot]?.name}.`)}
+                                                onEquip={handleEquipItem}
+                                                onUnequip={handleUnequipItem}
                                                 onShowAchievement={(item) => { setAchievementData(item); setIsAchievementModalOpen(true); }}
                                                 setGameState={setGameState} 
                                                 addNarrativeEvent={addNarrativeEvent}

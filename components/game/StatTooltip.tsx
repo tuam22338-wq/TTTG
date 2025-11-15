@@ -33,7 +33,6 @@ const StatTooltip: React.FC<StatTooltipProps> = ({ children, statId, gameState }
 
     // Calculate bonus from equipment
     Object.values(equipment).forEach(item => {
-      // FIX: Explicitly cast `item` to Equipment because type inference from Object.values is failing in this environment.
       const equipmentItem = item as Equipment | null;
       if (equipmentItem && equipmentItem.stats && equipmentItem.stats[statId] !== undefined) {
         fromEquipment += equipmentItem.stats[statId]!;

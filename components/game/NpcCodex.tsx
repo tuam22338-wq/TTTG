@@ -109,7 +109,6 @@ const NpcCodex: React.FC<NpcCodexProps> = ({ npcs, onStatClick }) => {
                             <h3 className="font-semibold text-neutral-400 uppercase text-sm tracking-wider mb-2">Trạng Thái</h3>
                             <div className="space-y-2">
                                 {Object.entries(selectedNpc.stats).length > 0 ? Object.entries(selectedNpc.stats).map(([statName, stat]) => {
-                                    // FIX: Explicitly cast `stat` to CharacterStat. The type inference from Object.entries seems to be failing in this environment, causing `stat` to be treated as `unknown`. This fixes property access and spread syntax errors.
                                     const typedStat = stat as CharacterStat;
                                     const theme = getStatTheme(typedStat.type);
                                     return (
